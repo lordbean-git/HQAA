@@ -17,7 +17,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Contrast Detection";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.125;
+> = 0.250;
 
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
