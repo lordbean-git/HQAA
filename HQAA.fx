@@ -17,13 +17,13 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Contrast Detection";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.200;
+> = 0.125;
 
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local pixel contrast required to run shader";
-> = 0.075;
+> = 0.1;
 
 uniform int SMAAMaxSearchSteps < __UNIFORM_SLIDER_INT1
 	ui_min = 1; ui_max = 112;
@@ -61,6 +61,7 @@ uniform int SMAAMaxSearchStepsDiagonal < __UNIFORM_SLIDER_INT1
 	#undef SMAA_PRESET_ULTRA
 #endif
 
+#define FXAA_GREEN_AS_LUMA 1    // Seems to play nicer with SMAA, less aliasing artifacts
 #define SMAA_PRESET_CUSTOM
 #define SMAA_THRESHOLD EdgeThreshold
 #define SMAA_MAX_SEARCH_STEPS SMAAMaxSearchSteps
@@ -112,12 +113,12 @@ uniform int SMAAMaxSearchStepsDiagonal < __UNIFORM_SLIDER_INT1
 #undef FXAA_QUALITY__P10
 #undef FXAA_QUALITY__P11
 #define FXAA_QUALITY__PS 13
-#define FXAA_QUALITY__P0 1.0
-#define FXAA_QUALITY__P1 1.0
-#define FXAA_QUALITY__P2 1.0
-#define FXAA_QUALITY__P3 1.0
-#define FXAA_QUALITY__P4 1.0
-#define FXAA_QUALITY__P5 1.0
+#define FXAA_QUALITY__P0 0.5
+#define FXAA_QUALITY__P1 0.5
+#define FXAA_QUALITY__P2 0.5
+#define FXAA_QUALITY__P3 0.5
+#define FXAA_QUALITY__P4 0.5
+#define FXAA_QUALITY__P5 0.5
 #define FXAA_QUALITY__P6 1.0
 #define FXAA_QUALITY__P7 1.0
 #define FXAA_QUALITY__P8 1.0
@@ -292,11 +293,6 @@ technique HQAA <
 		StencilPass = REPLACE;
 		StencilRef = 1;
 	}
-	pass FXAALumaSampler
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAALumaPass;
-	}
 	pass SMAABlendWeightCalculation
 	{
 		VertexShader = SMAABlendingWeightCalculationWrapVS;
@@ -308,16 +304,21 @@ technique HQAA <
 		StencilFunc = EQUAL;
 		StencilRef = 1;
 	}
-	pass FXAA
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShader;
-	}
 	pass SMAANeighborhoodBlending
 	{
 		VertexShader = SMAANeighborhoodBlendingWrapVS;
 		PixelShader = SMAANeighborhoodBlendingWrapPS;
 		StencilEnable = false;
 		SRGBWriteEnable = true;
+	}
+	pass FXAALumaSampler
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAALumaPass;
+	}
+	pass FXAA
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShader;
 	}
 }
