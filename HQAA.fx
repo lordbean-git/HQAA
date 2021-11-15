@@ -17,13 +17,13 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Contrast Detection";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.250;
+> = 0.200;
 
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local pixel contrast required to run shader";
-> = 0.100;
+> = 0.075;
 
 uniform int SMAAMaxSearchSteps < __UNIFORM_SLIDER_INT1
 	ui_min = 1; ui_max = 112;
