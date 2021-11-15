@@ -3,7 +3,7 @@
  *
  *   Smooshes FXAA and ASSMAA together as a single shader
  *
- *             v0.1 WIP - Subject to change
+ *             v0.2 WIP - Subject to change
  *
  *                     by lordbean
  *
