@@ -1,11 +1,11 @@
 /**
  *               HQAA for ReShade 3.1.1+
  *
- *   Smooshes FXAA and ASSMAA together as a single shader
+ *   Smooshes FXAA and SMAA together as a single shader
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *             v0.4 WIP - Subject to change
+ *                    v1.0 release
  *
  *                     by lordbean
  *
@@ -37,7 +37,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.25;
+> = 0.5;
 
 //------------------------------ Shader Setup -------------------------------------------
 
@@ -265,7 +265,7 @@ float3 SMAANeighborhoodBlendingWrapPS(
 	return SMAANeighborhoodBlendingPS(texcoord, offset, colorLinearSampler, blendSampler).rgb;
 }
 
-// This pass helps detect spurious pixels even when using green as luma
+// Normally this would be disabled by green-as-luma however it seems to help catch spurious pixels
 float4 FXAALumaPass(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 color = tex2D(ReShade::BackBuffer, texcoord.xy);
@@ -300,10 +300,9 @@ float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targe
 // -------------------------------- Rendering passes ----------------------------------------
 
 technique HQAA <
-	ui_tooltip = "HQAA combines techniques of both ASSMAA and FXAA to produce\n"
-	             "best possible image quality from using both while minimizing\n"
-	             "the performance overhead resulting from running two post process\n"  
-	             "anti-aliasing techniques.";
+	ui_tooltip = "Hybrid high-Quality AA combines techniques of both SMAA and FXAA to\n"
+	             "produce best possible image quality from using both and self-sharpens\n"
+	             "using a weak CAS pass to minimize side-effect blur in the resulting image.";
 >
 {
 	pass SMAAEdgeDetection
@@ -334,7 +333,8 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
-// This pass helps detect spurious pixels even when using green as luma
+
+// Normally this would be disabled by green-as-luma however it seems to help catch spurious pixels
 	pass FXAALumaSampler
 	{
 		VertexShader = PostProcessVS;
