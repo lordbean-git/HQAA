@@ -37,7 +37,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.25;
+> = 0.5;
 
 //------------------------------ Shader Setup -------------------------------------------
 
