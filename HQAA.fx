@@ -37,7 +37,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.5;
+> = 0.25;
 
 //------------------------------ Shader Setup -------------------------------------------
 
@@ -265,6 +265,7 @@ float3 SMAANeighborhoodBlendingWrapPS(
 	return SMAANeighborhoodBlendingPS(texcoord, offset, colorLinearSampler, blendSampler).rgb;
 }
 
+// This pass helps detect spurious pixels even when using green as luma
 float4 FXAALumaPass(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 color = tex2D(ReShade::BackBuffer, texcoord.xy);
@@ -333,6 +334,7 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
+// This pass helps detect spurious pixels even when using green as luma
 	pass FXAALumaSampler
 	{
 		VertexShader = PostProcessVS;
