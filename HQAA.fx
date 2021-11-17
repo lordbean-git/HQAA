@@ -5,7 +5,7 @@
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *             v0.3 WIP - Subject to change
+ *             v0.4 WIP - Subject to change
  *
  *                     by lordbean
  *
@@ -288,14 +288,11 @@ float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targe
     float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
     float3 i = tex2Doffset(sTexColor, texcoord, int2(1, 1)).rgb;
     float3 mnRGB = min(min(min(d, e), min(f, b)), h);
-    float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
-    mnRGB += mnRGB2;
+    mnRGB += min(mnRGB, min(min(a, c), min(g, i)));
     float3 mxRGB = max(max(max(d, e), max(f, b)), h);
-    float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
-    mxRGB += mxRGB2;
-    float3 rcpMRGB = rcp(mxRGB);
-    float3 ampRGB = rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB));
-    float3 outColor = saturate((((b + d) + (f + h)) * (-rcp(ampRGB * 8.0)) + e) * (rcp(4.0 * (-rcp(ampRGB * 8.0)) + 1.0)));
+    mxRGB += max(mxRGB, max(max(a, c), max(g, i)));
+    float3 outContrast = -rcp((rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)))) * 8.0);
+    float3 outColor = saturate((((b + d) + (f + h)) * outContrast + e) * (rcp(4.0 * outContrast + 1.0)));
     return lerp(e, outColor, (0.125 + (Subpix * 0.5)));
 }
 
