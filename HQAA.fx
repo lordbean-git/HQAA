@@ -5,7 +5,7 @@
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *                    v1.0 release
+ *                    v1.1 release
  *
  *                     by lordbean
  *
@@ -37,7 +37,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.5;
+> = 0.25;
 
 //------------------------------ Shader Setup -------------------------------------------
 
@@ -67,7 +67,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #define SMAA_PRESET_CUSTOM
 #define SMAA_THRESHOLD EdgeThreshold
 #define SMAA_MAX_SEARCH_STEPS 112
-#define SMAA_CORNER_ROUNDING trunc(20 * Subpix)
+#define SMAA_CORNER_ROUNDING trunc(25 * Subpix)
 #define SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.25 * Subpix))
 #define FXAA_QUALITY__PRESET 39
@@ -113,19 +113,19 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #undef FXAA_QUALITY__P10
 #undef FXAA_QUALITY__P11
 #define FXAA_QUALITY__PS 13
-#define FXAA_QUALITY__P0 0.5
-#define FXAA_QUALITY__P1 0.5
-#define FXAA_QUALITY__P2 0.5
-#define FXAA_QUALITY__P3 0.5
-#define FXAA_QUALITY__P4 0.5
-#define FXAA_QUALITY__P5 0.5
-#define FXAA_QUALITY__P6 1.0
-#define FXAA_QUALITY__P7 1.0
-#define FXAA_QUALITY__P8 1.0
-#define FXAA_QUALITY__P9 1.0
-#define FXAA_QUALITY__P10 1.0
-#define FXAA_QUALITY__P11 1.0
-#define FXAA_QUALITY__P12 1.0
+#define FXAA_QUALITY__P0 0.01
+#define FXAA_QUALITY__P1 0.01
+#define FXAA_QUALITY__P2 0.02
+#define FXAA_QUALITY__P3 0.03
+#define FXAA_QUALITY__P4 0.05
+#define FXAA_QUALITY__P5 0.08
+#define FXAA_QUALITY__P6 0.13
+#define FXAA_QUALITY__P7 0.21
+#define FXAA_QUALITY__P8 0.34
+#define FXAA_QUALITY__P9 0.55
+#define FXAA_QUALITY__P10 0.89
+#define FXAA_QUALITY__P11 1.44
+#define FXAA_QUALITY__P12 2.33
 
 //------------------------------------- Textures -------------------------------------------
 
@@ -265,16 +265,9 @@ float3 SMAANeighborhoodBlendingWrapPS(
 	return SMAANeighborhoodBlendingPS(texcoord, offset, colorLinearSampler, blendSampler).rgb;
 }
 
-// Normally this would be disabled by green-as-luma however it seems to help catch spurious pixels
-float4 FXAALumaPass(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float4 color = tex2D(ReShade::BackBuffer, texcoord.xy);
-	color.a = sqrt(dot(color.rgb * color.rgb, float3(0.299, 0.587, 0.114)));
-	return color;
-}
 float4 FXAAPixelShader(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,(0.5 * Subpix),(0.4 * EdgeThreshold),0,0,0,0,0);
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,(0.375 * Subpix),(0.4 * EdgeThreshold),0,0,0,0,0);
 }
 
 float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
@@ -294,7 +287,7 @@ float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targe
     mxRGB += max(mxRGB, max(max(a, c), max(g, i)));
     float3 outContrast = -rcp((rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)))) * 8.0);
     float3 outColor = saturate((((b + d) + (f + h)) * outContrast + e) * (rcp(4.0 * outContrast + 1.0)));
-    return lerp(e, outColor, (0.125 + (Subpix * 0.5)));
+    return lerp(e, outColor, (0.25 + (Subpix * 0.625))); // range 1/4 to 7/8
 }
 
 // -------------------------------- Rendering passes ----------------------------------------
@@ -333,14 +326,12 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
-
-// Normally this would be disabled by green-as-luma however it seems to help catch spurious pixels
-	pass FXAALumaSampler
+	pass FXAA1
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAALumaPass;
+		PixelShader = FXAAPixelShader;
 	}
-	pass FXAA
+	pass FXAA2
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShader;
