@@ -5,7 +5,7 @@
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *                    v1.2 release
+ *                    v1.21 release
  *
  *                     by lordbean
  *
@@ -41,6 +41,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 
 //------------------------------ Shader Setup -------------------------------------------
 
+/****** COMPATIBILITY DEFINES (hopefully) *******************/
 #ifdef FXAA_QUALITY_PRESET
 	#undef FXAA_QUALITY_PRESET
 #endif
@@ -50,6 +51,28 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #ifdef FXAA_LINEAR_LIGHT
 	#undef FXAA_LINEAR_LIGHT
 #endif
+#ifdef FXAA_PC
+	#undef FXAA_PC
+#endif
+#ifdef FXAA_HLSL_3
+	#undef FXAA_HLSL_3
+#endif
+#ifdef FXAA_GATHER4_ALPHA
+	#undef FXAA_GATHER4_ALPHA
+#endif
+#ifdef FxaaTexAlpha4
+	#undef FxaaTexAlpha4
+#endif
+#ifdef FxaaTexOffAlpha4
+	#undef FxaaTexOffAlpha4
+#endif
+#ifdef FxaaTexGreen4
+	#undef FxaaTexGreen4
+#endif
+#ifdef FxaaTexOffGreen4
+	#undef FxaaTexOffGreen4
+#endif
+
 #ifdef SMAA_PRESET_LOW
 	#undef SMAA_PRESET_LOW
 #endif
@@ -62,6 +85,64 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #ifdef SMAA_PRESET_ULTRA
 	#undef SMAA_PRESET_ULTRA
 #endif
+#ifdef SMAA_PRESET_CUSTOM
+	#undef SMAA_PRESET_CUSTOM
+#endif
+#ifdef SMAA_THRESHOLD
+	#undef SMAA_THRESHOLD
+#endif
+#ifdef SMAA_MAX_SEARCH_STEPS
+	#undef SMAA_MAX_SEARCH_STEPS
+#endif
+#ifdef SMAA_MAX_SEARCH_STEPS_DIAG
+	#undef SMAA_MAX_SEARCH_STEPS_DIAG
+#endif
+#ifdef SMAA_CORNER_ROUNDING
+	#undef SMAA_CORNER_ROUNDING
+#endif
+#ifdef SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR
+	#undef SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR
+#endif
+#ifdef SMAA_RT_METRICS
+	#undef SMAA_RT_METRICS
+#endif
+#ifdef SMAA_CUSTOM_SL
+	#undef SMAA_CUSTOM_SL
+#endif
+#ifdef SMAATexture2D
+	#undef SMAATexture2D
+#endif
+#ifdef SMAATexturePass2D
+	#undef SMAATexturePass2D
+#endif
+#ifdef SMAASampleLevelZero
+	#undef SMAASampleLevelZero
+#endif
+#ifdef SMAASampleLevelZeroPoint
+	#undef SMAASampleLevelZeroPoint
+#endif
+#ifdef SMAASampleLevelZeroOffset
+	#undef SMAASampleLevelZeroOffset
+#endif
+#ifdef SMAASample
+	#undef SMAASample
+#endif
+#ifdef SMAASamplePoint
+	#undef SMAASamplePoint
+#endif
+#ifdef SMAASampleOffset
+	#undef SMAASampleOffset
+#endif
+#ifdef SMAA_BRANCH
+	#undef SMAA_BRANCH
+#endif
+#ifdef SMAA_FLATTEN
+	#undef SMAA_FLATTEN
+#endif
+#ifdef SMAAGather
+	#undef SMAAGather
+#endif
+/************************************************************/
 
 #define FXAA_GREEN_AS_LUMA 1    // Seems to play nicer with SMAA, less aliasing artifacts
 #define SMAA_PRESET_CUSTOM
