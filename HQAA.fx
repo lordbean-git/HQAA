@@ -5,7 +5,7 @@
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *                    v1.22 release
+ *                    v1.3 release
  *
  *                     by lordbean
  *
@@ -150,7 +150,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #define SMAA_MAX_SEARCH_STEPS 112
 #define SMAA_CORNER_ROUNDING 0
 #define SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.5 * Subpix))
+#define SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.1 + (0.65 * Subpix)) // Range 1.1 to 1.75
 #define FXAA_QUALITY__PRESET 39
 #define FXAA_PC 1
 #define FXAA_HLSL_3 1
@@ -348,12 +348,12 @@ float3 SMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,max(0.05,(1 - Subpix)),0,0,0,0,0);
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.9 - (Subpix * 0.25),0,0,0,0,0); // Range 0.9 to 0.65
 }
 
 float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,(0.5 * Subpix),max(0.05,(0.5 * EdgeThreshold)),0,0,0,0,0);
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0.375 * Subpix,max(0.05,0.5 * EdgeThreshold),0,0,0,0,0); // Don't allow lower than .05 threshold for performance reasons
 }
 
 float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
@@ -373,7 +373,7 @@ float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targe
     mxRGB += max(mxRGB, max(max(a, c), max(g, i)));
     float3 outContrast = -rcp((rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)))) * 8.0);
     float3 outColor = saturate((((b + d) + (f + h)) * outContrast + e) * (rcp(4.0 * outContrast + 1.0)));
-    return lerp(e, outColor, (0.375 + (Subpix * 0.375))); // range 3/8 to 3/4
+    return lerp(e, outColor, (0.375 + (Subpix * 0.125))); // range 3/8 to 1/2
 }
 
 // -------------------------------- Rendering passes ----------------------------------------
