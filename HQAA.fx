@@ -5,23 +5,12 @@
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *                    v1.3 release
+ *                    v1.4 release
  *
  *                     by lordbean
  *
  */
 
-// CAS Algorithm License
-// Copyright (c) 2017-2019 Advanced Micro Devices, Inc. All rights reserved.
-// -------
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation
-// files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy,
-// modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
-// Software is furnished to do so, subject to the following conditions:
-// -------
-// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
-// Software.
-// -------
 
 //------------------------------- UI setup -----------------------------------------------
 
@@ -142,14 +131,23 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #ifdef SMAAGather
 	#undef SMAAGather
 #endif
+#ifdef SMAA_DISABLE_DIAG_DETECTION
+	#undef SMAA_DISABLE_DIAG_DETECTION
+#endif
+#ifdef SMAA_PREDICATION
+	#undef SMAA_PREDICATION
+#endif
+#ifdef SMAA_REPROJECTION
+	#undef SMAA_REPROJECTION
+#endif
 /************************************************************/
 
 #define FXAA_GREEN_AS_LUMA 1    // Seems to play nicer with SMAA, less aliasing artifacts
 #define SMAA_PRESET_CUSTOM
-#define SMAA_THRESHOLD EdgeThreshold
+#define SMAA_THRESHOLD max(0.05, EdgeThreshold)
 #define SMAA_MAX_SEARCH_STEPS 112
 #define SMAA_CORNER_ROUNDING 0
-#define SMAA_MAX_SEARCH_STEPS_DIAG 20
+#define SMAA_MAX_SEARCH_STEPS_DIAG 1
 #define SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.1 + (0.65 * Subpix)) // Range 1.1 to 1.75
 #define FXAA_QUALITY__PRESET 39
 #define FXAA_PC 1
@@ -166,6 +164,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #define SMAASampleOffset(tex, coord, offset) tex2Doffset(tex, coord, offset)
 #define SMAA_BRANCH [branch]
 #define SMAA_FLATTEN [flatten]
+#define SMAA_DISABLE_DIAG_DETECTION      // FXAA is largely handling this job
 
 #if (__RENDERER__ == 0xb000 || __RENDERER__ == 0xb100)
 	#define SMAAGather(tex, coord) tex2Dgather(tex, coord, 0)
@@ -193,20 +192,20 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #undef FXAA_QUALITY__P9
 #undef FXAA_QUALITY__P10
 #undef FXAA_QUALITY__P11
-#define FXAA_QUALITY__PS 13
-#define FXAA_QUALITY__P0 0.01
-#define FXAA_QUALITY__P1 0.01
-#define FXAA_QUALITY__P2 0.02
-#define FXAA_QUALITY__P3 0.03
-#define FXAA_QUALITY__P4 0.05
-#define FXAA_QUALITY__P5 0.08
-#define FXAA_QUALITY__P6 0.13
-#define FXAA_QUALITY__P7 0.21
-#define FXAA_QUALITY__P8 0.34
-#define FXAA_QUALITY__P9 0.55
-#define FXAA_QUALITY__P10 0.89
-#define FXAA_QUALITY__P11 1.44
-#define FXAA_QUALITY__P12 2.33
+#define FXAA_QUALITY__PS 3         // This isn't representative of what's actually going to happen
+#define FXAA_QUALITY__P0 0.25
+#define FXAA_QUALITY__P1 0.25
+#define FXAA_QUALITY__P2 0.5
+#define FXAA_QUALITY__P3 0.5
+#define FXAA_QUALITY__P4 0.75
+#define FXAA_QUALITY__P5 0.75
+#define FXAA_QUALITY__P6 1.0
+#define FXAA_QUALITY__P7 1.0
+#define FXAA_QUALITY__P8 1.25
+#define FXAA_QUALITY__P9 1.25
+#define FXAA_QUALITY__P10 1.5
+#define FXAA_QUALITY__P11 1.5
+#define FXAA_QUALITY__P12 2.0
 
 //------------------------------------- Textures -------------------------------------------
 
@@ -235,7 +234,6 @@ texture searchTex < source = "SearchTex.png"; >
 	Height = 16;
 	Format = R8;
 };
-texture TexColor : COLOR;
 
 // -------------------------------- Samplers -----------------------------------------------
 
@@ -286,8 +284,6 @@ sampler FXAATexture
 	Texture = ReShade::BackBufferTex;
 	MinFilter = Linear; MagFilter = Linear;
 };
-sampler sTexColor {Texture = TexColor; SRGBTexture = true;};
-
 
 //----------------------------------- Vertex Shaders ---------------------------------------
 
@@ -348,40 +344,22 @@ float3 SMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.9 - (Subpix * 0.25),0,0,0,0,0); // Range 0.9 to 0.65
+	#undef FXAA_QUALITY__PS
+	#define FXAA_QUALITY__PS 3
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.9 - (Subpix * 0.15),0.025,0,0,0,0); // Range 0.9 to 0.75, deep blacks disabled
 }
 
 float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0.375 * Subpix,max(0.05,0.5 * EdgeThreshold),0,0,0,0,0); // Don't allow lower than .05 threshold for performance reasons
+	#undef FXAA_QUALITY__PS
+	#define FXAA_QUALITY__PS round(3 + (10 * Subpix))  // Range 3 to 13
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0.125 + (0.625 * Subpix),max(0.05,0.5 * EdgeThreshold),0,0,0,0,0); // Don't allow lower than .05 threshold for performance reasons
 }
-
-float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
-{
-    float3 a = tex2Doffset(sTexColor, texcoord, int2(-1, -1)).rgb;
-    float3 b = tex2Doffset(sTexColor, texcoord, int2(0, -1)).rgb;
-    float3 c = tex2Doffset(sTexColor, texcoord, int2(1, -1)).rgb;
-    float3 d = tex2Doffset(sTexColor, texcoord, int2(-1, 0)).rgb;
-    float3 g = tex2Doffset(sTexColor, texcoord, int2(-1, 1)).rgb;
-    float3 e = tex2D(sTexColor, texcoord).rgb;
-    float3 f = tex2Doffset(sTexColor, texcoord, int2(1, 0)).rgb;
-    float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
-    float3 i = tex2Doffset(sTexColor, texcoord, int2(1, 1)).rgb;
-    float3 mnRGB = min(min(min(d, e), min(f, b)), h);
-    mnRGB += min(mnRGB, min(min(a, c), min(g, i)));
-    float3 mxRGB = max(max(max(d, e), max(f, b)), h);
-    mxRGB += max(mxRGB, max(max(a, c), max(g, i)));
-    float3 outContrast = -rcp((rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)))) * 8.0);
-    float3 outColor = saturate((((b + d) + (f + h)) * outContrast + e) * (rcp(4.0 * outContrast + 1.0)));
-    return lerp(e, outColor, (0.375 + (Subpix * 0.125))); // range 3/8 to 1/2
-}
-
 // -------------------------------- Rendering passes ----------------------------------------
 
 technique HQAA <
 	ui_tooltip = "Hybrid high-Quality AA combines techniques of both SMAA and FXAA to\n"
-	             "produce best possible image quality from using both and self-sharpens\n"
-	             "using a weak CAS pass to minimize side-effect blur in the resulting image.";
+	             "produce best possible image quality from using both.";
 >
 {
 	pass SMAAEdgeDetection
@@ -421,11 +399,5 @@ technique HQAA <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderFine;
-	}
-	pass Unblur
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = CASPass;
-		SRGBWriteEnable = true;
 	}
 }
