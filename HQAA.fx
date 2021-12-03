@@ -5,7 +5,7 @@
  *
  *       then uses a light CAS sharpen to minimize blur
  *
- *                    v1.4 release
+ *                    v1.41 release
  *
  *                     by lordbean
  *
@@ -147,7 +147,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #define SMAA_THRESHOLD max(0.05, EdgeThreshold)
 #define SMAA_MAX_SEARCH_STEPS 112
 #define SMAA_CORNER_ROUNDING 0
-#define SMAA_MAX_SEARCH_STEPS_DIAG 1
+#define SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.1 + (0.65 * Subpix)) // Range 1.1 to 1.75
 #define FXAA_QUALITY__PRESET 39
 #define FXAA_PC 1
@@ -164,7 +164,6 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #define SMAASampleOffset(tex, coord, offset) tex2Doffset(tex, coord, offset)
 #define SMAA_BRANCH [branch]
 #define SMAA_FLATTEN [flatten]
-#define SMAA_DISABLE_DIAG_DETECTION      // FXAA is largely handling this job
 
 #if (__RENDERER__ == 0xb000 || __RENDERER__ == 0xb100)
 	#define SMAAGather(tex, coord) tex2Dgather(tex, coord, 0)
@@ -192,7 +191,7 @@ uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 #undef FXAA_QUALITY__P9
 #undef FXAA_QUALITY__P10
 #undef FXAA_QUALITY__P11
-#define FXAA_QUALITY__PS 3         // This isn't representative of what's actually going to happen
+#define FXAA_QUALITY__PS 13
 #define FXAA_QUALITY__P0 0.25
 #define FXAA_QUALITY__P1 0.25
 #define FXAA_QUALITY__P2 0.5
@@ -345,14 +344,14 @@ float3 SMAANeighborhoodBlendingWrapPS(
 float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	#undef FXAA_QUALITY__PS
-	#define FXAA_QUALITY__PS 3
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.9 - (Subpix * 0.15),0.025,0,0,0,0); // Range 0.9 to 0.75, deep blacks disabled
+	#define FXAA_QUALITY__PS 2
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,1 - (Subpix * 0.8),0.004,0,0,0,0); // Range 1 to 0.2, pure black processing disabled
 }
 
 float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	#undef FXAA_QUALITY__PS
-	#define FXAA_QUALITY__PS round(3 + (10 * Subpix))  // Range 3 to 13
+	#define FXAA_QUALITY__PS 13
 	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0.125 + (0.625 * Subpix),max(0.05,0.5 * EdgeThreshold),0,0,0,0,0); // Don't allow lower than .05 threshold for performance reasons
 }
 // -------------------------------- Rendering passes ----------------------------------------
