@@ -3,7 +3,7 @@
  *
  *   Smooshes FXAA and SMAA together as a single shader
  *
- *                    v1.41 release
+ *              v1.5 (likely final) release
  *
  *                     by lordbean
  *
@@ -18,7 +18,7 @@ uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
-> = 0.125;
+> = 0.075;
 
 uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -343,14 +343,21 @@ float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOO
 {
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 2
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,1 - (Subpix * 0.8),0.004,0,0,0,0); // Range 1 to 0.2, pure black processing disabled
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.925 - (Subpix * 0.125),0.050,0,0,0,0); // Range 0.925 to 0.8, dark color processing disabled
+}
+
+float4 FXAAPixelShaderMid(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	#undef FXAA_QUALITY__PS
+	#define FXAA_QUALITY__PS 5
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.85 - (Subpix * 0.15),0.004,0,0,0,0); // Range 0.85 to 0.7, pure black processing disabled
 }
 
 float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 13
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0.125 + (0.625 * Subpix),max(0.05,0.5 * EdgeThreshold),0,0,0,0,0); // Don't allow lower than .05 threshold for performance reasons
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,Subpix * 0.125,max(0.1,0.7 * EdgeThreshold),0,0,0,0,0); // Cap maximum sensitivity level for blur control
 }
 // -------------------------------- Rendering passes ----------------------------------------
 
@@ -393,6 +400,11 @@ technique HQAA <
 		PixelShader = FXAAPixelShaderCoarse;
 	}
 	pass FXAA2
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderMid;
+	}
+	pass FXAA3
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderFine;
