@@ -3,8 +3,6 @@
  *
  *   Smooshes FXAA and SMAA together as a single shader
  *
- *       then uses a light CAS sharpen to minimize blur
- *
  *                    v1.41 release
  *
  *                     by lordbean
@@ -20,13 +18,13 @@ uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
-> = 0.1;
+> = 0.125;
 
 uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-> = 0.25;
+> = 0.375;
 
 //------------------------------ Shader Setup -------------------------------------------
 
