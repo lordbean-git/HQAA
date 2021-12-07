@@ -3,7 +3,7 @@
  *
  *   Smooshes FXAA and SMAA together as a single shader
  *
- *              v1.5 (likely final) release
+ *              v1.51 (likely final) release
  *
  *                     by lordbean
  *
@@ -18,13 +18,34 @@ uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
+        ui_category = "Normal Usage";
 > = 0.075;
 
 uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
+        ui_category = "Normal Usage";
 > = 0.375;
+
+uniform int PmodeWarning <
+	ui_type = "radio";
+	ui_label = " ";	
+	ui_text ="\n>>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
+	ui_category = "Virtual Photography";
+>;
+
+uniform bool Overdrive <
+        ui_label = "Enable Virtual Photography Mode";
+        ui_category = "Virtual Photography";
+> = false;
+
+uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0.0; ui_max = 1.0;
+	ui_label = "Extra Subpixel Effects Strength";
+	ui_tooltip = "Additional boost to subpixel aliasing processing";
+        ui_category = "Virtual Photography";
+> = 0.00;
 
 //------------------------------ Shader Setup -------------------------------------------
 
@@ -341,23 +362,42 @@ float3 SMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	float TotalSubpix = 0.0;
+	if (Overdrive)
+	{
+		TotalSubpix += SubpixBoost;
+		TotalSubpix = TotalSubpix * 0.25;
+	}
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 2
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.925 - (Subpix * 0.125),0.050,0,0,0,0); // Range 0.925 to 0.8, dark color processing disabled
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.925 - (Subpix * 0.125),0.050,0,0,0,0); // Range 0.925 to 0.8, dark color processing disabled
 }
 
 float4 FXAAPixelShaderMid(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	float TotalSubpix = 0.0;
+	if (Overdrive)
+	{
+		TotalSubpix += SubpixBoost;
+		TotalSubpix = TotalSubpix * 0.5;
+	}
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 5
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,0,0.85 - (Subpix * 0.15),0.004,0,0,0,0); // Range 0.85 to 0.7, pure black processing disabled
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.85 - (Subpix * 0.15),0.004,0,0,0,0); // Range 0.85 to 0.7, pure black processing disabled
 }
 
 float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	float TotalSubpix = 0.0;
+	if (Overdrive)
+	{
+		TotalSubpix += SubpixBoost;
+		TotalSubpix = TotalSubpix * 0.875;
+	}
+	TotalSubpix += Subpix * 0.125;
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 13
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,Subpix * 0.125,max(0.1,0.7 * EdgeThreshold),0,0,0,0,0); // Cap maximum sensitivity level for blur control
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.1,0.7 * EdgeThreshold),0,0,0,0,0); // Cap maximum sensitivity level for blur control
 }
 // -------------------------------- Rendering passes ----------------------------------------
 
