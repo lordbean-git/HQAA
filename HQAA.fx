@@ -3,7 +3,7 @@
  *
  *   Smooshes FXAA and SMAA together as a single shader
  *
- *              v1.52 (likely final) release
+ *              v1.53 (likely final) release
  *
  *                     by lordbean
  *
@@ -373,7 +373,7 @@ float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOO
 	}
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 2
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.925 - (Subpix * 0.125),0,0,0,0,0); // Range 0.925 to 0.8
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.925 - (Subpix * 0.125),0.004,0,0,0,0); // Range 0.925 to 0.8
 }
 
 float4 FXAAPixelShaderMid(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -386,7 +386,7 @@ float4 FXAAPixelShaderMid(float4 vpos : SV_Position, float2 texcoord : TEXCOORD)
 	}
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 5
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.85 - (Subpix * 0.15),0,0,0,0,0); // Range 0.85 to 0.7
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.85 - (Subpix * 0.15),0.004,0,0,0,0); // Range 0.85 to 0.7
 }
 
 float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -400,7 +400,7 @@ float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	TotalSubpix += Subpix * 0.125;
 	#undef FXAA_QUALITY__PS
 	#define FXAA_QUALITY__PS 13
-	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.1,0.7 * EdgeThreshold),0,0,0,0,0); // Cap maximum sensitivity level for blur control
+	return FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.1,0.7 * EdgeThreshold),0.004,0,0,0,0); // Cap maximum sensitivity level for blur control
 }
 
 // -------------------------------- Rendering passes ----------------------------------------
