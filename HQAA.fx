@@ -3,7 +3,7 @@
  *
  *   Smooshes FXAA and SMAA together as a single shader
  *
- *           v1.6 (likely final... maybe?) release
+ *           v1.61 (likely final... maybe?) release
  *
  *                     by lordbean
  *
@@ -210,20 +210,20 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #undef FXAA_QUALITY__P9
 #undef FXAA_QUALITY__P10
 #undef FXAA_QUALITY__P11
-#define FXAA_QUALITY__PS 13
+#define FXAA_QUALITY__PS 5
 #define FXAA_QUALITY__P0 0.25
 #define FXAA_QUALITY__P1 0.25
-#define FXAA_QUALITY__P2 0.5
-#define FXAA_QUALITY__P3 0.5
-#define FXAA_QUALITY__P4 0.75
-#define FXAA_QUALITY__P5 0.75
-#define FXAA_QUALITY__P6 1.0
-#define FXAA_QUALITY__P7 1.0
-#define FXAA_QUALITY__P8 1.25
-#define FXAA_QUALITY__P9 1.25
-#define FXAA_QUALITY__P10 1.5
-#define FXAA_QUALITY__P11 1.5
-#define FXAA_QUALITY__P12 2.0
+#define FXAA_QUALITY__P2 0.25
+#define FXAA_QUALITY__P3 0.25
+#define FXAA_QUALITY__P4 0.25
+#define FXAA_QUALITY__P5 0.25
+#define FXAA_QUALITY__P6 0.25
+#define FXAA_QUALITY__P7 0.25
+#define FXAA_QUALITY__P8 0.25
+#define FXAA_QUALITY__P9 0.25
+#define FXAA_QUALITY__P10 0.25
+#define FXAA_QUALITY__P11 0.25
+#define FXAA_QUALITY__P12 0.25
 
 //------------------------------------- Textures -------------------------------------------
 
@@ -372,9 +372,7 @@ float4 FXAAPixelShaderCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOO
 		TotalSubpix = TotalSubpix * 0.125;
 	}
 	TotalSubpix += Subpix * 0.125;
-	#undef FXAA_QUALITY__PS
-	#define FXAA_QUALITY__PS 3
-	float4 output = FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.925 - (Subpix * 0.125),0.004,0,0,0,0); // Range 0.925 to 0.8
+	float4 output = FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.925 - (Subpix * 0.125),0.012,0,0,0,0); // Range 0.925 to 0.8
 	return saturate(output);
 }
 
@@ -387,8 +385,6 @@ float4 FXAAPixelShaderMid(float4 vpos : SV_Position, float2 texcoord : TEXCOORD)
 		TotalSubpix = TotalSubpix * 0.25;
 	}
 	TotalSubpix += Subpix * 0.25;
-	#undef FXAA_QUALITY__PS
-	#define FXAA_QUALITY__PS 3
 	float4 output = FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.85 - (Subpix * 0.15),0.012,0,0,0,0); // Range 0.85 to 0.7
 	return saturate(output);
 }
@@ -402,9 +398,7 @@ float4 FXAAPixelShaderFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 		TotalSubpix = TotalSubpix * 0.5;
 	}
 	TotalSubpix += Subpix * 0.5;
-	#undef FXAA_QUALITY__PS
-	#define FXAA_QUALITY__PS 13
-	float4 output = FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.1,0.7 * EdgeThreshold),0,0,0,0,0); // Cap maximum sensitivity level for blur control
+	float4 output = FxaaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.1,0.7 * EdgeThreshold),0.004,0,0,0,0); // Cap maximum sensitivity level for blur control
 	return saturate(output);
 }
 
