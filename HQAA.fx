@@ -1469,7 +1469,7 @@ float2 SMAAEdgeDetectionWrapPS(
 {
 	float2 color = SMAAColorEdgeDetectionPS(texcoord, offset, colorGammaSampler);
 	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, colorGammaSampler);
-	float2 result = float2(sqrt(color.r * luma.r), sqrt(color.g * luma.g));
+	float2 result = float2(saturate(sqrt(color.r * luma.r)), saturate(sqrt(color.g * luma.g)));
 	return result;
 }
 float4 SMAABlendingWeightCalculationWrapPS(
