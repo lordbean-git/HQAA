@@ -5,11 +5,11 @@
  *
  *     Smooshes FXAA and SMAA together as a single shader
  *
- * Uses customized FXAA passes for dynamic luma channel select
+ * with customizations designed to maximize edge detection and
  *
- *   Adaptively sharpens FXAA output to minimize blurring
+ *                  minimize blurring
  *
- *                    v2.0 release
+ *                    v2.1 release
  *
  *                     by lordbean
  *
@@ -233,12 +233,15 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
                                float4 offset[3],
                                __SMAATexture2D(colorTex)
                                ) {
+ // SMAA default luma weights: 0.2126, 0.7152, 0.0722
+								   
     // Calculate the threshold:
     float2 threshold = float2(__SMAA_THRESHOLD, __SMAA_THRESHOLD);
 
     // Calculate lumas:
-    float3 weights = float3(0.2126, 0.7152, 0.0722);
-    float L = dot(__SMAASamplePoint(colorTex, texcoord).rgb, weights);
+	float3 middle = __SMAASamplePoint(colorTex, texcoord).rgb;
+    float3 weights = float3(middle.r > middle.g ? 0.6667 : 0, middle.g >= middle.r ? 0.6667 : 0, 0.3333);
+    float L = dot(middle, weights);
 
     float Lleft = dot(__SMAASamplePoint(colorTex, offset[0].xy).rgb, weights);
     float Ltop  = dot(__SMAASamplePoint(colorTex, offset[0].zw).rgb, weights);
@@ -1467,10 +1470,8 @@ float2 SMAAEdgeDetectionWrapPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	float2 color = SMAAColorEdgeDetectionPS(texcoord, offset, colorGammaSampler);
 	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, colorGammaSampler);
-	float2 result = float2(saturate(sqrt(color.r * luma.r)), saturate(sqrt(color.g * luma.g)));
-	return result;
+	return luma;
 }
 float4 SMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
@@ -1485,7 +1486,8 @@ float3 SMAANeighborhoodBlendingWrapPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset : TEXCOORD1) : SV_Target
 {
-	return SMAANeighborhoodBlendingPS(texcoord, offset, colorLinearSampler, blendSampler).rgb;
+	float3 SMAAresult = SMAANeighborhoodBlendingPS(texcoord, offset, colorLinearSampler, blendSampler).rgb;
+	return saturate(SMAAresult);
 }
 
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
