@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.1 release
+ *                    v2.2 release
  *
  *                     by lordbean
  *
@@ -1544,11 +1544,20 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
+#if (BUFFER_HEIGHT > 1400)
 	pass FXAACoarse
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarse;
 	}
+#endif
+#if (BUFFER_HEIGHT > 2100)
+	pass FXAACoarse
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderAdaptiveCoarse;
+	}
+#endif
 	pass FXAAFine
 	{
 		VertexShader = PostProcessVS;
