@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.2.1 release
+ *                    v2.2.2 release
  *
  *                     by lordbean
  *
@@ -116,11 +116,11 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #endif
 
 // Configurable
-#define __SMAA_THRESHOLD max(EdgeThreshold == 1.0 ? 1.0 : sqrt(EdgeThreshold * 0.125), 0.1)
+#define __SMAA_THRESHOLD Overdrive ? EdgeThreshold : max(EdgeThreshold == 1.0 ? 1.0 : sqrt(EdgeThreshold * 0.125), 0.1)
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(10 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.1 * Subpix) + (Overdrive ? SubpixBoost * 0.15 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.25 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -1507,13 +1507,12 @@ float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : 
 // -------------------------------- Rendering passes ----------------------------------------
 
 technique HQAA <
-	ui_tooltip = "=========================================================\n"
+	ui_tooltip = "============================================================\n"
 				 "Hybrid high-Quality Anti-Aliasing combines techniques of\n"
 				 "both SMAA and FXAA to produce best possible image quality\n"
-				 "from using both. It uses customized FXAA passes designed to\n"
-				 "detect aliasing in pure blue or red scenes where normal\n"
-				 "green-as-luma FXAA would fail to produce a result.\n"
-				 "=========================================================\n";
+				 "from using both. HQAA uses customized edge detection methods\n"
+				 "designed for maximum possible aliasing detection.\n"
+				 "============================================================";
 >
 {
 	pass SMAAEdgeDetection
