@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.2.2 release
+ *                    v2.3 release
  *
  *                     by lordbean
  *
@@ -73,7 +73,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 #include "ReShadeUI.fxh"
 
-//------------------------------- UI setup -----------------------------------------------
+//------------------------------- UI setup ------------------------------------------------------------------------------------------------
 
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -108,7 +108,9 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Virtual Photography";
 > = 0.00;
 
+/*****************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
+/*****************************************************************************************************************************************/
 
 // DX11 optimization
 #if (__RENDERER__ == 0xb000 || __RENDERER__ == 0xb100)
@@ -805,9 +807,13 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 }
 
 #endif // SMAA_INCLUDE_PS
-
+/***************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK END *******************************************************/
+/***************************************************************************************************************************************/
+// I'm a nested comment!
+/*****************************************************************************************************************************************/
 /*********************************************************** FXAA CODE BLOCK START *******************************************************/
+/*****************************************************************************************************************************************/
 
 #define __FXAA_QUALITY__PS 13
 #define __FXAA_QUALITY__P0 1
@@ -988,12 +994,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     posM.x = pos.x;
     posM.y = pos.y;
 	
-	int lumatype = 1; // assume green is luma until determined otherwise
+	int lumatype = 2; // assume blue is luma until determined otherwise
     __FxaaFloat4 rgbyM = __FxaaTexTop(tex, posM);
-	float lumatest = min(1.5 * rgbyM.y, 1.0);
-	if ((rgbyM.x > lumatest) || (rgbyM.z > lumatest)) // if green signal is low and either blue or red has strong signal change luma color
-		if (rgbyM.z > lumatest) // use blue if strong
-			lumatype = 2;
+	float lumatest = min(2.5 * rgbyM.z, 1.0);
+	if ((rgbyM.x > lumatest) || (rgbyM.y > lumatest)) // if blue signal is low and either green or red has strong signal change luma color
+		if (rgbyM.y > lumatest) // use green if strong
+			lumatype = 1;
 		else			// otherwise use red as luma
 			lumatype = 0;
 			
@@ -1351,7 +1357,10 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     return saturate(outColor);
 }
 
+/***************************************************************************************************************************************/
 /*********************************************************** FXAA CODE BLOCK END *******************************************************/
+/***************************************************************************************************************************************/
+
 #include "ReShade.fxh"
 
 //------------------------------------- Textures -------------------------------------------
