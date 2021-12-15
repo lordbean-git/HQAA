@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.2 release
+ *                    v2.2.1 release
  *
  *                     by lordbean
  *
@@ -116,11 +116,11 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #endif
 
 // Configurable
-#define __SMAA_THRESHOLD max(EdgeThreshold, 0.0625)
+#define __SMAA_THRESHOLD max(EdgeThreshold == 1.0 ? 1.0 : sqrt(EdgeThreshold * 0.125), 0.1)
 #define __SMAA_MAX_SEARCH_STEPS 112
-#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(20 * Subpix))
+#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(10 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.125 + (0.375 * Subpix) + (Overdrive ? SubpixBoost * 0.5 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.1 * Subpix) + (Overdrive ? SubpixBoost * 0.15 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
