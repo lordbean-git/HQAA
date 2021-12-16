@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                 v2.5 experimental
+ *                    v2.5 release
  *
  *                     by lordbean
  *
