@@ -1319,13 +1319,14 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 /*--------------------------------------------------------------------------*/
+// Calculate sharpening based on perceived luminance of the colors not chosen to represent luma
 	float sharpening = 0;
 	if (lumatype == 0)
-		sharpening = saturate(lumaMa - rgbyM.y - rgbyM.z) * fxaaQualitySubpix;
+		sharpening = (((0.1 * rgbyM.x) + (0.45 * rgbyM.y) + (0.45 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold;
 	else if (lumatype == 1)
-		sharpening = saturate(lumaMa - rgbyM.x - rgbyM.z) * fxaaQualitySubpix;
+		sharpening = (((0.3 * rgbyM.x) + (0.1 * rgbyM.y) + (0.6 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold;
 	else
-		sharpening = saturate(lumaMa - rgbyM.x - rgbyM.y) * fxaaQualitySubpix;
+		sharpening = (((0.3 * rgbyM.x) + (0.6 * rgbyM.y) + (0.1 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold;
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
