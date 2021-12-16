@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.4.1 release
+ *                 v2.4.2 experimental
  *
  *                     by lordbean
  *
@@ -1319,7 +1319,13 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 /*--------------------------------------------------------------------------*/
-	float sharpening = saturate(0.125 - (fxaaQualityEdgeThreshold * 0.375) + (fxaaQualitySubpix * 0.75));
+	float sharpening = 0;
+	if (lumatype == 0)
+		sharpening = saturate(lumaMa - rgbyM.y - rgbyM.z) * fxaaQualitySubpix;
+	else if (lumatype == 1)
+		sharpening = saturate(lumaMa - rgbyM.x - rgbyM.z) * fxaaQualitySubpix;
+	else
+		sharpening = saturate(lumaMa - rgbyM.x - rgbyM.y) * fxaaQualitySubpix;
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
