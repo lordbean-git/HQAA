@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.3 release
+ *                    v2.4 release
  *
  *                     by lordbean
  *
@@ -122,7 +122,7 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(10 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.25 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.125 + (0.375 * Subpix) + (Overdrive ? SubpixBoost * 0.5 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -1501,14 +1501,16 @@ float3 SMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = Subpix * 0.5 + Overdrive ? SubpixBoost : 0;
+	float TotalSubpix = Subpix * 0.125 + Overdrive ? SubpixBoost * 0.375 : 0;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,Overdrive ? 0.2 : 0.5 + (EdgeThreshold * 0.5),0.004,0,0,0,0);
 	return saturate(output);
 }
 
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = Subpix * 0.5 + Overdrive ? SubpixBoost : 0;
+	float TotalSubpix = Subpix * saturate(1 - (BUFFER_HEIGHT / 4320));
+	if (Overdrive)
+		TotalSubpix += max((1 - TotalSubpix) * SubpixBoost, 0);
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,FXAATexture,FXAATexture,FXAATexture,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,EdgeThreshold),0.004,0,0,0,0);
 	return saturate(output);
 }
@@ -1552,19 +1554,26 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
-#if (BUFFER_HEIGHT > 1400)
+#if (BUFFER_HEIGHT > 1400) // resolution >= 1440p - run +1 FXAA coarse pass
+	pass FXAACoarse
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderAdaptiveCoarse;
+	}
+#if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K) - run +1 FXAA coarse pass
+	pass FXAACoarse
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderAdaptiveCoarse;
+	}
+#if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K) - run +1 FXAA coarse pass
 	pass FXAACoarse
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarse;
 	}
 #endif
-#if (BUFFER_HEIGHT > 2100)
-	pass FXAACoarse
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarse;
-	}
+#endif
 #endif
 	pass FXAAFine
 	{
