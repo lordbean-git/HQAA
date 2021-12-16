@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.4.1 release
+ *                    v2.5 release
  *
  *                     by lordbean
  *
@@ -1319,7 +1319,19 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 /*--------------------------------------------------------------------------*/
-	float sharpening = saturate(0.125 - (fxaaQualityEdgeThreshold * 0.375) + (fxaaQualitySubpix * 0.75));
+
+	// Calculate sharpening based on perceived luminance of the colors not chosen to represent luma
+	float sharpening = 0;
+	if (lumatype == 0)
+		sharpening = max((((0.1 * rgbyM.x) + (0.45 * rgbyM.y) + (0.45 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold, 0);
+	else if (lumatype == 1)
+		sharpening = max((((0.3 * rgbyM.x) + (0.1 * rgbyM.y) + (0.6 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold,0);
+	else
+		sharpening = max((((0.3 * rgbyM.x) + (0.6 * rgbyM.y) + (0.1 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold,0);
+	
+	// Skip calculating the sharpening if the amount calculation returned zero
+	if (sharpening == 0)
+		return saturate(float4(tex2D(tex, posM).rgb, lumaMa));
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
