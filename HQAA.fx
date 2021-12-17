@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.6.1 release
+ *                    v2.7 release
  *
  *                     by lordbean
  *
@@ -125,11 +125,12 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #endif
 
 // Configurable
-#define __SMAA_THRESHOLD Overdrive ? EdgeThreshold : 0.15 + EdgeThreshold * 0.85
+#define __SMAA_THRESHOLD Overdrive ? EdgeThreshold : 0.075 + EdgeThreshold * 0.925
 #define __SMAA_MAX_SEARCH_STEPS 112
-#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(10 * Subpix))
+#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(20 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.025 + (0.075 * Subpix) + (Overdrive ? SubpixBoost * 0.15 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.125 + (0.625 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.0 + (0.25 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -272,7 +273,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     float finalDelta = max(maxDelta.x, maxDelta.y);
 
     // Local contrast adaptation:
-    edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR * delta.xy);
+    edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
 
     return edges;
 }
@@ -335,7 +336,7 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
     float finalDelta = max(maxDelta.x, maxDelta.y);
 
     // Local contrast adaptation:
-    edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR * delta.xy);
+    edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR * delta.xy);
 
     return edges;
 }
@@ -1451,7 +1452,9 @@ float2 HQSMAAEdgeDetectionWrapPS(
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
 	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
-	return luma;
+	float2 color = SMAAColorEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
+	float2 result = lerp(luma,color,Subpix);
+	return saturate(result);
 }
 float4 HQSMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
