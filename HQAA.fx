@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.6 release
+ *                    v2.6.1 release
  *
  *                     by lordbean
  *
@@ -71,9 +71,12 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
  *-------------------------------------------------------------------------------*/
 
 
+/*****************************************************************************************************************************************/
+/*********************************************************** UI SETUP START **************************************************************/
+/*****************************************************************************************************************************************/
+
 #include "ReShadeUI.fxh"
 
-//------------------------------- UI setup ------------------------------------------------------------------------------------------------
 
 uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -109,6 +112,10 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 > = 0.00;
 
 /*****************************************************************************************************************************************/
+/*********************************************************** UI SETUP END ****************************************************************/
+/*****************************************************************************************************************************************/
+
+/*****************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
 /*****************************************************************************************************************************************/
 
@@ -122,7 +129,7 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(10 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.075 * Subpix) + (Overdrive ? SubpixBoost * 0.175 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.025 + (0.075 * Subpix) + (Overdrive ? SubpixBoost * 0.15 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -181,12 +188,8 @@ void SMAAMovc(bool4 cond, inout float4 variable, float4 value) {
 }
 
 #if __SMAA_INCLUDE_VS
-//-----------------------------------------------------------------------------
-// Vertex Shaders
 
-/**
- * Edge Detection Vertex Shader
- */
+
 void SMAAEdgeDetectionVS(float2 texcoord,
                          out float4 offset[3]) {
     offset[0] = mad(__SMAA_RT_METRICS.xyxy, float4(-1.0, 0.0, 0.0, -1.0), texcoord.xyxy);
@@ -194,9 +197,7 @@ void SMAAEdgeDetectionVS(float2 texcoord,
     offset[2] = mad(__SMAA_RT_METRICS.xyxy, float4(-2.0, 0.0, 0.0, -2.0), texcoord.xyxy);
 }
 
-/**
- * Blend Weight Calculation Vertex Shader
- */
+
 void SMAABlendingWeightCalculationVS(float2 texcoord,
                                      out float2 pixcoord,
                                      out float4 offset[3]) {
@@ -212,9 +213,7 @@ void SMAABlendingWeightCalculationVS(float2 texcoord,
                     float4(offset[0].xz, offset[1].yw));
 }
 
-/**
- * Neighborhood Blending Vertex Shader
- */
+
 void SMAANeighborhoodBlendingVS(float2 texcoord,
                                 out float4 offset) {
     offset = mad(__SMAA_RT_METRICS.xyxy, float4( 1.0, 0.0, 0.0,  1.0), texcoord.xyxy);
@@ -222,8 +221,6 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
 #endif // __SMAA_INCLUDE_VS
 
 #if __SMAA_INCLUDE_PS
-//-----------------------------------------------------------------------------
-// Edge Detection Pixel Shaders (First Pass)
 
 /**
  * Luma Edge Detection
@@ -343,8 +340,6 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
     return edges;
 }
 
-//-----------------------------------------------------------------------------
-// Diagonal Search Functions
 
 #if !defined(SMAA_DISABLE_DIAG_DETECTION)
 
@@ -374,9 +369,7 @@ float4 SMAADecodeDiagBilinearAccess(float4 e) {
     return round(e);
 }
 
-/**
- * These functions allows to perform diagonal pattern searches.
- */
+
 float2 SMAASearchDiag1(__SMAATexture2D(HQAAedgesTex), float2 texcoord, float2 dir, out float2 e) {
     float4 coord = float4(texcoord, -1.0, 1.0);
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
@@ -503,8 +496,6 @@ float2 SMAACalculateDiagWeights(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(H
 }
 #endif
 
-//-----------------------------------------------------------------------------
-// Horizontal/Vertical Search Functions
 
 /**
  * This allows to determine how much length should we add in the last step
@@ -620,8 +611,6 @@ float2 SMAAArea(__SMAATexture2D(HQAAareaTex), float2 dist, float e1, float e2, f
     return __SMAA_AREATEX_SELECT(__SMAASampleLevelZero(HQAAareaTex, texcoord));
 }
 
-//-----------------------------------------------------------------------------
-// Corner Detection Functions
 
 void SMAADetectHorizontalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout float2 weights, float4 texcoord, float2 d) {
     #if !defined(SMAA_DISABLE_CORNER_DETECTION)
@@ -657,8 +646,6 @@ void SMAADetectVerticalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout float2
     #endif
 }
 
-//-----------------------------------------------------------------------------
-// Blending Weight Calculation Pixel Shader (Second Pass)
 
 float4 SMAABlendingWeightCalculationPS(float2 texcoord,
                                        float2 pixcoord,
@@ -764,9 +751,6 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
     return weights;
 }
 
-//-----------------------------------------------------------------------------
-// Neighborhood Blending Pixel Shader (Third Pass)
-
 float4 SMAANeighborhoodBlendingPS(float2 texcoord,
                                   float4 offset,
                                   __SMAATexture2D(colorTex),
@@ -811,9 +795,9 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** SMAA CODE BLOCK END *******************************************************/
 /***************************************************************************************************************************************/
 // I'm a nested comment!
-/*****************************************************************************************************************************************/
-/*********************************************************** FXAA CODE BLOCK START *******************************************************/
-/*****************************************************************************************************************************************/
+/***************************************************************************************************************************************/
+/*********************************************************** FXAA CODE BLOCK START *****************************************************/
+/***************************************************************************************************************************************/
 
 #define __FXAA_QUALITY__PS 13
 #define __FXAA_QUALITY__P0 1
@@ -879,11 +863,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
     #endif
 #endif
 
-/*============================================================================
 
-                                API PORTING
-
-============================================================================*/
 #if (__FXAA_GLSL_120 == 1) || (__FXAA_GLSL_130 == 1)
     #define __FxaaBool bool
     #define __FxaaDiscard discard
@@ -911,7 +891,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
     #define __FxaaHalf4 half4
     #define __FxaaSat(x) saturate(x)
 #endif
-/*--------------------------------------------------------------------------*/
+
 #if (__FXAA_GLSL_120 == 1)
     // Requires,
     //  #version 120
@@ -932,7 +912,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         #define __FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
     #endif
 #endif
-/*--------------------------------------------------------------------------*/
+
 #if (__FXAA_GLSL_130 == 1)
     // Requires "#version 130" or better
     #define __FxaaTexTop(t, p) textureLod(t, p, 0.0)
@@ -945,21 +925,21 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         #define __FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
     #endif
 #endif
-/*--------------------------------------------------------------------------*/
+
 #if (__FXAA_HLSL_3 == 1)
     #define __FxaaInt2 float2
     #define __FxaaTex sampler2D
     #define __FxaaTexTop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
     #define __FxaaTexOff(t, p, o, r) tex2Dlod(t, float4(p + (o * r), 0, 0))
 #endif
-/*--------------------------------------------------------------------------*/
+
 #if (__FXAA_HLSL_4 == 1)
     #define __FxaaInt2 int2
     struct __FxaaTex { SamplerState smpl; Texture2D tex; };
     #define __FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
     #define __FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
 #endif
-/*--------------------------------------------------------------------------*/
+
 #if (__FXAA_HLSL_5 == 1)
     #define __FxaaInt2 int2
     struct __FxaaTex { SamplerState smpl; Texture2D tex; };
@@ -971,8 +951,8 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
     #define __FxaaTexOffGreen4(t, p, o) t.tex.GatherGreen(t.smpl, p, o)
 #endif
 
-// Luma types match variable positions. 0=R 1=G 2=B 3=A
 __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
+// Luma types match variable positions. 0=R 1=G 2=B 3=A
 {
 	if (lumatype == 0)
 		return rgba.x;
@@ -1010,7 +990,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaFloat lumaN = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 0,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1, 0), fxaaQualityRcpFrame.xy));
 	
-/*--------------------------------------------------------------------------*/
     __FxaaFloat maxSM = max(lumaS, lumaMa);
     __FxaaFloat minSM = min(lumaS, lumaMa);
     __FxaaFloat maxESM = max(lumaE, maxSM);
@@ -1023,31 +1002,31 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaFloat range = rangeMax - rangeMin;
     __FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
     __FxaaBool earlyExit = range < rangeMaxClamped;
-/*--------------------------------------------------------------------------*/
+	
     if(earlyExit)
         #if (__FXAA_DISCARD == 1)
             __FxaaDiscard;
         #else
             return rgbyM;
         #endif
-/*--------------------------------------------------------------------------*/
+		
     __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaNE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaSW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1, 1), fxaaQualityRcpFrame.xy));
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat lumaNS = lumaN + lumaS;
     __FxaaFloat lumaWE = lumaW + lumaE;
     __FxaaFloat subpixRcpRange = 1.0/range;
     __FxaaFloat subpixNSWE = lumaNS + lumaWE;
     __FxaaFloat edgeHorz1 = (-2.0 * lumaMa) + lumaNS;
     __FxaaFloat edgeVert1 = (-2.0 * lumaMa) + lumaWE;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat lumaNESE = lumaNE + lumaSE;
     __FxaaFloat lumaNWNE = lumaNW + lumaNE;
     __FxaaFloat edgeHorz2 = (-2.0 * lumaE) + lumaNESE;
     __FxaaFloat edgeVert2 = (-2.0 * lumaN) + lumaNWNE;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat lumaNWSW = lumaNW + lumaSW;
     __FxaaFloat lumaSWSE = lumaSW + lumaSE;
     __FxaaFloat edgeHorz4 = (abs(edgeHorz1) * 2.0) + abs(edgeHorz2);
@@ -1056,17 +1035,17 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaFloat edgeVert3 = (-2.0 * lumaS) + lumaSWSE;
     __FxaaFloat edgeHorz = abs(edgeHorz3) + edgeHorz4;
     __FxaaFloat edgeVert = abs(edgeVert3) + edgeVert4;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat subpixNWSWNESE = lumaNWSW + lumaNESE;
     __FxaaFloat lengthSign = fxaaQualityRcpFrame.x;
     __FxaaBool horzSpan = edgeHorz >= edgeVert;
     __FxaaFloat subpixA = subpixNSWE * 2.0 + subpixNWSWNESE;
-/*--------------------------------------------------------------------------*/
+	
     if(!horzSpan) lumaN = lumaW;
     if(!horzSpan) lumaS = lumaE;
     if(horzSpan) lengthSign = fxaaQualityRcpFrame.y;
     __FxaaFloat subpixB = (subpixA * (1.0/12.0)) - lumaMa;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat gradientN = lumaN - lumaMa;
     __FxaaFloat gradientS = lumaS - lumaMa;
     __FxaaFloat lumaNN = lumaN + lumaMa;
@@ -1075,7 +1054,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaFloat gradient = max(abs(gradientN), abs(gradientS));
     if(pairN) lengthSign = -lengthSign;
     __FxaaFloat subpixC = __FxaaSat(abs(subpixB) * subpixRcpRange);
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat2 posB;
     posB.x = posM.x;
     posB.y = posM.y;
@@ -1084,7 +1063,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     offNP.y = ( horzSpan) ? 0.0 : fxaaQualityRcpFrame.y;
     if(!horzSpan) posB.x += lengthSign * 0.5;
     if( horzSpan) posB.y += lengthSign * 0.5;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat2 posN;
     posN.x = posB.x - offNP.x * __FXAA_QUALITY__P0;
     posN.y = posB.y - offNP.y * __FXAA_QUALITY__P0;
@@ -1095,13 +1074,13 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaFloat lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN));
     __FxaaFloat subpixE = subpixC * subpixC;
     __FxaaFloat lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP));
-/*--------------------------------------------------------------------------*/
+	
     if(!pairN) lumaNN = lumaSS;
     __FxaaFloat gradientScaled = gradient * 1.0/4.0;
     __FxaaFloat lumaMM = lumaMa - lumaNN * 0.5;
     __FxaaFloat subpixF = subpixD * subpixE;
     __FxaaBool lumaMLTZero = lumaMM < 0.0;
-/*--------------------------------------------------------------------------*/
+	
     lumaEndN -= lumaNN * 0.5;
     lumaEndP -= lumaNN * 0.5;
     __FxaaBool doneN = abs(lumaEndN) >= gradientScaled;
@@ -1111,7 +1090,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaBool doneNP = (!doneN) || (!doneP);
     if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P1;
     if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P1;
-/*--------------------------------------------------------------------------*/
+	
     if(doneNP) {
         if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
         if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
@@ -1124,7 +1103,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
         doneNP = (!doneN) || (!doneP);
         if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P2;
         if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P2;
-/*--------------------------------------------------------------------------*/
         #if (__FXAA_QUALITY__PS > 3)
         if(doneNP) {
             if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1138,7 +1116,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
             doneNP = (!doneN) || (!doneP);
             if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P3;
             if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P3;
-/*--------------------------------------------------------------------------*/
             #if (__FXAA_QUALITY__PS > 4)
             if(doneNP) {
                 if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1152,7 +1129,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                 doneNP = (!doneN) || (!doneP);
                 if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P4;
                 if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P4;
-/*--------------------------------------------------------------------------*/
                 #if (__FXAA_QUALITY__PS > 5)
                 if(doneNP) {
                     if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1166,7 +1142,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                     doneNP = (!doneN) || (!doneP);
                     if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P5;
                     if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P5;
-/*--------------------------------------------------------------------------*/
                     #if (__FXAA_QUALITY__PS > 6)
                     if(doneNP) {
                         if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1180,7 +1155,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                         doneNP = (!doneN) || (!doneP);
                         if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P6;
                         if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P6;
-/*--------------------------------------------------------------------------*/
                         #if (__FXAA_QUALITY__PS > 7)
                         if(doneNP) {
                             if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1194,7 +1168,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                             doneNP = (!doneN) || (!doneP);
                             if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P7;
                             if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P7;
-/*--------------------------------------------------------------------------*/
     #if (__FXAA_QUALITY__PS > 8)
     if(doneNP) {
         if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1208,7 +1181,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
         doneNP = (!doneN) || (!doneP);
         if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P8;
         if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P8;
-/*--------------------------------------------------------------------------*/
         #if (__FXAA_QUALITY__PS > 9)
         if(doneNP) {
             if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1222,7 +1194,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
             doneNP = (!doneN) || (!doneP);
             if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P9;
             if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P9;
-/*--------------------------------------------------------------------------*/
             #if (__FXAA_QUALITY__PS > 10)
             if(doneNP) {
                 if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1236,7 +1207,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                 doneNP = (!doneN) || (!doneP);
                 if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P10;
                 if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P10;
-/*--------------------------------------------------------------------------*/
                 #if (__FXAA_QUALITY__PS > 11)
                 if(doneNP) {
                     if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1250,7 +1220,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                     doneNP = (!doneN) || (!doneP);
                     if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P11;
                     if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P11;
-/*--------------------------------------------------------------------------*/
                     #if (__FXAA_QUALITY__PS > 12)
                     if(doneNP) {
                         if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
@@ -1264,61 +1233,48 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                         doneNP = (!doneN) || (!doneP);
                         if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P12;
                         if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P12;
-/*--------------------------------------------------------------------------*/
                     }
                     #endif
-/*--------------------------------------------------------------------------*/
                 }
                 #endif
-/*--------------------------------------------------------------------------*/
             }
             #endif
-/*--------------------------------------------------------------------------*/
         }
         #endif
-/*--------------------------------------------------------------------------*/
     }
     #endif
-/*--------------------------------------------------------------------------*/
                         }
                         #endif
-/*--------------------------------------------------------------------------*/
                     }
                     #endif
-/*--------------------------------------------------------------------------*/
                 }
                 #endif
-/*--------------------------------------------------------------------------*/
             }
             #endif
-/*--------------------------------------------------------------------------*/
         }
         #endif
-/*--------------------------------------------------------------------------*/
     }
-/*--------------------------------------------------------------------------*/
     __FxaaFloat dstN = posM.x - posN.x;
     __FxaaFloat dstP = posP.x - posM.x;
     if(!horzSpan) dstN = posM.y - posN.y;
     if(!horzSpan) dstP = posP.y - posM.y;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaBool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
     __FxaaFloat spanLength = (dstP + dstN);
     __FxaaBool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
     __FxaaFloat spanLengthRcp = 1.0/spanLength;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaBool directionN = dstN < dstP;
     __FxaaFloat dst = min(dstN, dstP);
     __FxaaBool goodSpan = directionN ? goodSpanN : goodSpanP;
     __FxaaFloat subpixG = subpixF * subpixF;
     __FxaaFloat pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
     __FxaaFloat subpixH = subpixG * fxaaQualitySubpix;
-/*--------------------------------------------------------------------------*/
+	
     __FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
     __FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
-/*--------------------------------------------------------------------------*/
 
 	// Calculate sharpening based on perceived luminance of the colors not chosen to represent luma
 	float sharpening = 0;
@@ -1365,7 +1321,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     float4 outColor = float4(saturate((window * wRGB + e) * rcpWeightRGB),lumaMa);
     
 	outColor = lerp(float4(e,lumaMa), outColor, sharpening);
-/*--------------------------------------------------------------------------*/	
     return saturate(outColor);
 }
 
@@ -1373,9 +1328,13 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 /*********************************************************** FXAA CODE BLOCK END *******************************************************/
 /***************************************************************************************************************************************/
 
+/***************************************************************************************************************************************/
+/*********************************************************** SHADER CODE START *********************************************************/
+/***************************************************************************************************************************************/
+
 #include "ReShade.fxh"
 
-//------------------------------------- Textures -------------------------------------------
+//////////////////////////////////////////////////////////// TEXTURES ///////////////////////////////////////////////////////////////////
 
 texture HQAAedgesTex < pooled = true; >
 {
@@ -1403,7 +1362,7 @@ texture HQAAsearchTex < source = "SearchTex.png"; >
 	Format = R8;
 };
 
-// -------------------------------- Samplers -----------------------------------------------
+//////////////////////////////////////////////////////////// SAMPLERS ///////////////////////////////////////////////////////////////////
 
 sampler HQAAcolorGammaSampler
 {
@@ -1453,7 +1412,7 @@ sampler HQAAFXTex
 	MinFilter = Linear; MagFilter = Linear;
 };
 
-//----------------------------------- Vertex Shaders ---------------------------------------
+//////////////////////////////////////////////////////////// VERTEX SHADERS /////////////////////////////////////////////////////////////
 
 void HQSMAAEdgeDetectionWrapVS(
 	in uint id : SV_VertexID,
@@ -1484,7 +1443,7 @@ void HQSMAANeighborhoodBlendingWrapVS(
 	SMAANeighborhoodBlendingVS(texcoord, offset);
 }
 
-// -------------------------------- Pixel shaders ------------------------------------------
+//////////////////////////////////////////////////////////// PIXEL SHADERS //////////////////////////////////////////////////////////////
 
 float2 HQSMAAEdgeDetectionWrapPS(
 	float4 position : SV_Position,
@@ -1527,7 +1486,9 @@ float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : 
 	return saturate(output);
 }
 
-// -------------------------------- Rendering passes ----------------------------------------
+/***************************************************************************************************************************************/
+/*********************************************************** SHADER CODE END ***********************************************************/
+/***************************************************************************************************************************************/
 
 technique HQAA <
 	ui_tooltip = "============================================================\n"
