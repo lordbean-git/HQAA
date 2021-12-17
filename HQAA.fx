@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.5 release
+ *                    v2.6 release
  *
  *                     by lordbean
  *
@@ -118,11 +118,11 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #endif
 
 // Configurable
-#define __SMAA_THRESHOLD Overdrive ? EdgeThreshold : max(EdgeThreshold == 1.0 ? 1.0 : sqrt(EdgeThreshold * 0.125), 0.1)
+#define __SMAA_THRESHOLD Overdrive ? EdgeThreshold : 0.15 + EdgeThreshold * 0.85
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(10 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.125 + (0.375 * Subpix) + (Overdrive ? SubpixBoost * 0.5 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR (1.0 + (0.075 * Subpix) + (Overdrive ? SubpixBoost * 0.175 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -773,25 +773,25 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
                                   __SMAATexture2D(HQAAblendTex)
                                   ) {
     // Fetch the blending weights for current pixel:
-    float4 a;
-    a.x = __SMAASample(HQAAblendTex, offset.xy).a; // Right
-    a.y = __SMAASample(HQAAblendTex, offset.zw).g; // Top
-    a.wz = __SMAASample(HQAAblendTex, texcoord).xz; // Bottom / Left
+    float4 m;
+    m.x = __SMAASample(HQAAblendTex, offset.xy).a; // Right
+    m.y = __SMAASample(HQAAblendTex, offset.zw).g; // Top
+    m.wz = __SMAASample(HQAAblendTex, texcoord).xz; // Bottom / Left
 
     // Is there any blending weight with a value greater than 0.0?
     __SMAA_BRANCH
-    if (dot(a, float4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
+    if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
         float4 color = __SMAASampleLevelZero(colorTex, texcoord);
-
-        return color;
+		
+		return color;
     } else {
-        bool h = max(a.x, a.z) > max(a.y, a.w); // max(horizontal) > max(vertical)
+        bool horiz = max(m.x, m.z) > max(m.y, m.w); // max(horizontal) > max(vertical)
 
         // Calculate the blending offsets:
-        float4 blendingOffset = float4(0.0, a.y, 0.0, a.w);
-        float2 blendingWeight = a.yw;
-        SMAAMovc(bool4(h, h, h, h), blendingOffset, float4(a.x, 0.0, a.z, 0.0));
-        SMAAMovc(bool2(h, h), blendingWeight, a.xz);
+        float4 blendingOffset = float4(0.0, m.y, 0.0, m.w);
+        float2 blendingWeight = m.yw;
+        SMAAMovc(bool4(horiz, horiz, horiz, horiz), blendingOffset, float4(m.x, 0.0, m.z, 0.0));
+        SMAAMovc(bool2(horiz, horiz), blendingWeight, m.xz);
         blendingWeight /= dot(blendingWeight, float2(1.0, 1.0));
 
         // Calculate the texture coordinates:
@@ -1514,15 +1514,15 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = Subpix * 0.125 + Overdrive ? SubpixBoost * 0.375 : 0;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,Overdrive ? 0.2 : 0.5 + (EdgeThreshold * 0.5),0.004,0,0,0,0);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,Overdrive ? sqrt(EdgeThreshold) : 0.75 + (EdgeThreshold * 0.25),0.004,0,0,0,0);
 	return saturate(output);
 }
 
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = Subpix * saturate(1 - (BUFFER_HEIGHT / 4320));
+	float TotalSubpix = Subpix * 0.5;
 	if (Overdrive)
-		TotalSubpix += max((1 - TotalSubpix) * SubpixBoost, 0);
+		TotalSubpix += SubpixBoost * 0.5;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,EdgeThreshold),0.004,0,0,0,0);
 	return saturate(output);
 }
