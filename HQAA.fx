@@ -130,7 +130,7 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(20 * Subpix))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.125 + (0.625 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.0 + (0.25 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.0 + (0.375 * Subpix) + (Overdrive ? SubpixBoost * 0.625 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
