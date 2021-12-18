@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.7 release
+ *                    v2.8 release
  *
  *                     by lordbean
  *
@@ -83,7 +83,7 @@ uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
         ui_category = "Normal Usage";
-> = 0.125;
+> = 0.1;
 
 uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -125,12 +125,12 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #endif
 
 // Configurable
-#define __SMAA_THRESHOLD Overdrive ? EdgeThreshold : 0.075 + EdgeThreshold * 0.925
+#define __SMAA_THRESHOLD EdgeThreshold
 #define __SMAA_MAX_SEARCH_STEPS 112
-#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : trunc(20 * Subpix))
+#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : 10 * Subpix)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.125 + (0.625 * Subpix) + (Overdrive ? SubpixBoost * 0.75 : 0))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.0 + (0.375 * Subpix) + (Overdrive ? SubpixBoost * 0.625 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * Subpix) + (Overdrive ? SubpixBoost * 0.125 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * Subpix) + (Overdrive ? SubpixBoost * 0.25 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -158,6 +158,8 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #define __SMAA_SEARCHTEX_SIZE float2(66.0, 33.0)
 #define __SMAA_SEARCHTEX_PACKED_SIZE float2(64.0, 16.0)
 #define __SMAA_CORNER_ROUNDING_NORM (float(__SMAA_CORNER_ROUNDING) / 100.0)
+
+/////////////////////////////////////////////// SMAA SUPPORT FUNCTIONS ////////////////////////////////////////////////////////////////////
 
 /**
  * Gathers current pixel, and the top-left neighbors.
@@ -187,6 +189,8 @@ void SMAAMovc(bool4 cond, inout float4 variable, float4 value) {
     SMAAMovc(cond.xy, variable.xy, value.xy);
     SMAAMovc(cond.zw, variable.zw, value.zw);
 }
+
+/////////////////////////////////////////////// SMAA VERTEX SHADERS ///////////////////////////////////////////////////////////////////////
 
 #if __SMAA_INCLUDE_VS
 
@@ -221,6 +225,8 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
 }
 #endif // __SMAA_INCLUDE_VS
 
+/////////////////////////////////////////////// SMAA PIXEL SHADERS ////////////////////////////////////////////////////////////////////////
+
 #if __SMAA_INCLUDE_PS
 
 /**
@@ -240,7 +246,8 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 
     // Calculate lumas:
 	float3 middle = __SMAASamplePoint(colorTex, texcoord).rgb;
-    float3 weights = float3(middle.r > middle.g ? 0.6667 : 0, middle.g >= middle.r ? 0.6667 : 0, 0.3333);
+	float3 weights = float3(middle.r > middle.g? 0.85 : 0.1, middle.r <= middle.g ? 0.85 : 0.1, 0.05);
+	
     float L = dot(middle, weights);
 
     float Lleft = dot(__SMAASamplePoint(colorTex, offset[0].xy).rgb, weights);
@@ -250,10 +257,6 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     float4 delta;
     delta.xy = abs(L - float2(Lleft, Ltop));
     float2 edges = step(threshold, delta.xy);
-
-    // Then discard if there is no edge:
-    if (dot(edges, float2(1.0, 1.0)) == 0.0)
-        discard;
 
     // Calculate right and bottom deltas:
     float Lright = dot(__SMAASamplePoint(colorTex, offset[1].xy).rgb, weights);
@@ -273,7 +276,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     float finalDelta = max(maxDelta.x, maxDelta.y);
 
     // Local contrast adaptation:
-    edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
+	edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
 
     return edges;
 }
@@ -305,10 +308,6 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     // We do the usual threshold:
     float2 edges = step(threshold, delta.xy);
-
-    // Then discard if there is no edge:
-    if (dot(edges, float2(1.0, 1.0)) == 0.0)
-        discard;
 
     // Calculate right and bottom deltas:
     float3 Cright = __SMAASamplePoint(colorTex, offset[1].xy).rgb;
@@ -800,6 +799,8 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
+#define __FXAA_ADAPTIVE_SUBPIX min(1 - BUFFER_HEIGHT / 4320, 1) * Subpix
+
 #define __FXAA_QUALITY__PS 13
 #define __FXAA_QUALITY__P0 1
 #define __FXAA_QUALITY__P1 1
@@ -977,8 +978,8 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	int lumatype = 2; // assume blue is luma until determined otherwise
     __FxaaFloat4 rgbyM = __FxaaTexTop(tex, posM);
-	float lumatest = min(2.5 * rgbyM.z, 1.0);
-	if ((rgbyM.x > lumatest) || (rgbyM.y > lumatest)) // if blue signal is low and either green or red has strong signal change luma color
+	float lumatest = min(1.5 * rgbyM.x, 1.0);
+	if ((rgbyM.y > lumatest) || (rgbyM.x > lumatest))
 		if (rgbyM.y > lumatest) // use green if strong
 			lumatype = 1;
 		else			// otherwise use red as luma
@@ -1278,17 +1279,20 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 
 	// Calculate sharpening based on perceived luminance of the colors not chosen to represent luma
+	// we avoid creating spurious white pixels by choosing to sharpen only darkish results
 	float sharpening = 0;
-	if (lumatype == 0)
-		sharpening = max((((0.1 * rgbyM.x) + (0.45 * rgbyM.y) + (0.45 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold, 0);
-	else if (lumatype == 1)
-		sharpening = max((((0.3 * rgbyM.x) + (0.1 * rgbyM.y) + (0.6 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold,0);
-	else
-		sharpening = max((((0.3 * rgbyM.x) + (0.6 * rgbyM.y) + (0.1 * rgbyM.z)) * fxaaQualitySubpix) - fxaaQualityEdgeThreshold,0);
+	if (rgbyM.x + rgbyM.y + rgbyM.z < 1.5 && rgbyM.x < 0.625 && rgbyM.y < 0.625 && rgbyM.z < 0.625) {
+		if (lumatype == 0)
+			sharpening = max(((0.05 * rgbyM.x) + (0.6 * rgbyM.y) + (0.35 * rgbyM.z)) * fxaaQualitySubpix, 0);
+		else if (lumatype == 1)
+			sharpening = max(((0.25 * rgbyM.x) + (0.05 * rgbyM.y) + (0.7 * rgbyM.z)) * fxaaQualitySubpix, 0);
+		else
+			sharpening = max(((0.25 * rgbyM.x) + (0.7 * rgbyM.y) + (0.05 * rgbyM.z)) * fxaaQualitySubpix, 0);
+	}
 	
 	// Skip calculating the sharpening if the amount calculation returned zero
 	if (sharpening == 0)
-		return saturate(float4(tex2D(tex, posM).rgb, lumaMa));
+		return float4(tex2D(tex, posM).rgb, lumaMa);
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
@@ -1322,7 +1326,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     float4 outColor = float4(saturate((window * wRGB + e) * rcpWeightRGB),lumaMa);
     
 	outColor = lerp(float4(e,lumaMa), outColor, sharpening);
-    return saturate(outColor);
+    return outColor;
 }
 
 /***************************************************************************************************************************************/
@@ -1453,8 +1457,18 @@ float2 HQSMAAEdgeDetectionWrapPS(
 {
 	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
 	float2 color = SMAAColorEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
-	float2 result = lerp(luma,color,Subpix);
-	return saturate(result);
+	
+	float2 result = float2(0, 0);
+	
+	if (color.r > luma.r)
+		result = float2(color.r, lerp(luma.g, color.g, tex2D(HQAAcolorGammaSampler,texcoord).g));
+	else
+		result = luma;
+	
+	if (dot(result, float2(1.0, 1.0)) == 0.0)
+		discard;
+	
+	return result;
 }
 float4 HQSMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
@@ -1482,9 +1496,9 @@ float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord 
 
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = Subpix * 0.5;
+	float TotalSubpix = __FXAA_ADAPTIVE_SUBPIX;
 	if (Overdrive)
-		TotalSubpix += SubpixBoost * 0.5;
+		TotalSubpix += 1 - __FXAA_ADAPTIVE_SUBPIX;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,EdgeThreshold),0.004,0,0,0,0);
 	return saturate(output);
 }
