@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.8.1 release
+ *                    v2.8.2 release
  *
  *                     by lordbean
  *
@@ -1278,17 +1278,16 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 
-	// Calculate sharpening based on perceived luminance of the colors not chosen to represent luma
-	float sharpening = 0;
-	bool grayscale = abs(abs(rgbyM.x - rgbyM.y) - abs(rgbyM.x - rgbyM.z)) < 0.05;
-	if (lumatype == 0)
-		sharpening = saturate(((0.05 * rgbyM.x) + (0.6 * rgbyM.y) + (0.35 * rgbyM.z)) * fxaaQualitySubpix * grayscale ? 1.25 : 0.8 - fxaaQualityEdgeThreshold);
-	else if (lumatype == 1)
-		sharpening = saturate(((0.25 * rgbyM.x) + (0.05 * rgbyM.y) + (0.7 * rgbyM.z)) * fxaaQualitySubpix * grayscale ? 1.25 : 0.8 - fxaaQualityEdgeThreshold);
-	else
-		sharpening = saturate(((0.25 * rgbyM.x) + (0.7 * rgbyM.y) + (0.05 * rgbyM.z)) * fxaaQualitySubpix * grayscale ? 1.25 : 0.8 - fxaaQualityEdgeThreshold);
+	// Fetch some info about the FXAA result
+    float3 e = tex2D(tex, posM).rgb;
+	float maxsharpening = max(max(e.x, e.y), e.z);
+	float minsharpening = min(min(e.x, e.y), e.z);
+	float separation = abs(abs(e.x - e.y) - abs(e.x - e.z));
 	
-	// Skip calculating the sharpening if the amount calculation returned zero
+	// Calculate amount of sharpening to apply
+	float sharpening = max((maxsharpening - minsharpening) * (0.625 - separation) * fxaaQualitySubpix, 0);
+
+	// Skip sharpening if the amount calculation returned zero
 	if (sharpening == 0)
 		return float4(tex2D(tex, posM).rgb, lumaMa);
 
@@ -1296,7 +1295,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
     float3 c = tex2Doffset(tex, posM, int2(1, -1)).rgb;
     float3 d = tex2Doffset(tex, posM, int2(-1, 0)).rgb;
-    float3 e = tex2D(tex, posM).rgb;
     float3 f = tex2Doffset(tex, posM, int2(1, 0)).rgb;
     float3 g = tex2Doffset(tex, posM, int2(-1, 1)).rgb;
     float3 h = tex2Doffset(tex, posM, int2(0, 1)).rgb;
