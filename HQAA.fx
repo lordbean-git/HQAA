@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.8.2 release
+ *                    v2.9 release
  *
  *                     by lordbean
  *
@@ -77,39 +77,63 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 #include "ReShadeUI.fxh"
 
+uniform int preset <
+	ui_type = "combo";
+	ui_label = "Quality Preset\n\n";
+	ui_tooltip = "Other settings are ignored when using a preset";
+	ui_category = "Presets";
+	ui_items = "Low\0Medium\0High\0Ultra\0Custom\0";
+> = 2;
 
-uniform float EdgeThreshold < __UNIFORM_SLIDER_FLOAT1
+uniform int customintro <
+	ui_type = "radio";
+	ui_label = " ";	
+	ui_text ="-------------------------------------------------------\nThese settings are used when Custom preset is selected.\n-------------------------------------------------------\n";
+	ui_category = "Custom Preset";
+>;
+
+uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
-        ui_category = "Normal Usage";
+        ui_category = "Custom Preset";
 > = 0.1;
 
-uniform float Subpix < __UNIFORM_SLIDER_FLOAT1
+uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-        ui_category = "Normal Usage";
+        ui_category = "Custom Preset";
 > = 0.5;
 
 uniform int PmodeWarning <
 	ui_type = "radio";
 	ui_label = " ";	
 	ui_text ="\n>>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
-	ui_category = "Virtual Photography";
+	ui_category = "Custom Preset";
 >;
 
-uniform bool Overdrive <
+uniform bool OverdriveCustom <
         ui_label = "Enable Virtual Photography Mode";
-        ui_category = "Virtual Photography";
+        ui_category = "Custom Preset";
 > = false;
 
-uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
+uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Extra Subpixel Effects Strength";
 	ui_tooltip = "Additional boost to subpixel aliasing processing";
-        ui_category = "Virtual Photography";
+        ui_category = "Custom Preset";
 > = 0.00;
+
+static const float HQAA_THRESHOLD_PRESET[5] = {0.2f,0.15f,0.1f,0.075f,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.25f,0.375f,0.5f,0.75f,0};
+static const bool HQAA_OVERDRIVE_PRESET[5] = {0,0,0,0,0};
+static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
+
+#define __HQAA_EDGE_THRESHOLD preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset]
+#define __HQAA_SUBPIX preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset]
+#define __HQAA_OVERDRIVE preset == 4 ? OverdriveCustom : HQAA_OVERDRIVE_PRESET[preset]
+#define __HQAA_SUBPIXBOOST preset == 4 ? SubpixBoostCustom : HQAA_SUBPIXBOOST_PRESET[preset]
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -125,12 +149,11 @@ uniform float SubpixBoost < __UNIFORM_SLIDER_FLOAT1
 #endif
 
 // Configurable
-#define __SMAA_THRESHOLD EdgeThreshold
 #define __SMAA_MAX_SEARCH_STEPS 112
-#define __SMAA_CORNER_ROUNDING (Overdrive ? 50 : 10 * Subpix)
+#define __SMAA_CORNER_ROUNDING (__HQAA_OVERDRIVE ? 50 : 10 * __HQAA_SUBPIX)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * Subpix) + (Overdrive ? SubpixBoost * 0.125 : 0))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * Subpix) + (Overdrive ? SubpixBoost * 0.25 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.125 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.25 : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -242,7 +265,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
  // SMAA default luma weights: 0.2126, 0.7152, 0.0722
 								   
     // Calculate the threshold:
-    float2 threshold = float2(__SMAA_THRESHOLD, __SMAA_THRESHOLD);
+    float2 threshold = float2(__HQAA_EDGE_THRESHOLD, __HQAA_EDGE_THRESHOLD);
 
     // Calculate lumas:
 	float3 middle = __SMAASamplePoint(colorTex, texcoord).rgb;
@@ -292,7 +315,7 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
                                 __SMAATexture2D(colorTex)
                                 ) {
     // Calculate the threshold:
-    float2 threshold = float2(__SMAA_THRESHOLD, __SMAA_THRESHOLD);
+    float2 threshold = float2(__HQAA_EDGE_THRESHOLD, __HQAA_EDGE_THRESHOLD);
 
     // Calculate color deltas:
     float4 delta;
@@ -799,7 +822,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define __FXAA_ADAPTIVE_SUBPIX min(1 - BUFFER_HEIGHT / 4320, 1) * Subpix
+#define __FXAA_ADAPTIVE_SUBPIX min(1 - BUFFER_HEIGHT / 4320, 1) * __HQAA_SUBPIX
 
 #define __FXAA_QUALITY__PS 13
 #define __FXAA_QUALITY__P0 1
@@ -1280,15 +1303,24 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 
 	// Fetch some info about the FXAA result
     float3 e = tex2D(tex, posM).rgb;
-	float maxsharpening = max(max(e.x, e.y), e.z);
+	
+	// Take weakest color as min sharpening amount
 	float minsharpening = min(min(e.x, e.y), e.z);
-	float separation = abs(abs(e.x - e.y) - abs(e.x - e.z));
+	
+	// Determine maximum sharpening applied to pure white (0.125)
+	float maxsharpening = max(max(e.x, e.y), e.z) - minsharpening * 0.875;
+	
+	// Determine color contrast ratio of the pixel
+	float separation = max(abs(e.r - e.g), abs(e.r - e.b));
+	
+	// Set contrast ceiling to prevent sharpening of high color contrast pixels
+	float contrastceiling = 0.95 - separation;
 	
 	// Calculate amount of sharpening to apply
-	float sharpening = max((maxsharpening - minsharpening) * (0.625 - separation) * fxaaQualitySubpix, 0);
+	float sharpening = max(abs(maxsharpening * contrastceiling) - fxaaQualityEdgeThreshold, 0);
 
-	// Skip sharpening if the amount calculation returned zero
-	if (sharpening == 0)
+	// Skip sharpening if the amount calculation returned zero or photo mode is on
+	if (sharpening == 0 || __HQAA_OVERDRIVE)
 		return float4(tex2D(tex, posM).rgb, lumaMa);
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
@@ -1321,7 +1353,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     float3 window = (b + d) + (f + h);
     float4 outColor = float4(saturate((window * wRGB + e) * rcpWeightRGB),lumaMa);
     
-	outColor = lerp(float4(e,lumaMa), outColor, sharpening);
+	outColor = lerp(float4(e,separation), outColor, sharpening);
     return outColor;
 }
 
@@ -1485,17 +1517,17 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = Subpix * 0.125 + Overdrive ? SubpixBoost * 0.375 : 0;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,Overdrive ? sqrt(EdgeThreshold) : 0.75 + (EdgeThreshold * 0.25),0.004,0,0,0,0);
+	float TotalSubpix = __HQAA_SUBPIX * 0.125 + __HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.375 : 0;
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : 0.75 + (__HQAA_EDGE_THRESHOLD * 0.25),0.004,0,0,0,0);
 	return saturate(output);
 }
 
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __FXAA_ADAPTIVE_SUBPIX;
-	if (Overdrive)
+	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 1 - __FXAA_ADAPTIVE_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,EdgeThreshold),0.004,0,0,0,0);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,__HQAA_EDGE_THRESHOLD),0.004,0,0,0,0);
 	return saturate(output);
 }
 
