@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.8 release
+ *                    v2.8.1 release
  *
  *                     by lordbean
  *
@@ -1279,16 +1279,14 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 
 	// Calculate sharpening based on perceived luminance of the colors not chosen to represent luma
-	// we avoid creating spurious white pixels by choosing to sharpen only darkish results
 	float sharpening = 0;
-	if (rgbyM.x + rgbyM.y + rgbyM.z < 1.5 && rgbyM.x < 0.625 && rgbyM.y < 0.625 && rgbyM.z < 0.625) {
-		if (lumatype == 0)
-			sharpening = max(((0.05 * rgbyM.x) + (0.6 * rgbyM.y) + (0.35 * rgbyM.z)) * fxaaQualitySubpix, 0);
-		else if (lumatype == 1)
-			sharpening = max(((0.25 * rgbyM.x) + (0.05 * rgbyM.y) + (0.7 * rgbyM.z)) * fxaaQualitySubpix, 0);
-		else
-			sharpening = max(((0.25 * rgbyM.x) + (0.7 * rgbyM.y) + (0.05 * rgbyM.z)) * fxaaQualitySubpix, 0);
-	}
+	bool grayscale = abs(abs(rgbyM.x - rgbyM.y) - abs(rgbyM.x - rgbyM.z)) < 0.05;
+	if (lumatype == 0)
+		sharpening = saturate(((0.05 * rgbyM.x) + (0.6 * rgbyM.y) + (0.35 * rgbyM.z)) * fxaaQualitySubpix * grayscale ? 1.25 : 0.8 - fxaaQualityEdgeThreshold);
+	else if (lumatype == 1)
+		sharpening = saturate(((0.25 * rgbyM.x) + (0.05 * rgbyM.y) + (0.7 * rgbyM.z)) * fxaaQualitySubpix * grayscale ? 1.25 : 0.8 - fxaaQualityEdgeThreshold);
+	else
+		sharpening = saturate(((0.25 * rgbyM.x) + (0.7 * rgbyM.y) + (0.05 * rgbyM.z)) * fxaaQualitySubpix * grayscale ? 1.25 : 0.8 - fxaaQualityEdgeThreshold);
 	
 	// Skip calculating the sharpening if the amount calculation returned zero
 	if (sharpening == 0)
