@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.9.1 release
+ *                    v2.9.2 release
  *
  *                     by lordbean
  *
@@ -1312,10 +1312,10 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	maxsharpening *= maxsharpening;
 	
 	// Determine color contrast ratio of the pixel
-	float separation = max(abs(e.r - e.g), abs(e.r - e.b));
+	float separation = max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b));
 	
 	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
-	float contrastceiling = 0.95 - separation;
+	float contrastceiling = 0.75 - separation;
 	contrastceiling *= contrastceiling;
 	
 	// Calculate amount of sharpening to apply
