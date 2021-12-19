@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.9 release
+ *                    v2.9.1 release
  *
  *                     by lordbean
  *
@@ -1307,17 +1307,19 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Take weakest color as min sharpening amount
 	float minsharpening = min(min(e.x, e.y), e.z);
 	
-	// Determine maximum sharpening applied to pure white (0.125)
-	float maxsharpening = max(max(e.x, e.y), e.z) - minsharpening * 0.875;
+	// Determine maximum sharpening applied to pure white
+	float maxsharpening = max(max(e.x, e.y), e.z) - minsharpening * 0.25;
+	maxsharpening *= maxsharpening;
 	
 	// Determine color contrast ratio of the pixel
 	float separation = max(abs(e.r - e.g), abs(e.r - e.b));
 	
-	// Set contrast ceiling to prevent sharpening of high color contrast pixels
+	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
 	float contrastceiling = 0.95 - separation;
+	contrastceiling *= contrastceiling;
 	
 	// Calculate amount of sharpening to apply
-	float sharpening = max(abs(maxsharpening * contrastceiling) - fxaaQualityEdgeThreshold, 0);
+	float sharpening = max((abs(maxsharpening * contrastceiling) * sqrt(fxaaQualitySubpix)) - (fxaaQualityEdgeThreshold * fxaaQualityEdgeThreshold), 0);
 
 	// Skip sharpening if the amount calculation returned zero or photo mode is on
 	if (sharpening == 0 || __HQAA_OVERDRIVE)
