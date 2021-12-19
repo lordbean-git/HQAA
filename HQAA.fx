@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.9.3 release
+ *                    v2.10 release
  *
  *                     by lordbean
  *
@@ -1324,7 +1324,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 		minsharpening *= 0.5;
 		separation = 0.0;
 	}
-	
 	float sharpening = max((maxsharpening * separation + minsharpening) * min(sqrt(fxaaQualitySubpix),minsharpening) - (fxaaQualityEdgeThreshold), 0);
 
 	// Skip sharpening if the amount calculation returned zero or photo mode is on
@@ -1525,8 +1524,8 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * 0.125 + __HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.375 : 0;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : 0.75 + (__HQAA_EDGE_THRESHOLD * 0.25),0.004,0,0,0,0);
+	float TotalSubpix = __HQAA_SUBPIX * 0.125 * (1 - __FXAA_ADAPTIVE_SUBPIX) + __HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.375 : 0;
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : 0.5 + (__HQAA_EDGE_THRESHOLD * 0.5),0.004,0,0,0,0);
 	return saturate(output);
 }
 
@@ -1580,6 +1579,12 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
+#if (BUFFER_HEIGHT > 1000) // resolution >= 1080p - run +1 FXAA coarse pass
+	pass FXAACoarse
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderAdaptiveCoarse;
+	}
 #if (BUFFER_HEIGHT > 1400) // resolution >= 1440p - run +1 FXAA coarse pass
 	pass FXAACoarse
 	{
@@ -1598,6 +1603,7 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarse;
 	}
+#endif
 #endif
 #endif
 #endif
