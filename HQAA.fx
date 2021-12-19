@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.9.2 release
+ *                    v2.9.3 release
  *
  *                     by lordbean
  *
@@ -125,8 +125,8 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 0.00;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.2f,0.15f,0.1f,0.075f,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.25f,0.375f,0.5f,0.75f,0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.2,0.15,0.1,0.075,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.25,0.375,0.5,0.75,0};
 static const bool HQAA_OVERDRIVE_PRESET[5] = {0,0,0,0,0};
 static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 
@@ -1304,22 +1304,28 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Fetch some info about the FXAA result
     float3 e = tex2D(tex, posM).rgb;
 	
-	// Take weakest color as min sharpening amount
+	// Determine weakest color
 	float minsharpening = min(min(e.x, e.y), e.z);
 	
-	// Determine maximum sharpening applied to pure white
-	float maxsharpening = max(max(e.x, e.y), e.z) - minsharpening * 0.25;
-	maxsharpening *= maxsharpening;
+	// Determine strongest color
+	float maxsharpening = max(max(e.x, e.y), e.z);
 	
 	// Determine color contrast ratio of the pixel
 	float separation = max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b));
 	
+	// Check if this is a grayscale pixel
+	bool grayscale = separation < 0.08;
+	
 	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
-	float contrastceiling = 0.75 - separation;
-	contrastceiling *= contrastceiling;
+	float contrastceiling = maxsharpening - separation;
 	
 	// Calculate amount of sharpening to apply
-	float sharpening = max((abs(maxsharpening * contrastceiling) * sqrt(fxaaQualitySubpix)) - (fxaaQualityEdgeThreshold * fxaaQualityEdgeThreshold), 0);
+	if (grayscale) {
+		minsharpening *= 0.5;
+		separation = 0.0;
+	}
+	
+	float sharpening = max((maxsharpening * separation + minsharpening) * min(sqrt(fxaaQualitySubpix),minsharpening) - (fxaaQualityEdgeThreshold), 0);
 
 	// Skip sharpening if the amount calculation returned zero or photo mode is on
 	if (sharpening == 0 || __HQAA_OVERDRIVE)
