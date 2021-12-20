@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.10.1 release
+ *                    v2.10.2 release
  *
  *                     by lordbean
  *
@@ -993,7 +993,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
  __FxaaTex fxaaConsole360TexExpBiasNegTwo, __FxaaFloat2 fxaaQualityRcpFrame, __FxaaFloat4 fxaaConsoleRcpFrameOpt,
  __FxaaFloat4 fxaaConsoleRcpFrameOpt2, __FxaaFloat4 fxaaConsole360RcpFrameOpt2, __FxaaFloat fxaaQualitySubpix,
  __FxaaFloat fxaaQualityEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, __FxaaFloat fxaaConsoleEdgeSharpness,
- __FxaaFloat fxaaConsoleEdgeThreshold, __FxaaFloat fxaaConsoleEdgeThresholdMin, __FxaaFloat4 fxaaConsole360ConstDir) 
+ __FxaaFloat fxaaConsoleEdgeThreshold, __FxaaFloat fxaaConsoleEdgeThresholdMin, __FxaaFloat4 fxaaConsole360ConstDir, bool coloronly) 
  {
     __FxaaFloat2 posM;
     posM.x = pos.x;
@@ -1009,6 +1009,19 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 			lumatype = 0;
 			
 	float lumaMa = (lumatype == 0 ? rgbyM.x : (lumatype == 2 ? rgbyM.z : rgbyM.y));
+	
+	// Determine color contrast ratio of the input pixel
+	float separation = max(max(abs(rgbyM.r - rgbyM.g), abs(rgbyM.r - rgbyM.b)), abs(rgbyM.g - rgbyM.b));
+	
+	// Check if this is a grayscale pixel
+	bool grayscale = separation < 0.04;
+	
+	if (grayscale && coloronly)
+        #if (__FXAA_DISCARD == 1)
+            __FxaaDiscard;
+        #else
+            return rgbyM;
+        #endif
 	
     __FxaaFloat lumaS = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 0, 1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 0), fxaaQualityRcpFrame.xy));
@@ -1311,11 +1324,8 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Determine strongest color
 	float maxsharpening = max(max(e.x, e.y), e.z);
 	
-	// Determine color contrast ratio of the pixel
-	float separation = max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b));
-	
-	// Check if this is a grayscale pixel
-	bool grayscale = separation < 0.08;
+	// Determine color contrast ratio of the result pixel
+	separation = max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b));
 	
 	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
 	float contrastceiling = maxsharpening - separation;
@@ -1528,7 +1538,7 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX * 0.125 * (1 - __FXAA_ADAPTIVE_SUBPIX) + __HQAA_OVERDRIVE ? (__HQAA_SUBPIXBOOST * 0.375) : 0;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : (0.8 + (__HQAA_EDGE_THRESHOLD * 0.2)),0.004,0,0,0,0);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : (0.625 + (__HQAA_EDGE_THRESHOLD * 0.375)),0.004,0,0,0,0,true);
 	return saturate(output);
 }
 
@@ -1537,7 +1547,7 @@ float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : 
 	float TotalSubpix = __FXAA_ADAPTIVE_SUBPIX;
 	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 1 - __FXAA_ADAPTIVE_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,__HQAA_EDGE_THRESHOLD),0.004,0,0,0,0);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,__HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,false);
 	return saturate(output);
 }
 
