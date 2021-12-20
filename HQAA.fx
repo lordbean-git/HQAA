@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.0 release
+ *                    v3.0.1 release
  *
  *                     by lordbean
  *
@@ -125,8 +125,8 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 0.00;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.2,0.1,0.075,0.05,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.25,0.5,0.75,1.0,0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.25,0.15,0.1,0.075,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.375,0.5,0.625,0.75,0};
 static const bool HQAA_OVERDRIVE_PRESET[5] = {0,0,0,0,0};
 static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 
@@ -1327,22 +1327,19 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float maxsharpening = max(max(e.x, e.y), e.z);
 	
 	// Determine color contrast ratio of the result pixel
-	separation = max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b));
+	separation = abs(0.5 - max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b)));
 	
 	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
-	float contrastceiling = maxsharpening - separation;
+	float contrastceiling = maxsharpening * separation;
 	
 	// Check how strongly this pixel detected as aliasing
 	float detectionThreshold = range - fxaaQualityEdgeThreshold;
 	
 	// Calculate amount of sharpening to apply
-	if (grayscale)
-		minsharpening *= 0.5;
-	
-	float sharpening = (maxsharpening * separation + minsharpening) * fxaaQualitySubpix * detectionThreshold;
+	float sharpening = max(contrastceiling * minsharpening * fxaaQualitySubpix * (1 - fxaaQualityEdgeThreshold) - detectionThreshold, 0);
 
-	// Skip sharpening if photo mode is on
-	if (__HQAA_OVERDRIVE)
+	// Skip sharpening if photo mode is on or calc returns zero
+	if (__HQAA_OVERDRIVE || !sharpening)
 		return float4(tex2D(tex, posM).rgb, lumaMa);
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
@@ -1374,9 +1371,18 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
     float3 window = (b + d) + (f + h);
     float4 outColor = float4(saturate((window * wRGB + e) * rcpWeightRGB),lumaMa);
-    
-	outColor = lerp(float4(tex2D(tex,pos).rgb,lumaMa), outColor, sharpening * (1 + fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold));
-    return outColor;
+	float4 weightedOutColor = lerp(float4(e.rgb,lumaMa), outColor, sharpening);
+	float4 normalizedOutColor = (separation * weightedOutColor) + ((1 - separation) * float4(tex2D(tex,pos).rgb,lumaMa));
+	
+//	normalizedOutColor = lerp(weightedOutColor,float4(e.rgb,lumaMa),1 - detectionThreshold);
+/*	
+    if (grayscale)
+		outColor = lerp(float4(e.rgb,lumaMa), outColor, sharpening);
+	else
+		outColor = lerp(float4(tex2D(tex,pos).rgb,lumaMa), outColor, sharpening * (1 + fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold));
+*/
+
+    return normalizedOutColor;
 }
 
 /***************************************************************************************************************************************/
