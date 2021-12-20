@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v2.10 release
+ *                    v2.10.1 release
  *
  *                     by lordbean
  *
@@ -1035,6 +1035,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
             return rgbyM;
         #endif
 		
+		
     __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaNE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1,-1), fxaaQualityRcpFrame.xy));
@@ -1319,12 +1320,14 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
 	float contrastceiling = maxsharpening - separation;
 	
+	// Check how strongly this pixel detected as aliasing
+	float detectionThreshold = range - fxaaQualityEdgeThreshold;
+	
 	// Calculate amount of sharpening to apply
-	if (grayscale) {
+	if (grayscale)
 		minsharpening *= 0.5;
-		separation = 0.0;
-	}
-	float sharpening = max((maxsharpening * separation + minsharpening) * min(sqrt(fxaaQualitySubpix),minsharpening) - (fxaaQualityEdgeThreshold), 0);
+	
+	float sharpening = max((maxsharpening * separation + minsharpening) * fxaaQualitySubpix * detectionThreshold - fxaaQualityEdgeThreshold, 0);
 
 	// Skip sharpening if the amount calculation returned zero or photo mode is on
 	if (sharpening == 0 || __HQAA_OVERDRIVE)
@@ -1524,8 +1527,8 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * 0.125 * (1 - __FXAA_ADAPTIVE_SUBPIX) + __HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.375 : 0;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : 0.5 + (__HQAA_EDGE_THRESHOLD * 0.5),0.004,0,0,0,0);
+	float TotalSubpix = __HQAA_SUBPIX * 0.125 * (1 - __FXAA_ADAPTIVE_SUBPIX) + __HQAA_OVERDRIVE ? (__HQAA_SUBPIXBOOST * 0.375) : 0;
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,__HQAA_OVERDRIVE ? sqrt(__HQAA_EDGE_THRESHOLD) : (0.8 + (__HQAA_EDGE_THRESHOLD * 0.2)),0.004,0,0,0,0);
 	return saturate(output);
 }
 
