@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.2.1 release
+ *                    v3.3 release
  *
  *                     by lordbean
  *
@@ -125,15 +125,15 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 0.00;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.15,0.125,0.1,0.0625,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.5,0.625,0.75,1.0,0};
-static const bool HQAA_OVERDRIVE_PRESET[5] = {0,0,0,0,0};
-static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.15,0.125,0.1,0.0625};
+static const float HQAA_SUBPIX_PRESET[4] = {0.5,0.625,0.75,1.0};
+static const bool HQAA_OVERDRIVE_PRESET[4] = {0,0,0,0};
+static const float HQAA_SUBPIXBOOST_PRESET[4] = {0,0,0,0};
 
-#define __HQAA_EDGE_THRESHOLD preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset]
-#define __HQAA_SUBPIX preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset]
-#define __HQAA_OVERDRIVE preset == 4 ? OverdriveCustom : HQAA_OVERDRIVE_PRESET[preset]
-#define __HQAA_SUBPIXBOOST preset == 4 ? SubpixBoostCustom : HQAA_SUBPIXBOOST_PRESET[preset]
+#define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
+#define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
+#define __HQAA_OVERDRIVE (preset == 4 ? OverdriveCustom : HQAA_OVERDRIVE_PRESET[preset])
+#define __HQAA_SUBPIXBOOST (preset == 4 ? SubpixBoostCustom : HQAA_SUBPIXBOOST_PRESET[preset])
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -150,10 +150,10 @@ static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 
 // Configurable
 #define __SMAA_MAX_SEARCH_STEPS 112
-#define __SMAA_CORNER_ROUNDING (__HQAA_OVERDRIVE ? 50 : 10 * __HQAA_SUBPIX)
+#define __SMAA_CORNER_ROUNDING (__HQAA_OVERDRIVE == true ? 100 : (50 * __HQAA_SUBPIX))
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.125 : 0))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE ? __HQAA_SUBPIXBOOST * 0.25 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE == true ? (__HQAA_SUBPIXBOOST * 0.125) : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE == true ? (__HQAA_SUBPIXBOOST * 0.25) : 0))
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -269,7 +269,14 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 
     // Calculate lumas:
 	float3 middle = __SMAASamplePoint(colorTex, texcoord).rgb;
-	float3 weights = float3(middle.r > middle.g? 0.85 : 0.1, middle.r <= middle.g ? 0.85 : 0.1, 0.05);
+	float3 weights = float3(0,0,0);
+	
+	if (middle.r > middle.g && middle.r >= middle.b)
+		weights = float3(0.75, 0.2, 0.05);
+	else if (middle.g >= middle.r && middle.g >= middle.b)
+		weights = float3(0.2, 0.75, 0.05);
+	else
+		weights = float3(0.4, 0.4, 0.2);
 	
     float L = dot(middle, weights);
 
@@ -822,9 +829,9 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define __FXAA_ADAPTIVE_SUBPIX min(1 - BUFFER_HEIGHT / 4320, 1) * __HQAA_SUBPIX
+#define __FXAA_ADAPTIVE_SUBPIX (min(1 - BUFFER_HEIGHT / 4320, 1) * __HQAA_SUBPIX)
 
-#define __FXAA_QUALITY__PS 3
+#define __FXAA_QUALITY__PS 13
 #define __FXAA_QUALITY__P0 1
 #define __FXAA_QUALITY__P1 1
 #define __FXAA_QUALITY__P2 1
@@ -1000,16 +1007,16 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     posM.x = pos.x;
     posM.y = pos.y;
 	
-	int lumatype = 2; // assume blue is luma until determined otherwise
+	int lumatype = 1; // assume green is luma until determined otherwise
     __FxaaFloat4 rgbyM = __FxaaTexTop(tex, posM);
-	float lumatest = min(1.5 * rgbyM.x, 1.0);
-	if ((rgbyM.y > lumatest) || (rgbyM.x > lumatest))
-		if (rgbyM.y > lumatest) // use green if strong
-			lumatype = 1;
+	float lumatest = min(2.5 * rgbyM.y, 1.0);
+	if ((rgbyM.x > lumatest) || (rgbyM.z > lumatest))
+		if (rgbyM.z > lumatest) // use blue if strong
+			lumatype = 2;
 		else			// otherwise use red as luma
 			lumatype = 0;
 			
-	float lumaMa = (lumatype == 0 ? rgbyM.x : (lumatype == 2 ? rgbyM.z : rgbyM.y));
+	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
 	
 	// Determine color contrast ratio of the input pixel
 	float separation = max(max(abs(rgbyM.r - rgbyM.g), abs(rgbyM.r - rgbyM.b)), abs(rgbyM.g - rgbyM.b));
@@ -1314,70 +1321,22 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
     __FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
     __FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
+	
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
 
-	// Fetch some info about the FXAA result
-    float3 e = tex2D(tex, posM).rgb;
-	
-	// Determine weakest color
-	float minsharpening = min(min(e.x, e.y), e.z);
-	
-	// Determine strongest color
-	float maxsharpening = max(max(e.x, e.y), e.z);
-	
-	// Determine color contrast ratio of the result pixel
-	separation = abs(0.5 - max(max(abs(e.r - e.g), abs(e.r - e.b)), abs(e.g - e.b)));
-	
-	// Set contrast ceiling to prevent oversharpening of high color contrast pixels
-	float contrastceiling = maxsharpening * separation;
-	
 	// Check how strongly this pixel detected as aliasing
-	float detectionThreshold = range - fxaaQualityEdgeThreshold;
+	float detectionThreshold = range - rangeMaxClamped;
 	
-	// Calculate amount of sharpening to apply
-	float sharpening = max(contrastceiling * minsharpening * (2 - fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold) - detectionThreshold, 0);
+	// Calculate level of interpolation with original input
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
-	float subpixWeight = ((1 + fxaaQualityEdgeThreshold) * sqrt(fxaaQualitySubpix)) * separation;
+	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.5);
+	
+	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 
-	// Skip sharpening if photo mode is on or calc returns zero
-	if (__HQAA_OVERDRIVE || !sharpening)
-		return (subpixWeight * resultAA + ((1 - subpixWeight) * inputPixel));
-
-    float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
-    float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
-    float3 c = tex2Doffset(tex, posM, int2(1, -1)).rgb;
-    float3 d = tex2Doffset(tex, posM, int2(-1, 0)).rgb;
-    float3 f = tex2Doffset(tex, posM, int2(1, 0)).rgb;
-    float3 g = tex2Doffset(tex, posM, int2(-1, 1)).rgb;
-    float3 h = tex2Doffset(tex, posM, int2(0, 1)).rgb;
-    float3 i = tex2Doffset(tex, posM, int2(1, 1)).rgb;
-	
-    float3 mnRGB = min(min(min(d, e), min(f, b)), h);
-    float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
-    mnRGB += mnRGB2;
-
-    float3 mxRGB = max(max(max(d, e), max(f, b)), h);
-    float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
-    mxRGB += mxRGB2;
-	
-    float3 rcpMRGB = rcp(mxRGB);
-    float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);    
-	
-    ampRGB = rsqrt(ampRGB);
-    
-    float peak = 8.0;
-    float3 wRGB = -rcp(ampRGB * peak);
-
-    float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
-	
-    float3 window = (b + d) + (f + h);
-    float4 outColor = float4(saturate((window * wRGB + e) * rcpWeightRGB),lumaMa);
-	float4 weightedOutColor = lerp(float4(e.rgb,lumaMa), outColor, sharpening);
-	float4 normalizedOutColor = subpixWeight * weightedOutColor + ((1 - subpixWeight) * inputPixel);
-	
-    return normalizedOutColor;
+	// fart the result
+	return weightedresult;
 }
 
 /***************************************************************************************************************************************/
@@ -1541,34 +1500,34 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __FXAA_ADAPTIVE_SUBPIX;
-	if (__HQAA_OVERDRIVE)
-		TotalSubpix += 1 - __FXAA_ADAPTIVE_SUBPIX;
+	if (__HQAA_OVERDRIVE == true)
+		TotalSubpix += ((1 - __FXAA_ADAPTIVE_SUBPIX) * __HQAA_SUBPIXBOOST);
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.03125,__HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,0);
 	return saturate(output);
 }
 
 float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE)
-		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.875 + 0.125 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,1);
+	float TotalSubpix = 0.5 * __FXAA_ADAPTIVE_SUBPIX;
+	if (__HQAA_OVERDRIVE == true)
+		TotalSubpix += 0.5 * (1 - __FXAA_ADAPTIVE_SUBPIX);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + (0.375 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,1);
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE)
-		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.75 + 0.25 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,2);
+	float TotalSubpix = 0.5 * __FXAA_ADAPTIVE_SUBPIX;
+	if (__HQAA_OVERDRIVE == true)
+		TotalSubpix += 0.5 * (1 - __FXAA_ADAPTIVE_SUBPIX);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.5 + (0.5 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,2);
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE)
-		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + 0.375 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,0);
+	float TotalSubpix = 0.5 * __FXAA_ADAPTIVE_SUBPIX;
+	if (__HQAA_OVERDRIVE == true)
+		TotalSubpix += 0.5 * (1 - __FXAA_ADAPTIVE_SUBPIX);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.75 + (0.25 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,0);
 	return saturate(output);
 }
 
@@ -1613,19 +1572,19 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
-#if (BUFFER_HEIGHT > 1400) // resolution >= 1440p - run +1 FXAA
+#if (BUFFER_HEIGHT > 1400) // resolution >= 1440p
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarseColor;
 	}
-#if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K) - run +1 FXAA
+#if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K)
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarseGrayscale;
 	}
-#if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K) - run +1 FXAA
+#if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K)
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
@@ -1634,12 +1593,12 @@ technique HQAA <
 #endif
 #endif
 #endif
-	pass FXAACoarse
+	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
 	}
-	pass FXAAFine
+	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveFine;
