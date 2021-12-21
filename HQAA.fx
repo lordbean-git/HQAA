@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.0.1 release
+ *                    v3.1 release
  *
  *                     by lordbean
  *
@@ -1374,14 +1374,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float4 weightedOutColor = lerp(float4(e.rgb,lumaMa), outColor, sharpening);
 	float4 normalizedOutColor = (separation * weightedOutColor) + ((1 - separation) * float4(tex2D(tex,pos).rgb,lumaMa));
 	
-//	normalizedOutColor = lerp(weightedOutColor,float4(e.rgb,lumaMa),1 - detectionThreshold);
-/*	
-    if (grayscale)
-		outColor = lerp(float4(e.rgb,lumaMa), outColor, sharpening);
-	else
-		outColor = lerp(float4(tex2D(tex,pos).rgb,lumaMa), outColor, sharpening * (1 + fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold));
-*/
-
     return normalizedOutColor;
 }
 
@@ -1552,6 +1544,31 @@ float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : 
 	return saturate(output);
 }
 
+float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
+	if (__HQAA_OVERDRIVE)
+		TotalSubpix += 0.375 * __HQAA_SUBPIX;
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + 0.375 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,1);
+	return saturate(output);
+}
+float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
+	if (__HQAA_OVERDRIVE)
+		TotalSubpix += 0.375 * __HQAA_SUBPIX;
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.375 + 0.625 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,2);
+	return saturate(output);
+}
+float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
+	if (__HQAA_OVERDRIVE)
+		TotalSubpix += 0.375 * __HQAA_SUBPIX;
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.125 + 0.875 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,0);
+	return saturate(output);
+}
+
 /***************************************************************************************************************************************/
 /*********************************************************** SHADER CODE END ***********************************************************/
 /***************************************************************************************************************************************/
@@ -1597,27 +1614,27 @@ technique HQAA <
 	pass FXAAFine
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveFine;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseColor;
 	}
 #if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K) - run +1 FXAA
 	pass FXAAFine
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveFine;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseGrayscale;
 	}
 #if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K) - run +1 FXAA
 	pass FXAAFine
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveFine;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
 	}
 #endif
 #endif
 #endif
-	pass FXAAFine
+	pass FXAACoarse
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveFine;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
 	}
 	pass FXAAFine
 	{
