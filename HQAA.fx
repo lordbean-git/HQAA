@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.3.1 release
+ *                    v3.3.2 release
  *
  *                     by lordbean
  *
@@ -123,7 +123,7 @@ uniform float FxaaSharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Sharpening Amount";
 	ui_tooltip = "Determines how strongly FXAA results will be sharpened";
 	ui_category = "Custom Preset";
-> = 0.375;
+> = 0.5;
 
 uniform int PmodeWarning <
 	ui_type = "radio";
@@ -149,7 +149,7 @@ static const float HQAA_SUBPIX_PRESET[4] = {0.5,0.625,0.75,1.0};
 static const bool HQAA_OVERDRIVE_PRESET[4] = {0,0,0,0};
 static const float HQAA_SUBPIXBOOST_PRESET[4] = {0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[4] = {true,true,true,true};
-static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0,0.125,0.25,0.375};
+static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0.125,0.25,0.375,0.5};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
 #define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
@@ -1354,7 +1354,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Calculate level of interpolation with original input
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
-	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.125);
+	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.75);
 	
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	float sharpening = 0;
