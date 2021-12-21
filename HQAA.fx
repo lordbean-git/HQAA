@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.1.1 release
+ *                    v3.1.2 release
  *
  *                     by lordbean
  *
@@ -1549,7 +1549,7 @@ float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texc
 	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
 	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + 0.375 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,1);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.875 + 0.125 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,1);
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1557,7 +1557,7 @@ float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 
 	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
 	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.375 + 0.625 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,2);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + 0.375 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,2);
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1565,7 +1565,7 @@ float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texco
 	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
 	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.125 + 0.875 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,0);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.375 + 0.625 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,0);
 	return saturate(output);
 }
 
