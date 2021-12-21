@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.1 release
+ *                    v3.1.1 release
  *
  *                     by lordbean
  *
@@ -1336,7 +1336,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float detectionThreshold = range - fxaaQualityEdgeThreshold;
 	
 	// Calculate amount of sharpening to apply
-	float sharpening = max(contrastceiling * minsharpening * fxaaQualitySubpix * (1 - fxaaQualityEdgeThreshold) - detectionThreshold, 0);
+	float sharpening = max(contrastceiling * minsharpening * (2 - fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold) - detectionThreshold, 0);
 
 	// Skip sharpening if photo mode is on or calc returns zero
 	if (__HQAA_OVERDRIVE || !sharpening)
@@ -1611,19 +1611,19 @@ technique HQAA <
 		SRGBWriteEnable = true;
 	}
 #if (BUFFER_HEIGHT > 1400) // resolution >= 1440p - run +1 FXAA
-	pass FXAAFine
+	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarseColor;
 	}
 #if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K) - run +1 FXAA
-	pass FXAAFine
+	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarseGrayscale;
 	}
 #if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K) - run +1 FXAA
-	pass FXAAFine
+	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
