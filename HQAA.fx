@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.1.2 release
+ *                    v3.2 release
  *
  *                     by lordbean
  *
@@ -125,8 +125,8 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 0.00;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.25,0.15,0.1,0.075,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.375,0.5,0.625,0.75,0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.15,0.125,0.1,0.0625,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.5,0.625,0.75,1.0,0};
 static const bool HQAA_OVERDRIVE_PRESET[5] = {0,0,0,0,0};
 static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 
@@ -1337,10 +1337,13 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	// Calculate amount of sharpening to apply
 	float sharpening = max(contrastceiling * minsharpening * (2 - fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold) - detectionThreshold, 0);
+	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
+	float4 inputPixel = tex2D(tex,pos);
+	float subpixWeight = ((1 + fxaaQualityEdgeThreshold) * sqrt(fxaaQualitySubpix)) * separation;
 
 	// Skip sharpening if photo mode is on or calc returns zero
 	if (__HQAA_OVERDRIVE || !sharpening)
-		return float4(tex2D(tex, posM).rgb, lumaMa);
+		return (subpixWeight * resultAA + ((1 - subpixWeight) * inputPixel));
 
     float3 a = tex2Doffset(tex, posM, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(tex, posM, int2(0, -1)).rgb;
@@ -1372,7 +1375,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     float3 window = (b + d) + (f + h);
     float4 outColor = float4(saturate((window * wRGB + e) * rcpWeightRGB),lumaMa);
 	float4 weightedOutColor = lerp(float4(e.rgb,lumaMa), outColor, sharpening);
-	float4 normalizedOutColor = (separation * weightedOutColor) + ((1 - separation) * float4(tex2D(tex,pos).rgb,lumaMa));
+	float4 normalizedOutColor = subpixWeight * weightedOutColor + ((1 - subpixWeight) * inputPixel);
 	
     return normalizedOutColor;
 }
@@ -1557,7 +1560,7 @@ float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 
 	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
 	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + 0.375 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,2);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.75 + 0.25 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,2);
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1565,7 +1568,7 @@ float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texco
 	float TotalSubpix = 0.125 * __HQAA_SUBPIX;
 	if (__HQAA_OVERDRIVE)
 		TotalSubpix += 0.375 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.375 + 0.625 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,0);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + 0.375 * __HQAA_EDGE_THRESHOLD,0.004,0,0,0,0,0);
 	return saturate(output);
 }
 
