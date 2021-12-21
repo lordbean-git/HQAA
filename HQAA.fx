@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.2 release
+ *                    v3.2.1 release
  *
  *                     by lordbean
  *
@@ -1338,7 +1338,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Calculate amount of sharpening to apply
 	float sharpening = max(contrastceiling * minsharpening * (2 - fxaaQualitySubpix) * (2 - fxaaQualityEdgeThreshold) - detectionThreshold, 0);
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
-	float4 inputPixel = tex2D(tex,pos);
+	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
 	float subpixWeight = ((1 + fxaaQualityEdgeThreshold) * sqrt(fxaaQualitySubpix)) * separation;
 
 	// Skip sharpening if photo mode is on or calc returns zero
