@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.3 release
+ *                    v3.3.1 release
  *
  *                     by lordbean
  *
@@ -97,14 +97,33 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
         ui_category = "Custom Preset";
-> = 0.1;
+> = 0.0625;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
         ui_category = "Custom Preset";
-> = 0.5;
+> = 1.0;
+
+uniform int spacer1 <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_category = "Custom Preset";
+>;
+
+uniform bool FxaaSharpenEnableCustom <
+	ui_label = "Enable sharpening of FXAA result?";
+	ui_tooltip = "When enabled, HQAA will run CAS on FXAA outputs";
+	ui_category = "Custom Preset";
+> = true;
+
+uniform float FxaaSharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0.000; ui_max = 1.000; ui_step = 0.005;
+	ui_label = "Sharpening Amount";
+	ui_tooltip = "Determines how strongly FXAA results will be sharpened";
+	ui_category = "Custom Preset";
+> = 0.375;
 
 uniform int PmodeWarning <
 	ui_type = "radio";
@@ -129,11 +148,15 @@ static const float HQAA_THRESHOLD_PRESET[4] = {0.15,0.125,0.1,0.0625};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5,0.625,0.75,1.0};
 static const bool HQAA_OVERDRIVE_PRESET[4] = {0,0,0,0};
 static const float HQAA_SUBPIXBOOST_PRESET[4] = {0,0,0,0};
+static const bool HQAA_SHARPEN_ENABLE_PRESET[4] = {true,true,true,true};
+static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0,0.125,0.25,0.375};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
 #define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
 #define __HQAA_OVERDRIVE (preset == 4 ? OverdriveCustom : HQAA_OVERDRIVE_PRESET[preset])
 #define __HQAA_SUBPIXBOOST (preset == 4 ? SubpixBoostCustom : HQAA_SUBPIXBOOST_PRESET[preset])
+#define __HQAA_SHARPEN_ENABLE (preset == 4 ? FxaaSharpenEnableCustom : HQAA_SHARPEN_ENABLE_PRESET[preset])
+#define __HQAA_SHARPEN_AMOUNT (preset == 4 ? FxaaSharpenAmountCustom : HQAA_SHARPEN_STRENGTH_PRESET[preset])
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1331,9 +1354,46 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Calculate level of interpolation with original input
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
-	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.5);
+	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.125);
 	
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
+	float sharpening = 0;
+	
+	if (__HQAA_SHARPEN_ENABLE == true)
+		sharpening += __HQAA_SHARPEN_AMOUNT - detectionThreshold;
+	
+	// CAS is enabled and wanted? - sharpen output
+	if (sharpening > 0) {
+		float3 a = tex2Doffset(tex, pos, int2(-1, -1)).rgb;
+		float3 b = tex2Doffset(tex, pos, int2(0, -1)).rgb;
+		float3 c = tex2Doffset(tex, pos, int2(1, -1)).rgb;
+		float3 d = tex2Doffset(tex, pos, int2(-1, 0)).rgb;
+		float3 e = float3(weightedresult.rgb);
+		float3 f = tex2Doffset(tex, pos, int2(1, 0)).rgb;
+		float3 g = tex2Doffset(tex, pos, int2(-1, 1)).rgb;
+		float3 h = tex2Doffset(tex, pos, int2(0, 1)).rgb;
+		float3 i = tex2Doffset(tex, pos, int2(1, 1)).rgb;
+		
+		float3 mnRGB = min(min(min(d, e), min(f, b)), h);
+		float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
+		mnRGB += mnRGB2;
+		float3 mxRGB = max(max(max(d, e), max(f, b)), h);
+		float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
+		mxRGB += mxRGB2;
+		
+		float3 rcpMRGB = rcp(mxRGB);
+		float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);
+		
+		ampRGB = rsqrt(ampRGB);
+		
+		float peak = 8.0;
+		float3 wRGB = -rcp(ampRGB * peak);
+		float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
+		
+		float3 window = (b + d) + (f + h);
+		float3 outColor = saturate((window * wRGB + e) * rcpWeightRGB);
+		weightedresult = float4(lerp(e.rgb, outColor.rgb, sharpening), weightedresult.a);
+	}
 
 	// fart the result
 	return weightedresult;
