@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.4.1 release
+ *                    v3.4.2 release
  *
  *                     by lordbean
  *
@@ -153,6 +153,12 @@ uniform float FxaaSharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Custom Preset";
 > = 0.0;
 
+uniform bool FxaaDitheringCustom <
+	ui_label = "Enable FXAA result dithering";
+	ui_tooltip = "Perform random dithering on FXAA anti-aliasing results\nwhich can sometimes help improve image clarity";
+	ui_category = "Custom Preset";
+> = true;
+
 uniform int spacer4 <
 	ui_type = "radio";
 	ui_label = " ";
@@ -193,15 +199,18 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 0.00;
 
+uniform int random_value < source = "random"; min = 0; max = 100; >;
+
 static const float HQAA_THRESHOLD_PRESET[4] = {0.15,0.125,0.1,0.0625};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5,0.625,0.75,1.0};
-static const bool HQAA_OVERDRIVE_PRESET[4] = {0,0,0,0};
+static const bool HQAA_OVERDRIVE_PRESET[4] = {false,false,false,false};
 static const float HQAA_SUBPIXBOOST_PRESET[4] = {0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[4] = {false,false,true,true};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[4] = {0,0,0,0};
 static const int HQAA_FXAA_QUALITY_PRESET[4] = {3,6,9,13};
 static const int HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0,5,10,20};
+static const bool HQAA_FXAA_DITHERING_PRESET[4] = {false,false,true,true};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
 #define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
@@ -212,6 +221,7 @@ static const int HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0,5,10,20};
 #define __HQAA_SHARPEN_MODE (preset == 4 ? FxaaSharpenAdaptiveCustom : HQAA_SHARPEN_MODE_PRESET[preset])
 #define __HQAA_FXAA_QUALITY (preset == 4 ? FxaaQualityCustom : HQAA_FXAA_QUALITY_PRESET[preset])
 #define __HQAA_SMAA_CORNERING (preset == 4 ? SmaaCorneringCustom : HQAA_SMAA_CORNER_ROUNDING_PRESET[preset])
+#define __HQAA_FXAA_DITHERING (preset == 4 ? FxaaDitheringCustom : HQAA_FXAA_DITHERING_PRESET[preset])
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -914,17 +924,17 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 
 #define __FXAA_QUALITY__P0 1
 #define __FXAA_QUALITY__P1 1
-#define __FXAA_QUALITY__P2 2
+#define __FXAA_QUALITY__P2 1
 #define __FXAA_QUALITY__P3 1
-#define __FXAA_QUALITY__P4 2
+#define __FXAA_QUALITY__P4 1
 #define __FXAA_QUALITY__P5 1
-#define __FXAA_QUALITY__P6 2
+#define __FXAA_QUALITY__P6 1
 #define __FXAA_QUALITY__P7 1
-#define __FXAA_QUALITY__P8 2
+#define __FXAA_QUALITY__P8 1
 #define __FXAA_QUALITY__P9 1
-#define __FXAA_QUALITY__P10 2
+#define __FXAA_QUALITY__P10 1
 #define __FXAA_QUALITY__P11 1
-#define __FXAA_QUALITY__P12 2
+#define __FXAA_QUALITY__P12 1
 #define __FXAA_QUALITY__PRESET 39
 #define __FXAA_PC 1
 #define __FXAA_HLSL_3 1
@@ -1399,10 +1409,19 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Check how strongly this pixel detected as aliasing
 	float detectionThreshold = range - rangeMaxClamped;
 	
+	// Set dither range
+	int randomsign = 1;
+	if (float(random_value * 0.5) == trunc(float(random_value / 2)))
+		randomsign = -1;
+	float randomDither = float((random_value / 200) * randomsign);
+	
+	if (__HQAA_FXAA_DITHERING == 0)
+		randomDither = 0;
+	
 	// Calculate level of interpolation with original input
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
-	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.75);
+	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold + randomDither, 1), 0.5);
 	
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	float sharpening = 0;
