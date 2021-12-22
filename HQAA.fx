@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.4.3 release
+ *                    v3.4.4 release
  *
  *                     by lordbean
  *
@@ -1644,7 +1644,7 @@ float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texc
 	float TotalSubpix = 0.5 * __FXAA_ADAPTIVE_SUBPIX;
 	if (__HQAA_OVERDRIVE == true)
 		TotalSubpix += 0.5 * (1 - __FXAA_ADAPTIVE_SUBPIX);
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.625 + (0.375 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,1,min(6, __HQAA_FXAA_QUALITY));
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.25 + (0.75 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,1,min(4, __HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1652,7 +1652,7 @@ float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 
 	float TotalSubpix = 0.5 * __FXAA_ADAPTIVE_SUBPIX;
 	if (__HQAA_OVERDRIVE == true)
 		TotalSubpix += 0.5 * (1 - __FXAA_ADAPTIVE_SUBPIX);
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.5 + (0.5 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,2,min(6, __HQAA_FXAA_QUALITY));
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.5 + (0.5 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,2,min(2, __HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1660,7 +1660,7 @@ float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texco
 	float TotalSubpix = 0.5 * __FXAA_ADAPTIVE_SUBPIX;
 	if (__HQAA_OVERDRIVE == true)
 		TotalSubpix += 0.5 * (1 - __FXAA_ADAPTIVE_SUBPIX);
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.75 + (0.25 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,0,min(6, __HQAA_FXAA_QUALITY));
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,0.375 + (0.625 * __HQAA_EDGE_THRESHOLD),0.004,0,0,0,0,0,min(3, __HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 
