@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.3.2 release
+ *                    v3.3.3 release
  *
  *                     by lordbean
  *
@@ -118,17 +118,25 @@ uniform bool FxaaSharpenEnableCustom <
 	ui_category = "Custom Preset";
 > = true;
 
+uniform int FxaaSharpenAdaptiveCustom <
+	ui_type = "radio";
+	ui_items = "Automatic\0Manual\0";
+	ui_label = "Sharpening Mode";
+	ui_tooltip = "Automatic sharpening = FXAA will try to guess what amount\nof sharpening will look good on a per-pixel basis.\n\nManual sharpening = FXAA will always apply the\nsame amount of sharpening.";
+	ui_category = "Custom Preset";
+> = 0;
+
 uniform float FxaaSharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.000; ui_max = 1.000; ui_step = 0.005;
 	ui_label = "Sharpening Amount";
-	ui_tooltip = "Determines how strongly FXAA results will be sharpened";
+	ui_tooltip = "Set the amount of manual sharpening to apply to FXAA results";
 	ui_category = "Custom Preset";
-> = 0.5;
+> = 0.0;
 
 uniform int PmodeWarning <
 	ui_type = "radio";
 	ui_label = " ";	
-	ui_text ="\n>>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
+	ui_text ="\n\n>>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
 	ui_category = "Custom Preset";
 >;
 
@@ -149,7 +157,8 @@ static const float HQAA_SUBPIX_PRESET[4] = {0.5,0.625,0.75,1.0};
 static const bool HQAA_OVERDRIVE_PRESET[4] = {0,0,0,0};
 static const float HQAA_SUBPIXBOOST_PRESET[4] = {0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[4] = {true,true,true,true};
-static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0.125,0.25,0.375,0.5};
+static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0,0,0,0};
+static const int HQAA_SHARPEN_MODE_PRESET[4] = {0,0,0,0};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
 #define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
@@ -157,6 +166,7 @@ static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0.125,0.25,0.375,0.5};
 #define __HQAA_SUBPIXBOOST (preset == 4 ? SubpixBoostCustom : HQAA_SUBPIXBOOST_PRESET[preset])
 #define __HQAA_SHARPEN_ENABLE (preset == 4 ? FxaaSharpenEnableCustom : HQAA_SHARPEN_ENABLE_PRESET[preset])
 #define __HQAA_SHARPEN_AMOUNT (preset == 4 ? FxaaSharpenAmountCustom : HQAA_SHARPEN_STRENGTH_PRESET[preset])
+#define __HQAA_SHARPEN_MODE (preset == 4 ? FxaaSharpenAdaptiveCustom : HQAA_SHARPEN_MODE_PRESET[preset])
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1360,7 +1370,10 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float sharpening = 0;
 	
 	if (__HQAA_SHARPEN_ENABLE == true)
-		sharpening += __HQAA_SHARPEN_AMOUNT - detectionThreshold;
+		if (__HQAA_SHARPEN_MODE == 1)
+			sharpening += __HQAA_SHARPEN_AMOUNT - detectionThreshold;
+		else
+			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold);
 	
 	// CAS is enabled and wanted? - sharpen output
 	if (sharpening > 0) {
