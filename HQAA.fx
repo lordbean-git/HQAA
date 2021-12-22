@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.4.4 release
+ *                    v3.4.5 release
  *
  *                     by lordbean
  *
@@ -157,7 +157,7 @@ uniform bool FxaaDitheringCustom <
 	ui_label = "Enable FXAA result dithering";
 	ui_tooltip = "Perform random dithering on FXAA anti-aliasing results\nwhich can sometimes help improve image clarity";
 	ui_category = "Custom Preset";
-> = true;
+> = false;
 
 uniform int spacer4 <
 	ui_type = "radio";
@@ -210,7 +210,7 @@ static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[4] = {0,0,0,0};
 static const int HQAA_FXAA_QUALITY_PRESET[4] = {3,6,9,13};
 static const int HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0,5,10,20};
-static const bool HQAA_FXAA_DITHERING_PRESET[4] = {false,false,true,true};
+static const bool HQAA_FXAA_DITHERING_PRESET[4] = {true,true,false,false};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
 #define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
@@ -260,6 +260,7 @@ static const bool HQAA_FXAA_DITHERING_PRESET[4] = {false,false,true,true};
 #define __SMAA_AREATEX_SELECT(sample) sample.rg
 #define __SMAA_SEARCHTEX_SELECT(sample) sample.r
 #define __SMAA_DECODE_VELOCITY(sample) sample.rg
+#define __SMAA_DISABLE_DIAG_DETECTION // diagonal detection is surprisingly slow and doesn't add much
 
 // Constants
 #define __SMAA_AREATEX_MAX_DISTANCE 16
@@ -336,13 +337,14 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
 }
 #endif // __SMAA_INCLUDE_VS
 
-/////////////////////////////////////////////// SMAA PIXEL SHADERS ////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////// SMAA PIXEL SHADERS ////////////////////////////////////////////////////
 
 #if __SMAA_INCLUDE_PS
 
+
+
+/////////////////////////////////////////////// LUMA EDGE DETECTION ////////////////////////////////////////////////////
 /**
- * Luma Edge Detection
- *
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'colorTex' should be a non-sRGB texture.
  */
@@ -361,12 +363,15 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	
 	if (middle.r > middle.g && middle.r >= middle.b)
 		// strong red channel available
-		weights = float3(1, 0, 0);
+		weights = float3(0.8, 0.2, 0);
 	else if (middle.g >= middle.r && middle.g >= middle.b)
 		// strong green channel available
-		weights = float3(0, 1, 0);
+		weights = float3(0.2, 0.8, 0);
+	else if (abs(middle.r - middle.g) < 0.05 && (middle.r + middle.g) < middle.b)
+		// very weak red/green channels, fall back to blue for luma
+		weights = float3(0.25, 0.25, 0.5);
 	else
-		// neither red or green was the strongest color
+		// there's at least some signal to red and/or green
 		weights = float3(0.5, 0.5, 0);
 	
     float L = dot(middle, weights);
@@ -402,9 +407,8 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     return edges;
 }
 
+/////////////////////////////////////////////// COLOR EDGE DETECTION ////////////////////////////////////////////////////
 /**
- * Color Edge Detection
- *
  * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
  * thus 'colorTex' should be a non-sRGB texture.
  */
@@ -462,7 +466,9 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 }
 
 
-#if !defined(SMAA_DISABLE_DIAG_DETECTION)
+#if !defined(__SMAA_DISABLE_DIAG_DETECTION)
+
+/////////////////////////////////////////////// DIAGONAL SEARCH FUNCTIONS ////////////////////////////////////////////////////
 
 /**
  * Allows to decode two binary values from a bilinear-filtered access.
@@ -618,6 +624,7 @@ float2 SMAACalculateDiagWeights(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(H
 #endif
 
 
+/////////////////////////////////////////////// X,Y SEARCH FUNCTIONS ////////////////////////////////////////////////////
 /**
  * This allows to determine how much length should we add in the last step
  * of the searches. It takes the bilinearly interpolated edge (see 
@@ -647,42 +654,23 @@ float SMAASearchLength(__SMAATexture2D(HQAAsearchTex), float2 e, float offset) {
  * Horizontal/vertical search functions for the 2nd pass.
  */
 float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
-    /**
-     * @PSEUDO_GATHER4
-     * This texcoord has been offset by (-0.25, -0.125) in the vertex shader to
-     * sample between edge, thus fetching four edges in a row.
-     * Sampling with different offsets in each direction allows to disambiguate
-     * which edges are active from the four fetched ones.
-     */
     float2 e = float2(0.0, 1.0);
     while (texcoord.x > end && 
-           e.g > 0.8281 && // Is there some edge not activated?
-           e.r == 0.0) { // Or is there a crossing edge that breaks the line?
+           e.g > 0.0 && // Is there some edge not activated?
+           e.r <= 0.0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
     }
 
     float offset = mad(-(255.0 / 127.0), SMAASearchLength(__SMAATexturePass2D(HQAAsearchTex), e, 0.0), 3.25);
     return mad(__SMAA_RT_METRICS.x, offset, texcoord.x);
-
-    // Non-optimized version:
-    // We correct the previous (-0.25, -0.125) offset we applied:
-    // texcoord.x += 0.25 * __SMAA_RT_METRICS.x;
-
-    // The searches are bias by 1, so adjust the coords accordingly:
-    // texcoord.x += __SMAA_RT_METRICS.x;
-
-    // Disambiguate the length added by the last step:
-    // texcoord.x += 2.0 * __SMAA_RT_METRICS.x; // Undo last step
-    // texcoord.x -= __SMAA_RT_METRICS.x * (255.0 / 127.0) * SMAASearchLength(__SMAATexturePass2D(HQAAsearchTex), e, 0.0);
-    // return mad(__SMAA_RT_METRICS.x, offset, texcoord.x);
 }
 
 float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
     while (texcoord.x < end && 
-           e.g > 0.8281 && // Is there some edge not activated?
-           e.r == 0.0) { // Or is there a crossing edge that breaks the line?
+           e.g > 0.0 && // Is there some edge not activated?
+           e.r <= 0.00) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -693,8 +681,8 @@ float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearch
 float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
     while (texcoord.y > end && 
-           e.r > 0.8281 && // Is there some edge not activated?
-           e.g == 0.0) { // Or is there a crossing edge that breaks the line?
+           e.r > 0.0 && // Is there some edge not activated?
+           e.g <= 0.0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -705,8 +693,8 @@ float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex
 float SMAASearchYDown(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
     while (texcoord.y < end && 
-           e.r > 0.8281 && // Is there some edge not activated?
-           e.g == 0.0) { // Or is there a crossing edge that breaks the line?
+           e.r > 0.0 && // Is there some edge not activated?
+           e.g <= 0.0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -734,7 +722,7 @@ float2 SMAAArea(__SMAATexture2D(HQAAareaTex), float2 dist, float e1, float e2, f
 
 
 void SMAADetectHorizontalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout float2 weights, float4 texcoord, float2 d) {
-    #if !defined(SMAA_DISABLE_CORNER_DETECTION)
+    #if !defined(__SMAA_DISABLE_CORNER_DETECTION)
     float2 leftRight = step(d.xy, d.yx);
     float2 rounding = (1.0 - __SMAA_CORNER_ROUNDING_NORM) * leftRight;
 
@@ -751,7 +739,7 @@ void SMAADetectHorizontalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout floa
 }
 
 void SMAADetectVerticalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout float2 weights, float4 texcoord, float2 d) {
-    #if !defined(SMAA_DISABLE_CORNER_DETECTION)
+    #if !defined(__SMAA_DISABLE_CORNER_DETECTION)
     float2 leftRight = step(d.xy, d.yx);
     float2 rounding = (1.0 - __SMAA_CORNER_ROUNDING_NORM) * leftRight;
 
@@ -781,7 +769,7 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
 
     __SMAA_BRANCH
     if (e.g > 0.0) { // Edge at north
-        #if !defined(SMAA_DISABLE_DIAG_DETECTION)
+        #if !defined(__SMAA_DISABLE_DIAG_DETECTION)
         // Diagonals have both north and west edges, so searching for them in
         // one of the boundaries is enough.
         weights.rg = SMAACalculateDiagWeights(__SMAATexturePass2D(HQAAedgesTex), __SMAATexturePass2D(HQAAareaTex), texcoord, e, subsampleIndices);
@@ -828,7 +816,7 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
         coords.y = texcoord.y;
         SMAADetectHorizontalCornerPattern(__SMAATexturePass2D(HQAAedgesTex), weights.rg, coords.xyzy, d);
 
-        #if !defined(SMAA_DISABLE_DIAG_DETECTION)
+        #if !defined(__SMAA_DISABLE_DIAG_DETECTION)
         } else
             e.r = 0.0; // Skip vertical processing.
         #endif
@@ -1599,19 +1587,11 @@ float2 HQSMAAEdgeDetectionWrapPS(
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
 	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
-	float2 color = SMAAColorEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
 	
-	float2 result = float2(0, 0);
-	
-	if (color.r > luma.r)
-		result = float2(color.r, lerp(luma.g, color.g, tex2D(HQAAcolorGammaSampler,texcoord).g));
-	else
-		result = luma;
-	
-	if (dot(result, float2(1.0, 1.0)) == 0.0)
+	if (dot(luma, float2(1.0, 1.0)) == 0.0)
 		discard;
 	
-	return result;
+	return luma;
 }
 float4 HQSMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
