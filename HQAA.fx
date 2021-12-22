@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.4.2 release
+ *                    v3.4.3 release
  *
  *                     by lordbean
  *
@@ -1426,11 +1426,14 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	float sharpening = 0;
 	
-	if (__HQAA_SHARPEN_ENABLE == true)
+	if (__HQAA_SHARPEN_ENABLE == true) {
 		if (__HQAA_SHARPEN_MODE == 1)
 			sharpening += __HQAA_SHARPEN_AMOUNT - detectionThreshold;
 		else
 			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold);
+		if (__HQAA_FXAA_DITHERING == 1)
+			sharpening *= (1 + randomDither * 0.25);
+	}
 	
 	// CAS is enabled and wanted? - sharpen output
 	if (sharpening > 0) {
