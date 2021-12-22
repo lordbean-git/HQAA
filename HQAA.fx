@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.3.3 release
+ *                    v3.3.4 release
  *
  *                     by lordbean
  *
@@ -305,11 +305,14 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float3 weights = float3(0,0,0);
 	
 	if (middle.r > middle.g && middle.r >= middle.b)
-		weights = float3(0.75, 0.2, 0.05);
+		// strong red channel available
+		weights = float3(1, 0, 0);
 	else if (middle.g >= middle.r && middle.g >= middle.b)
-		weights = float3(0.2, 0.75, 0.05);
+		// strong green channel available
+		weights = float3(0, 1, 0);
 	else
-		weights = float3(0.4, 0.4, 0.2);
+		// neither red or green was the strongest color
+		weights = float3(0.5, 0.5, 0);
 	
     float L = dot(middle, weights);
 
@@ -1040,12 +1043,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     posM.x = pos.x;
     posM.y = pos.y;
 	
-	int lumatype = 1; // assume green is luma until determined otherwise
-    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, posM);
-	float lumatest = min(2.5 * rgbyM.y, 1.0);
-	if ((rgbyM.x > lumatest) || (rgbyM.z > lumatest))
-		if (rgbyM.z > lumatest) // use blue if strong
-			lumatype = 2;
+	int lumatype = 2; // assume blue is luma until determined otherwise
+    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
+	float lumatest = min(1.25 * rgbyM.b, 1.0);
+	if ((rgbyM.r > lumatest) || (rgbyM.g > lumatest))
+		if (rgbyM.g > lumatest) // use green if strong
+			lumatype = 1;
 		else			// otherwise use red as luma
 			lumatype = 0;
 			
