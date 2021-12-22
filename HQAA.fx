@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.4 release
+ *                    v3.4.1 release
  *
  *                     by lordbean
  *
@@ -88,7 +88,13 @@ uniform int preset <
 uniform int customintro <
 	ui_type = "radio";
 	ui_label = " ";	
-	ui_text ="-------------------------------------------------------\nThese settings are used when Custom preset is selected.\n-------------------------------------------------------\n";
+	ui_text ="\n-------------------------------------------------------\nBelow settings are used when Custom preset is selected.\n-------------------------------------------------------\n";
+>;
+
+uniform int spacer3 <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n------------------------Global Options----------------------------";
 	ui_category = "Custom Preset";
 >;
 
@@ -105,6 +111,13 @@ uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
         ui_category = "Custom Preset";
 > = 1.0;
+
+uniform int spacer2 <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n-------------------------FXAA Options-----------------------------";
+	ui_category = "Custom Preset";
+>;
 
 uniform int FxaaQualityCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 2; ui_max = 13; ui_step = 1;
@@ -140,10 +153,31 @@ uniform float FxaaSharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Custom Preset";
 > = 0.0;
 
+uniform int spacer4 <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n-------------------------SMAA Options-----------------------------";
+	ui_category = "Custom Preset";
+>;
+
+uniform int SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_label = "SMAA Corner Rounding";
+	ui_tooltip = "Affects the amount of blending performed when SMAA\ndetects crossing edges";
+    ui_category = "Custom Preset";
+> = 20;
+
+uniform int spacer5 <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n------------------------Overdrive Mode----------------------------";
+	ui_category = "Custom Preset";
+>;
+
 uniform int PmodeWarning <
 	ui_type = "radio";
 	ui_label = " ";	
-	ui_text ="\n\n>>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
+	ui_text =">>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
 	ui_category = "Custom Preset";
 >;
 
@@ -167,6 +201,7 @@ static const bool HQAA_SHARPEN_ENABLE_PRESET[4] = {false,false,true,true};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[4] = {0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[4] = {0,0,0,0};
 static const int HQAA_FXAA_QUALITY_PRESET[4] = {3,6,9,13};
+static const int HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0,5,10,20};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? EdgeThresholdCustom : HQAA_THRESHOLD_PRESET[preset])
 #define __HQAA_SUBPIX (preset == 4 ? SubpixCustom : HQAA_SUBPIX_PRESET[preset])
@@ -176,6 +211,7 @@ static const int HQAA_FXAA_QUALITY_PRESET[4] = {3,6,9,13};
 #define __HQAA_SHARPEN_AMOUNT (preset == 4 ? FxaaSharpenAmountCustom : HQAA_SHARPEN_STRENGTH_PRESET[preset])
 #define __HQAA_SHARPEN_MODE (preset == 4 ? FxaaSharpenAdaptiveCustom : HQAA_SHARPEN_MODE_PRESET[preset])
 #define __HQAA_FXAA_QUALITY (preset == 4 ? FxaaQualityCustom : HQAA_FXAA_QUALITY_PRESET[preset])
+#define __HQAA_SMAA_CORNERING (preset == 4 ? SmaaCorneringCustom : HQAA_SMAA_CORNER_ROUNDING_PRESET[preset])
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -192,7 +228,7 @@ static const int HQAA_FXAA_QUALITY_PRESET[4] = {3,6,9,13};
 
 // Configurable
 #define __SMAA_MAX_SEARCH_STEPS 112
-#define __SMAA_CORNER_ROUNDING (__HQAA_OVERDRIVE == true ? 100 : (50 * __HQAA_SUBPIX))
+#define __SMAA_CORNER_ROUNDING __HQAA_SMAA_CORNERING
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE == true ? (__HQAA_SUBPIXBOOST * 0.125) : 0))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE == true ? (__HQAA_SUBPIXBOOST * 0.25) : 0))
