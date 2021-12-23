@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v3.4.5 release
+ *                    v3.4.6 release
  *
  *                     by lordbean
  *
@@ -110,7 +110,7 @@ uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
         ui_category = "Custom Preset";
-> = 1.0;
+> = 0.75;
 
 uniform int spacer2 <
 	ui_type = "radio";
@@ -199,10 +199,10 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 0.00;
 
-uniform int random_value < source = "random"; min = 0; max = 100; >;
+uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
 static const float HQAA_THRESHOLD_PRESET[4] = {0.15,0.125,0.1,0.0625};
-static const float HQAA_SUBPIX_PRESET[4] = {0.5,0.625,0.75,1.0};
+static const float HQAA_SUBPIX_PRESET[4] = {0.25,0.375,0.5,0.75};
 static const bool HQAA_OVERDRIVE_PRESET[4] = {false,false,false,false};
 static const float HQAA_SUBPIXBOOST_PRESET[4] = {0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[4] = {false,false,true,true};
@@ -240,8 +240,8 @@ static const bool HQAA_FXAA_DITHERING_PRESET[4] = {true,true,false,false};
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING __HQAA_SMAA_CORNERING
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0625 + (0.0625 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE == true ? (__HQAA_SUBPIXBOOST * 0.125) : 0))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1.125 + (0.125 * __HQAA_SUBPIX) + (__HQAA_OVERDRIVE == true ? (__HQAA_SUBPIXBOOST * 0.25) : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1 + 0.5 * __HQAA_SUBPIX * __HQAA_SUBPIX + (__HQAA_OVERDRIVE == true ? 0.5 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 1 + __HQAA_EDGE_THRESHOLD
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -260,7 +260,6 @@ static const bool HQAA_FXAA_DITHERING_PRESET[4] = {true,true,false,false};
 #define __SMAA_AREATEX_SELECT(sample) sample.rg
 #define __SMAA_SEARCHTEX_SELECT(sample) sample.r
 #define __SMAA_DECODE_VELOCITY(sample) sample.rg
-#define __SMAA_DISABLE_DIAG_DETECTION // diagonal detection is surprisingly slow and doesn't add much
 
 // Constants
 #define __SMAA_AREATEX_MAX_DISTANCE 16
@@ -354,12 +353,10 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
                                ) {
  // SMAA default luma weights: 0.2126, 0.7152, 0.0722
 								   
-    // Calculate the threshold:
-    float2 threshold = float2(__HQAA_EDGE_THRESHOLD, __HQAA_EDGE_THRESHOLD);
-
     // Calculate lumas:
 	float3 middle = __SMAASamplePoint(colorTex, texcoord).rgb;
 	float3 weights = float3(0,0,0);
+	float2 threshold = float2(__HQAA_EDGE_THRESHOLD, __HQAA_EDGE_THRESHOLD);
 	
 	if (middle.r > middle.g && middle.r >= middle.b)
 		// strong red channel available
@@ -656,8 +653,8 @@ float SMAASearchLength(__SMAATexture2D(HQAAsearchTex), float2 e, float offset) {
 float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
     while (texcoord.x > end && 
-           e.g > 0.0 && // Is there some edge not activated?
-           e.r <= 0.0) { // Or is there a crossing edge that breaks the line?
+           e.g > __HQAA_EDGE_THRESHOLD && // Is there some edge not activated?
+           e.r == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -669,8 +666,8 @@ float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchT
 float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
     while (texcoord.x < end && 
-           e.g > 0.0 && // Is there some edge not activated?
-           e.r <= 0.00) { // Or is there a crossing edge that breaks the line?
+           e.g > __HQAA_EDGE_THRESHOLD && // Is there some edge not activated?
+           e.r == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -681,8 +678,8 @@ float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearch
 float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
     while (texcoord.y > end && 
-           e.r > 0.0 && // Is there some edge not activated?
-           e.g <= 0.0) { // Or is there a crossing edge that breaks the line?
+           e.r > __HQAA_EDGE_THRESHOLD && // Is there some edge not activated?
+           e.g == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -693,8 +690,8 @@ float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex
 float SMAASearchYDown(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
     while (texcoord.y < end && 
-           e.r > 0.0 && // Is there some edge not activated?
-           e.g <= 0.0) { // Or is there a crossing edge that breaks the line?
+           e.r > __HQAA_EDGE_THRESHOLD && // Is there some edge not activated?
+           e.g == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
     }
@@ -726,7 +723,7 @@ void SMAADetectHorizontalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout floa
     float2 leftRight = step(d.xy, d.yx);
     float2 rounding = (1.0 - __SMAA_CORNER_ROUNDING_NORM) * leftRight;
 
-    rounding /= leftRight.x + leftRight.y; // Reduce blending for pixels in the center of a line.
+//    rounding /= leftRight.x + leftRight.y; // Reduce blending for pixels in the center of a line.
 
     float2 factor = float2(1.0, 1.0);
     factor.x -= rounding.x * __SMAASampleLevelZeroOffset(HQAAedgesTex, texcoord.xy, int2(0,  1)).r;
@@ -743,7 +740,7 @@ void SMAADetectVerticalCornerPattern(__SMAATexture2D(HQAAedgesTex), inout float2
     float2 leftRight = step(d.xy, d.yx);
     float2 rounding = (1.0 - __SMAA_CORNER_ROUNDING_NORM) * leftRight;
 
-    rounding /= leftRight.x + leftRight.y;
+//    rounding /= leftRight.x + leftRight.y;
 
     float2 factor = float2(1.0, 1.0);
     factor.x -= rounding.x * __SMAASampleLevelZeroOffset(HQAAedgesTex, texcoord.xy, int2( 1, 0)).g;
@@ -1587,11 +1584,16 @@ float2 HQSMAAEdgeDetectionWrapPS(
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
 	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
+	float2 color = SMAAColorEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
+	float2 result = luma;
 	
-	if (dot(luma, float2(1.0, 1.0)) == 0.0)
+	if ((luma.r != color.r) || (luma.g != color.g)) // results disagree
+		result = float2(0,0);
+	
+	if (dot(result, float2(1.0, 1.0)) == 0.0)
 		discard;
 	
-	return luma;
+	return result;
 }
 float4 HQSMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
