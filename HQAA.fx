@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.0 release
+ *                    v4.1 release
  *
  *                     by lordbean
  *
@@ -354,7 +354,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 							   __SMAATexture2D(gammaTex)
                                ) {
  // SMAA default luma weights: 0.2126, 0.7152, 0.0722
-								   
+
     // Calculate lumas:
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
 	float4 weights = float4(0,0,0,0);
@@ -362,16 +362,16 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	
 	if (middle.r > middle.g && middle.r >= middle.b)
 		// strong red channel available
-		weights = float4(0.4, 0.1, 0, 0.5);
+		weights = float4(0.6, 0.15, 0, 0.25);
 	else if (middle.g >= middle.r && middle.g >= middle.b)
 		// strong green channel available
-		weights = float4(0.1, 0.4, 0, 0.5);
+		weights = float4(0.15, 0.6, 0, 0.25);
 	else if (abs(middle.r - middle.g) < 0.05 && (middle.r + middle.g) < middle.b)
 		// very weak red/green channels, fall back to blue for luma
-		weights = float4(0.125, 0.125, 0.25, 0.5);
+		weights = float4(0.2, 0.2, 0.35, 0.25);
 	else
 		// there's at least some signal to red and/or green
-		weights = float4(0.25, 0.25, 0, 0.5);
+		weights = float4(0.375, 0.375, 0, 0.25);
 	
     float L = dot(middle, weights);
 
@@ -1064,11 +1064,11 @@ __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
 // Luma types match variable positions. 0=R 1=G 2=B
 {
 	if (lumatype == 0)
-		return ((0.5 * rgba.r) + (0.5 * rgba.a));
+		return (((1 - rgba.a) * rgba.r) + rgba.a);
 	else if (lumatype == 2)
-		return ((0.5 * rgba.b) + (0.5 * rgba.a));
+		return (((1 - rgba.a) * rgba.b) + rgba.a);
 	else
-		return ((0.5 * rgba.g) + (0.5 * rgba.a));
+		return (((1 - rgba.a) * rgba.g) + rgba.a);
 }
 
 __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaConsolePosPos, __FxaaTex tex, __FxaaTex fxaaConsole360TexExpBiasNegOne,
@@ -1082,13 +1082,21 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     posM.x = pos.x;
     posM.y = pos.y;
 	
-	int lumatype = 2; // assume blue is luma until determined otherwise
+	int lumatype = 1; // assume green is luma until determined otherwise
     __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
-	float lumatest = min(1.25 * rgbyM.b, 1.0);
-	if ((rgbyM.r > lumatest) || (rgbyM.g > lumatest))
-		if (rgbyM.g > lumatest) // use green if strong
-			lumatype = 1;
-		else			// otherwise use red as luma
+	float maxcolor = max(max(rgbyM.r, rgbyM.g), rgbyM.b);
+	bool stronggreen = rgbyM.g > (rgbyM.r + rgbyM.b);
+	bool strongred = rgbyM.r > (rgbyM.g + rgbyM.b);
+	bool strongblue = rgbyM.b > (rgbyM.g + rgbyM.r);
+	
+	if (strongred == true)
+		lumatype = 0;
+	else if (strongblue == true)
+		lumatype = 2;
+	else if (stronggreen == false)
+		if (rgbyM.b == maxcolor)
+			lumatype = 2;
+		else if (rgbyM.r == maxcolor)
 			lumatype = 0;
 			
 	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
