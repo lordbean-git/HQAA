@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.1.3 release
+ *                    v4.1.4 release
  *
  *                     by lordbean
  *
@@ -224,6 +224,7 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 #define __HQAA_FXAA_DITHERING (preset == 4 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
 #define HQAA_MAX_COARSE_QUALITY 6
 #define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 2160)
+#define __HQAA_GRAYSCALE_THRESHOLD 0.02
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -361,7 +362,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
 	float4 weights = float4(0,0,0,0);
 	float2 threshold = float2(__SMAA_EDGE_THRESHOLD, __SMAA_EDGE_THRESHOLD);
-	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < 0.02);
+	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
 	
 	if (grayscale == true)
 		weights = float4(0.25, 0.25, 0.25, 0.25);
@@ -384,6 +385,11 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     float4 delta;
     delta.xy = abs(L - float2(Lleft, Ltop));
     float2 edges = step(threshold, delta.xy);
+	
+	
+	if (dot(edges, float2(1.0, 1.0)) == 0.0)
+		discard;
+	
 
     // Calculate right and bottom deltas:
     float Lright = dot(float4(__SMAASamplePoint(colorTex, offset[1].xy).rgb,__SMAASamplePoint(gammaTex, offset[1].xy).a), weights);
@@ -434,6 +440,11 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     // We do the usual threshold:
     float2 edges = step(threshold, delta.xy);
+
+	
+	if (dot(edges, float2(1.0, 1.0)) == 0.0)
+		discard;
+	
 
     // Calculate right and bottom deltas:
     float3 Cright = __SMAASamplePoint(colorTex, offset[1].xy).rgb;
@@ -656,7 +667,7 @@ float SMAASearchLength(__SMAATexture2D(HQAAsearchTex), float2 e, float offset) {
  */
 float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
-	float threshold = min(0.8281, ((2 - __HQAA_SUBPIX) * sqrt(__HQAA_EDGE_THRESHOLD)));
+	float threshold = 0.8281;
     while (texcoord.x > end && 
            (e.g > threshold) && // Is there some edge not activated?
            e.r == 0) { // Or is there a crossing edge that breaks the line?
@@ -670,7 +681,7 @@ float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchT
 
 float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
-	float threshold = min(0.8281, ((2 - __HQAA_SUBPIX) * sqrt(__HQAA_EDGE_THRESHOLD)));
+	float threshold = 0.8281;
     while (texcoord.x < end && 
            (e.g > threshold) && // Is there some edge not activated?
            e.r == 0) { // Or is there a crossing edge that breaks the line?
@@ -683,7 +694,7 @@ float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearch
 
 float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
-	float threshold = min(0.8281, ((2 - __HQAA_SUBPIX) * sqrt(__HQAA_EDGE_THRESHOLD)));
+	float threshold = 0.8281;
     while (texcoord.y > end && 
            (e.r > threshold) && // Is there some edge not activated?
            e.g == 0) { // Or is there a crossing edge that breaks the line?
@@ -696,7 +707,7 @@ float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex
 
 float SMAASearchYDown(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
-	float threshold = min(0.8281, ((2 - __HQAA_SUBPIX) * sqrt(__HQAA_EDGE_THRESHOLD)));
+	float threshold = 0.8281;
     while (texcoord.y < end && 
            (e.r > threshold) && // Is there some edge not activated?
            e.g == 0) { // Or is there a crossing edge that breaks the line?
@@ -1088,28 +1099,32 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	int lumatype = 1; // assume green is luma until determined otherwise
     __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
-	float maxcolor = max(max(rgbyM.r, rgbyM.g), rgbyM.b);
-	bool stronggreen = rgbyM.g > (rgbyM.r + rgbyM.b);
-	bool strongred = rgbyM.r > (rgbyM.g + rgbyM.b);
-	bool strongblue = rgbyM.b > (rgbyM.g + rgbyM.r);
 	
-	if (strongred == true)
-		lumatype = 0;
-	else if (strongblue == true)
-		lumatype = 2;
-	else if (stronggreen == false)
-		if (rgbyM.b == maxcolor)
+	bool stronggreen = rgbyM.g > (rgbyM.r + rgbyM.b);
+	
+	if (stronggreen == false) // check if luma color needs changed
+	{
+		bool strongred = rgbyM.r > (rgbyM.g + rgbyM.b);
+		bool strongblue = rgbyM.b > (rgbyM.g + rgbyM.r);
+		float maxcolor = max(max(rgbyM.r, rgbyM.g), rgbyM.b);
+		
+		if (strongred == true)
+			lumatype = 0;
+		else if (strongblue == true)
+			lumatype = 2;
+		else if (rgbyM.b == maxcolor)
 			lumatype = 2;
 		else if (rgbyM.r == maxcolor)
 			lumatype = 0;
+	}
 			
 	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
 	
 	// Determine color contrast ratio of the input pixel
 	float separation = max(max(abs(rgbyM.r - rgbyM.g), abs(rgbyM.r - rgbyM.b)), abs(rgbyM.g - rgbyM.b));
 	
-	// Check if this is a grayscale pixel (.04 = roughly 4-bit tolerance in sRGB)
-	bool grayscale = separation < 0.04;
+	// Check if this is a grayscale pixel
+	bool grayscale = separation < __HQAA_GRAYSCALE_THRESHOLD;
 	
 	if ((grayscale && pixelmode == 1) || (!grayscale && pixelmode == 2))
         #if (__FXAA_DISCARD == 1)
@@ -1704,19 +1719,19 @@ technique HQAA <
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseColor;
 	}
 #if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K)
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseColor;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseGrayscale;
 	}
 #if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K)
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseGrayscale;
+		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
 	}
 #endif
 #endif
