@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.1.2 release
+ *                    v4.1.3 release
  *
  *                     by lordbean
  *
@@ -103,14 +103,14 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
         ui_category = "Custom Preset";
-> = 0.075;
+> = 0.04;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
         ui_category = "Custom Preset";
-> = 0.8;
+> = 0.75;
 
 uniform int spacer2 <
 	ui_type = "radio";
@@ -201,8 +201,8 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.15,0.125,0.1,0.075,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.2,0.4,0.6,0.8,0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.2,0.125,0.075,0.04,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.25,0.5,0.75,0};
 static const bool HQAA_OVERDRIVE_PRESET[5] = {false,false,false,false,false};
 static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
@@ -223,6 +223,7 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 #define __HQAA_SMAA_CORNERING (preset == 4 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_DITHERING (preset == 4 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
 #define HQAA_MAX_COARSE_QUALITY 6
+#define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 2160)
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1411,7 +1412,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 		int randomsign = 1;
 		if (float(random_value * 0.5) == trunc(float(random_value * 0.5)))
 			randomsign = -1;
-		randomDither = float((random_value * 0.005) * randomsign);
+		randomDither = float((random_value * 0.005) * __HQAA_BUFFER_MULTIPLIER * randomsign);
 	}
 	
 	
@@ -1425,9 +1426,9 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
 		if (__HQAA_SHARPEN_MODE == 1)
-			sharpening += __HQAA_SHARPEN_AMOUNT;
+			sharpening += __HQAA_SHARPEN_AMOUNT * __HQAA_BUFFER_MULTIPLIER;
 		else
-			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold);
+			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold) * __HQAA_BUFFER_MULTIPLIER;
 		if (__HQAA_FXAA_DITHERING == true)
 			sharpening *= (1 + randomDither * 0.25);
 	}
