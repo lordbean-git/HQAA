@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.1.4 release
+ *                    v4.1.5 release
  *
  *                     by lordbean
  *
@@ -358,23 +358,21 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
                                ) {
  // SMAA default luma weights: 0.2126, 0.7152, 0.0722
 
-    // Calculate lumas:
+    // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
-	float4 weights = float4(0,0,0,0);
+	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
 	float2 threshold = float2(__SMAA_EDGE_THRESHOLD, __SMAA_EDGE_THRESHOLD);
 	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
 	
-	if (grayscale == true)
-		weights = float4(0.25, 0.25, 0.25, 0.25);
-	else if (middle.r > middle.g && middle.r >= middle.b)
-		// strong red channel available
-		weights = float4(0.75, 0, 0, 0.25);
-	else if (middle.g >= middle.r && middle.g >= middle.b)
-		// strong green channel available
-		weights = float4(0, 0.75, 0, 0.25);
-	else
-		// very weak red/green channels, fall back to blue for luma
-		weights = float4(0.125, 0.125, 0.5, 0.25);
+	if (grayscale == false)
+		if (middle.r > middle.g && middle.r >= middle.b) // strong red channel available
+			weights = float4(0.75, 0, 0, 0.25);
+		else if (middle.g >= middle.r && middle.g >= middle.b) // strong green channel available
+			weights = float4(0, 0.75, 0, 0.25);
+		else if (middle.r + middle.g > 0) // very weak red/green channels
+			weights = float4(0.25, 0.25, 0, 0.5);
+		else // red/green totally absent
+			weights = float4(0, 0, 0.375, 0.625);
 	
     float L = dot(middle, weights);
 
@@ -1441,9 +1439,9 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
 		if (__HQAA_SHARPEN_MODE == 1)
-			sharpening += __HQAA_SHARPEN_AMOUNT * __HQAA_BUFFER_MULTIPLIER;
+			sharpening += __HQAA_SHARPEN_AMOUNT * __HQAA_BUFFER_MULTIPLIER * (0.375 + fxaaQualitySubpix);
 		else
-			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold) * __HQAA_BUFFER_MULTIPLIER;
+			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold) * __HQAA_BUFFER_MULTIPLIER * (0.375 + fxaaQualitySubpix);
 		if (__HQAA_FXAA_DITHERING == true)
 			sharpening *= (1 + randomDither * 0.25);
 	}
