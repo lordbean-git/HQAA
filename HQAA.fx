@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.1.5 release
+ *                    v4.2 release
  *
  *                     by lordbean
  *
@@ -112,6 +112,27 @@ uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
         ui_category = "Custom Preset";
 > = 1.0;
 
+uniform bool SharpenEnableCustom <
+	ui_label = "Enable sharpening of anti-aliasing results?";
+	ui_tooltip = "When enabled, HQAA will run CAS on FXAA and SMAA outputs";
+	ui_category = "Custom Preset";
+> = true;
+
+uniform int SharpenAdaptiveCustom <
+	ui_type = "radio";
+	ui_items = "Automatic\0Manual\0";
+	ui_label = "Sharpening Mode";
+	ui_tooltip = "Automatic sharpening = HQAA will try to guess what amount\nof sharpening will look good on a per-pixel basis.\n\nManual sharpening = HQAA will always apply the\nsame amount of sharpening.";
+	ui_category = "Custom Preset";
+> = 0;
+
+uniform float SharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0.000; ui_max = 1.000; ui_step = 0.005;
+	ui_label = "Sharpening Amount";
+	ui_tooltip = "Set the amount of manual sharpening to apply to anti-aliasing results";
+	ui_category = "Custom Preset";
+> = 0;
+
 uniform int spacer2 <
 	ui_type = "radio";
 	ui_label = " ";
@@ -131,27 +152,6 @@ uniform int spacer1 <
 	ui_label = " ";
 	ui_category = "Custom Preset";
 >;
-
-uniform bool FxaaSharpenEnableCustom <
-	ui_label = "Enable sharpening of FXAA result?";
-	ui_tooltip = "When enabled, HQAA will run CAS on FXAA outputs";
-	ui_category = "Custom Preset";
-> = true;
-
-uniform int FxaaSharpenAdaptiveCustom <
-	ui_type = "radio";
-	ui_items = "Automatic\0Manual\0";
-	ui_label = "Sharpening Mode";
-	ui_tooltip = "Automatic sharpening = FXAA will try to guess what amount\nof sharpening will look good on a per-pixel basis.\n\nManual sharpening = FXAA will always apply the\nsame amount of sharpening.";
-	ui_category = "Custom Preset";
-> = 0;
-
-uniform float FxaaSharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.000; ui_max = 1.000; ui_step = 0.005;
-	ui_label = "Sharpening Amount";
-	ui_tooltip = "Set the amount of manual sharpening to apply to FXAA results";
-	ui_category = "Custom Preset";
-> = 0;
 
 uniform bool FxaaDitheringCustom <
 	ui_label = "Enable FXAA result dithering";
@@ -173,38 +173,10 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
     ui_category = "Custom Preset";
 > = 0;
 
-uniform int spacer5 <
-	ui_type = "radio";
-	ui_label = " ";
-	ui_text = "\n------------------------Overdrive Mode----------------------------";
-	ui_category = "Custom Preset";
->;
-
-uniform int PmodeWarning <
-	ui_type = "radio";
-	ui_label = " ";	
-	ui_text =">>>> WARNING <<<<\n\nVirtual Photography mode allows HQAA to exceed its normal\nlimits when processing subpixel aliasing and will probably\nresult in too much blurring for everyday usage.\n\nIt is only intended for virtual photography purposes where\nthe game's UI is typically not present on the screen.";
-	ui_category = "Custom Preset";
->;
-
-uniform bool OverdriveCustom <
-        ui_label = "Enable Virtual Photography Mode";
-        ui_category = "Custom Preset";
-> = false;
-
-uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.0; ui_max = 1.0;
-	ui_label = "Extra Subpixel Effects Strength";
-	ui_tooltip = "Additional boost to subpixel aliasing processing";
-        ui_category = "Custom Preset";
-> = 0.00;
-
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
 static const float HQAA_THRESHOLD_PRESET[5] = {0.125,0.1,0.075,0.05,1};
 static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.375,0.75,1.0,0};
-static const bool HQAA_OVERDRIVE_PRESET[5] = {false,false,false,false,false};
-static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[5] = {0,0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[5] = {0,0,0,0,0};
@@ -214,20 +186,81 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 4 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
 #define __HQAA_SUBPIX (preset == 4 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
-#define __HQAA_OVERDRIVE (preset == 4 ? (OverdriveCustom) : (HQAA_OVERDRIVE_PRESET[preset]))
-#define __HQAA_SUBPIXBOOST (preset == 4 ? (SubpixBoostCustom) : (HQAA_SUBPIXBOOST_PRESET[preset]))
-#define __HQAA_SHARPEN_ENABLE (preset == 4 ? (FxaaSharpenEnableCustom) : (HQAA_SHARPEN_ENABLE_PRESET[preset]))
-#define __HQAA_SHARPEN_AMOUNT (preset == 4 ? (FxaaSharpenAmountCustom) : (HQAA_SHARPEN_STRENGTH_PRESET[preset]))
-#define __HQAA_SHARPEN_MODE (preset == 4 ? (FxaaSharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
+#define __HQAA_SHARPEN_ENABLE (preset == 4 ? (SharpenEnableCustom) : (HQAA_SHARPEN_ENABLE_PRESET[preset]))
+#define __HQAA_SHARPEN_AMOUNT (preset == 4 ? (SharpenAmountCustom) : (HQAA_SHARPEN_STRENGTH_PRESET[preset]))
+#define __HQAA_SHARPEN_MODE (preset == 4 ? (SharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
 #define __HQAA_FXAA_QUALITY (preset == 4 ? (FxaaQualityCustom) : (HQAA_FXAA_QUALITY_PRESET[preset]))
 #define __HQAA_SMAA_CORNERING (preset == 4 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_DITHERING (preset == 4 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
 #define HQAA_MAX_COARSE_QUALITY 6
-#define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 2160)
+#define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 1440)
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
+/*****************************************************************************************************************************************/
+
+/*****************************************************************************************************************************************/
+/*********************************************************** SMAA CAS START **************************************************************/
+/*****************************************************************************************************************************************/
+
+float3 SMAASharpenPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
+{
+	// first check if SMAA detected any edges here and whether sharpening is enabled
+	float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
+	if (dot(edgesdetected, float2(1.0, 1.0)) == 0 || __HQAA_SHARPEN_ENABLE == false)
+		discard;
+	
+	// calculate sharpening parameters
+	float sharpening = 0;
+	
+	if (__HQAA_SHARPEN_MODE == 1)
+		sharpening += __HQAA_SHARPEN_AMOUNT;
+	else
+		sharpening += ((1 - __HQAA_EDGE_THRESHOLD) * (1 + __HQAA_SUBPIX) * __HQAA_BUFFER_MULTIPLIER);
+	
+	// exit if the pixel doesn't seem to warrant sharpening
+	if (sharpening <= 0)
+		discard;
+	
+	// proceed with CAS math.
+	
+    float3 a = tex2Doffset(sTexColor, texcoord, int2(-1, -1)).rgb;
+    float3 b = tex2Doffset(sTexColor, texcoord, int2(0, -1)).rgb;
+    float3 c = tex2Doffset(sTexColor, texcoord, int2(1, -1)).rgb;
+    float3 d = tex2Doffset(sTexColor, texcoord, int2(-1, 0)).rgb;
+    float3 e = tex2D(sTexColor, texcoord).rgb;
+    float3 f = tex2Doffset(sTexColor, texcoord, int2(1, 0)).rgb;
+    float3 g = tex2Doffset(sTexColor, texcoord, int2(-1, 1)).rgb;
+    float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
+    float3 i = tex2Doffset(sTexColor, texcoord, int2(1, 1)).rgb;
+
+    float3 mnRGB = min(min(min(d, e), min(f, b)), h);
+    float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
+    mnRGB += mnRGB2;
+
+    float3 mxRGB = max(max(max(d, e), max(f, b)), h);
+    float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
+    mxRGB += mxRGB2;
+
+    float3 rcpMRGB = rcp(mxRGB);
+    float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);    
+    
+    ampRGB = rsqrt(ampRGB);
+    
+    float peak = 8.0;
+    float3 wRGB = -rcp(ampRGB * peak);
+
+    float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
+
+    float3 window = (b + d) + (f + h);
+    float3 outColor = saturate((window * wRGB + e) * rcpWeightRGB);
+    
+	return lerp(e, outColor, sharpening);
+}
+
+/*****************************************************************************************************************************************/
+/*********************************************************** SMAA CAS END ****************************************************************/
 /*****************************************************************************************************************************************/
 
 /*****************************************************************************************************************************************/
@@ -244,7 +277,7 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX) + ((__HQAA_OVERDRIVE) == true ? 0.375 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1 + __HQAA_EDGE_THRESHOLD)
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
@@ -1439,9 +1472,9 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
 		if (__HQAA_SHARPEN_MODE == 1)
-			sharpening += __HQAA_SHARPEN_AMOUNT * __HQAA_BUFFER_MULTIPLIER * (0.375 + fxaaQualitySubpix);
+			sharpening += __HQAA_SHARPEN_AMOUNT;
 		else
-			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(fxaaQualitySubpix - subpixWeight) + detectionThreshold) * __HQAA_BUFFER_MULTIPLIER * (0.375 + fxaaQualitySubpix);
+			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(1 + fxaaQualitySubpix - subpixWeight) + detectionThreshold) * __HQAA_BUFFER_MULTIPLIER;
 		if (__HQAA_FXAA_DITHERING == true)
 			sharpening *= (1 + randomDither * 0.25);
 	}
@@ -1636,8 +1669,6 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.25 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE == true)
-		TotalSubpix += 0.25 * __HQAA_SUBPIXBOOST;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.02,(__HQAA_EDGE_THRESHOLD)),0.004,0,0,0,0,0,__HQAA_FXAA_QUALITY);
 	return saturate(output);
 }
@@ -1645,26 +1676,25 @@ float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : 
 float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE == true)
-		TotalSubpix += 0.5 * __HQAA_SUBPIXBOOST;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.025,0,0,0,0,1,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE == true)
-		TotalSubpix += 0.5 * __HQAA_SUBPIXBOOST;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.025,0,0,0,0,2,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	if (__HQAA_OVERDRIVE == true)
-		TotalSubpix += 0.5 * __HQAA_SUBPIXBOOST;
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.025,0,0,0,0,0,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
 	return saturate(output);
+}
+
+float3 SMAASharpenWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+{
+	return SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
 
 /***************************************************************************************************************************************/
@@ -1706,6 +1736,12 @@ technique HQAA <
 		VertexShader = HQSMAANeighborhoodBlendingWrapVS;
 		PixelShader = HQSMAANeighborhoodBlendingWrapPS;
 		StencilEnable = false;
+		SRGBWriteEnable = true;
+	}
+	pass SMAASharpening
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = SMAASharpenWrapPS;
 		SRGBWriteEnable = true;
 	}
 	pass FXAA
