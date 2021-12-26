@@ -103,14 +103,14 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
         ui_category = "Custom Preset";
-> = 0.04;
+> = 0.05;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
         ui_category = "Custom Preset";
-> = 0.75;
+> = 1.0;
 
 uniform int spacer2 <
 	ui_type = "radio";
@@ -201,8 +201,8 @@ uniform float SubpixBoostCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.2,0.125,0.075,0.04,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.25,0.5,0.75,0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.125,0.1,0.075,0.05,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.375,0.75,1.0,0};
 static const bool HQAA_OVERDRIVE_PRESET[5] = {false,false,false,false,false};
 static const float HQAA_SUBPIXBOOST_PRESET[5] = {0,0,0,0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
@@ -242,9 +242,9 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 // Configurable
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
-#define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD == 1.0 ? 1 : (__HQAA_EDGE_THRESHOLD * 0.875))
+#define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.625 * __HQAA_SUBPIX) + ((__HQAA_OVERDRIVE) == true ? 0.375 : 0))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX) + ((__HQAA_OVERDRIVE) == true ? 0.375 : 0))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1 + __HQAA_EDGE_THRESHOLD)
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
