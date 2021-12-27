@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.3 release
+ *                    v4.4 release
  *
  *                     by lordbean
  *
@@ -147,12 +147,12 @@ uniform int spacer2 <
 >;
 
 uniform int FxaaQualityCustom < __UNIFORM_SLIDER_INT1
-	ui_min = 2; ui_max = 13; ui_step = 1;
+	ui_min = 2; ui_max = 24; ui_step = 1;
 	ui_label = "FXAA Quality Level";
 	ui_tooltip = "Affects how far along an edge FXAA will search\nto calculate its anti-aliasing result.\n\nLower = faster, less accurate\nHigher = slower, more accurate";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 13;
+> = 24;
 
 uniform int spacer1 <
 	ui_type = "radio";
@@ -183,7 +183,7 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
     ui_category = "Custom Preset";
 	ui_category_closed = true;
 > = 0;
-
+/*
 uniform int spacer5 <
 	ui_type = "radio";
 	ui_label = " ";
@@ -210,7 +210,7 @@ uniform float HqaaDenoiserStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Amount of correction to apply when noise is detected";
 	ui_category = "Experimental Denoiser";
 > = 0.5;
-
+*/
 uniform int spacer7 <
 	ui_type = "radio";
 	ui_label = " ";
@@ -243,7 +243,7 @@ static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.375,0.75,1.0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[5] = {0,0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[5] = {0,0,0,0,0};
-static const int HQAA_FXAA_QUALITY_PRESET[5] = {7,9,11,13,2};
+static const int HQAA_FXAA_QUALITY_PRESET[5] = {6,12,18,24,2};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {25,15,10,0,0};
 static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 
@@ -334,14 +334,16 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
 	// first check if SMAA detected any edges here
 	
-	float sharpenmultiplier = 1.0;
 	float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
+	float eLuma = tex2D(sTexColor, texcoord).a;
+	
+	float sharpenmultiplier = sqrt(eLuma);
 	
 	if ((dot(edgesdetected, float2(1.0, 1.0)) != 0) && (__HQAA_SHARPEN_ENABLE == true))
-		sharpenmultiplier = 0.5;
+		sharpenmultiplier *= 0.25;
 	
 	// set sharpening amount
-	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
+	float sharpening = HqaaSharpenerStrength * (0.25 + __HQAA_SUBPIX) * (1.125 - __HQAA_EDGE_THRESHOLD) * sharpenmultiplier;
 	
 	// proceed with CAS math.
 	
@@ -1540,6 +1542,160 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
                         doneNP = (!doneN) || (!doneP);
                         if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P12;
                         if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P12;
+	if (maxiterations > 13)
+    if(doneNP) {
+        if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+        if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+        doneN = abs(lumaEndN) >= gradientScaled;
+        doneP = abs(lumaEndP) >= gradientScaled;
+        if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P2;
+        if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P2;
+        doneNP = (!doneN) || (!doneP);
+        if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P2;
+        if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P2;
+        if (maxiterations > 14)
+        if(doneNP) {
+            if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+            if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+            if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+            if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+            doneN = abs(lumaEndN) >= gradientScaled;
+            doneP = abs(lumaEndP) >= gradientScaled;
+            if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P3;
+            if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P3;
+            doneNP = (!doneN) || (!doneP);
+            if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P3;
+            if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P3;
+            if (maxiterations > 15)
+            if(doneNP) {
+                if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                doneN = abs(lumaEndN) >= gradientScaled;
+                doneP = abs(lumaEndP) >= gradientScaled;
+                if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P4;
+                if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P4;
+                doneNP = (!doneN) || (!doneP);
+                if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P4;
+                if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P4;
+                if (maxiterations > 16)
+                if(doneNP) {
+                    if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                    if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                    if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                    if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                    doneN = abs(lumaEndN) >= gradientScaled;
+                    doneP = abs(lumaEndP) >= gradientScaled;
+                    if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P5;
+                    if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P5;
+                    doneNP = (!doneN) || (!doneP);
+                    if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P5;
+                    if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P5;
+                    if (maxiterations > 17)
+                    if(doneNP) {
+                        if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                        if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                        doneN = abs(lumaEndN) >= gradientScaled;
+                        doneP = abs(lumaEndP) >= gradientScaled;
+                        if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P6;
+                        if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P6;
+                        doneNP = (!doneN) || (!doneP);
+                        if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P6;
+                        if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P6;
+                        if (maxiterations > 18)
+                        if(doneNP) {
+                            if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                            if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                            if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                            if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                            doneN = abs(lumaEndN) >= gradientScaled;
+                            doneP = abs(lumaEndP) >= gradientScaled;
+                            if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P7;
+                            if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P7;
+                            doneNP = (!doneN) || (!doneP);
+                            if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P7;
+                            if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P7;
+    if (maxiterations > 19)
+    if(doneNP) {
+        if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+        if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+        doneN = abs(lumaEndN) >= gradientScaled;
+        doneP = abs(lumaEndP) >= gradientScaled;
+        if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P8;
+        if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P8;
+        doneNP = (!doneN) || (!doneP);
+        if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P8;
+        if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P8;
+        if (maxiterations > 20)
+        if(doneNP) {
+            if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+            if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+            if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+            if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+            doneN = abs(lumaEndN) >= gradientScaled;
+            doneP = abs(lumaEndP) >= gradientScaled;
+            if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P9;
+            if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P9;
+            doneNP = (!doneN) || (!doneP);
+            if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P9;
+            if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P9;
+            if (maxiterations > 21)
+            if(doneNP) {
+                if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                doneN = abs(lumaEndN) >= gradientScaled;
+                doneP = abs(lumaEndP) >= gradientScaled;
+                if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P10;
+                if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P10;
+                doneNP = (!doneN) || (!doneP);
+                if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P10;
+                if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P10;
+                if (maxiterations > 22)
+                if(doneNP) {
+                    if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                    if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                    if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                    if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                    doneN = abs(lumaEndN) >= gradientScaled;
+                    doneP = abs(lumaEndP) >= gradientScaled;
+                    if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P11;
+                    if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P11;
+                    doneNP = (!doneN) || (!doneP);
+                    if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P11;
+                    if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P11;
+                    if (maxiterations > 23)
+                    if(doneNP) {
+                        if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+                        if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+                        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
+                        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+                        doneN = abs(lumaEndN) >= gradientScaled;
+                        doneP = abs(lumaEndP) >= gradientScaled;
+                        if(!doneN) posN.x -= offNP.x * __FXAA_QUALITY__P12;
+                        if(!doneN) posN.y -= offNP.y * __FXAA_QUALITY__P12;
+                        doneNP = (!doneN) || (!doneP);
+                        if(!doneP) posP.x += offNP.x * __FXAA_QUALITY__P12;
+                        if(!doneP) posP.y += offNP.y * __FXAA_QUALITY__P12;
+                    }
+                }
+            }
+        }
+    }
+                        }
+                    }
+                }
+            }
+        }
+    }
                     }
                 }
             }
@@ -1573,6 +1729,13 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
     if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
     if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
+	
+	// Establish result
+	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
+	
+	// exit here if in denoising mode
+	if (pixelmode == 3)
+		return float4(resultAA.r, resultAA.g, resultAA.b, 1 - resultAA.a);
 
 	// Check how strongly this pixel detected as aliasing
 	float detectionThreshold = range - rangeMaxClamped;
@@ -1588,7 +1751,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	
 	// Calculate level of interpolation with original input
-	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
 	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold + randomDither, 1), 0.75);
 	
@@ -1599,7 +1761,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 		if (__HQAA_SHARPEN_MODE == 1)
 			sharpening += __HQAA_SHARPEN_AMOUNT;
 		else
-			sharpening += ((1 - fxaaQualityEdgeThreshold) * abs(1 + fxaaQualitySubpix - subpixWeight) + detectionThreshold) * __HQAA_BUFFER_MULTIPLIER;
+			sharpening += ((1 + detectionThreshold) * (1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * __HQAA_BUFFER_MULTIPLIER);
 		if (__HQAA_FXAA_DITHERING == true)
 			sharpening *= (1 + randomDither * 0.25);
 	}
@@ -1794,26 +1956,26 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.25 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.02,(__HQAA_EDGE_THRESHOLD)),0.004,0,0,0,0,0,__HQAA_FXAA_QUALITY);
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.02,(__HQAA_EDGE_THRESHOLD)),0,0,0,0,0,0,__HQAA_FXAA_QUALITY);
 	return saturate(output);
 }
 
 float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.025,0,0,0,0,1,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.016,0,0,0,0,1,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.025,0,0,0,0,2,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.016,0,0,0,0,2,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.025,0,0,0,0,0,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.016,0,0,0,0,0,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
 	return saturate(output);
 }
 
@@ -1821,13 +1983,13 @@ float3 SMAASharpenWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 {
 	return SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
-
+/*
 float4 FXAADenoisingPixelShader(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,HqaaDenoiserStrength,HqaaDenoiserCeiling,0.004,0,0,0,0,3,2);
 	return saturate(output);
 }
-
+*/
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
@@ -1880,11 +2042,6 @@ technique HQAA <
 		PixelShader = SMAASharpenWrapPS;
 		SRGBWriteEnable = true;
 	}
-	pass FXAA
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
-	}
 #if (BUFFER_HEIGHT > 1400) // resolution >= 1440p
 	pass FXAA
 	{
@@ -1912,7 +2069,7 @@ technique HQAA <
 		PixelShader = FXAAPixelShaderAdaptiveFine;
 	}
 }
-
+/*
 technique HQAADenoiser <
 	ui_tooltip = "HQAA Experimental Denoiser";
 >
@@ -1922,8 +2079,18 @@ technique HQAADenoiser <
 		VertexShader = PostProcessVS;
 		PixelShader = FXAADenoisingPixelShader;
 	}
+	pass FXAADenoiser
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAADenoisingPixelShader;
+	}
+	pass FXAADenoiser
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAADenoisingPixelShader;
+	}
 }
-
+*/
 technique HQAACAS <
 	ui_tooltip = "HQAA Optional CAS pass";
 >
