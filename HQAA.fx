@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.2 release
+ *                    v4.3 release
  *
  *                     by lordbean
  *
@@ -80,15 +80,14 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int preset <
 	ui_type = "combo";
 	ui_label = "Quality Preset\n\n";
-	ui_tooltip = "Other settings are ignored when using a preset";
+	ui_tooltip = "For quick start use, pick a preset. If you'd prefer to fine tune, select Custom.";
 	ui_category = "Presets";
 	ui_items = "Low\0Medium\0High\0Ultra\0Custom\0";
 > = 2;
 
-uniform int customintro <
+uniform int spacer6 <
 	ui_type = "radio";
-	ui_label = " ";	
-	ui_text ="\n-------------------------------------------------------\nBelow settings are used when Custom preset is selected.\n-------------------------------------------------------\n";
+	ui_label = " ";
 >;
 
 uniform int spacer3 <
@@ -96,26 +95,30 @@ uniform int spacer3 <
 	ui_label = " ";
 	ui_text = "\n------------------------Global Options----------------------------";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 >;
 
 uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to run shader";
-        ui_category = "Custom Preset";
+    ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = 0.05;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Subpixel Effects Strength";
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
-        ui_category = "Custom Preset";
+    ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = 1.0;
 
 uniform bool SharpenEnableCustom <
 	ui_label = "Enable sharpening of anti-aliasing results?";
 	ui_tooltip = "When enabled, HQAA will run CAS on FXAA and SMAA outputs";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = true;
 
 uniform int SharpenAdaptiveCustom <
@@ -124,6 +127,7 @@ uniform int SharpenAdaptiveCustom <
 	ui_label = "Sharpening Mode";
 	ui_tooltip = "Automatic sharpening = HQAA will try to guess what amount\nof sharpening will look good on a per-pixel basis.\n\nManual sharpening = HQAA will always apply the\nsame amount of sharpening.";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = 0;
 
 uniform float SharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
@@ -131,6 +135,7 @@ uniform float SharpenAmountCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Sharpening Amount";
 	ui_tooltip = "Set the amount of manual sharpening to apply to anti-aliasing results";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = 0;
 
 uniform int spacer2 <
@@ -138,6 +143,7 @@ uniform int spacer2 <
 	ui_label = " ";
 	ui_text = "\n-------------------------FXAA Options-----------------------------";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 >;
 
 uniform int FxaaQualityCustom < __UNIFORM_SLIDER_INT1
@@ -145,18 +151,21 @@ uniform int FxaaQualityCustom < __UNIFORM_SLIDER_INT1
 	ui_label = "FXAA Quality Level";
 	ui_tooltip = "Affects how far along an edge FXAA will search\nto calculate its anti-aliasing result.\n\nLower = faster, less accurate\nHigher = slower, more accurate";
     ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = 13;
 
 uniform int spacer1 <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 >;
 
 uniform bool FxaaDitheringCustom <
 	ui_label = "Enable FXAA result dithering";
 	ui_tooltip = "Perform random dithering on FXAA anti-aliasing results\nwhich can sometimes help improve image clarity";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = false;
 
 uniform int spacer4 <
@@ -164,6 +173,7 @@ uniform int spacer4 <
 	ui_label = " ";
 	ui_text = "\n-------------------------SMAA Options-----------------------------";
 	ui_category = "Custom Preset";
+	ui_category_closed = true;
 >;
 
 uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
@@ -171,7 +181,60 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_label = "SMAA Corner Rounding";
 	ui_tooltip = "Affects the amount of blending performed when SMAA\ndetects crossing edges";
     ui_category = "Custom Preset";
+	ui_category_closed = true;
 > = 0;
+
+uniform int spacer5 <
+	ui_type = "radio";
+	ui_label = " ";
+>;
+
+uniform int denoiserintro <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "This feature is toggled on/off in the ReShade effects list.\nIt uses an FXAA pass that detects edges below the threshold (instead of above)\nto try and simulate TAA denoising. YMMV.";
+	ui_category = "Experimental Denoiser";
+>;
+
+uniform float HqaaDenoiserCeiling < __UNIFORM_SLIDER_FLOAT1
+	ui_spacing = 5;
+	ui_min = 0.01; ui_max = 0.1; ui_step = 0.001;
+	ui_label = "Noise Ceiling";
+	ui_tooltip = "Contrast above this threshold will be considered signal (not noise) and ignored";
+	ui_category = "Experimental Denoiser";
+> = 0.05;
+
+uniform float HqaaDenoiserStrength < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0; ui_max = 1; ui_step = 0.01;
+	ui_label = "Denoising Strength";
+	ui_tooltip = "Amount of correction to apply when noise is detected";
+	ui_category = "Experimental Denoiser";
+> = 0.5;
+
+uniform int spacer7 <
+	ui_type = "radio";
+	ui_label = " ";
+>;
+
+uniform int sharpenerintro <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "This feature is toggled on/off in the ReShade effects list.\nWhen enabled HQAA will run full-scene CAS and will use\nsome basic adjustment math to reduce strength\nwhen the anti-aliasing result sharpener is enabled as long as\nit's placed below HQAA in the effects list.";
+	ui_category = "Optional CAS";
+>;
+
+uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
+	ui_spacing = 5;
+	ui_min = 0; ui_max = 2; ui_step = 0.01;
+	ui_label = "Sharpening Strength";
+	ui_tooltip = "Amount of sharpening to apply";
+	ui_category = "Optional CAS";
+> = 1.0;
+
+uniform int terminationspacer <
+	ui_type = "radio";
+	ui_label = " ";
+>;
 
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
@@ -261,6 +324,63 @@ float3 SMAASharpenPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 
 /*****************************************************************************************************************************************/
 /*********************************************************** SMAA CAS END ****************************************************************/
+/*****************************************************************************************************************************************/
+
+/*****************************************************************************************************************************************/
+/*********************************************************** CAS CODE BLOCK START ********************************************************/
+/*****************************************************************************************************************************************/
+
+float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
+{
+	// first check if SMAA detected any edges here
+	
+	float sharpenmultiplier = 1.0;
+	float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
+	
+	if ((dot(edgesdetected, float2(1.0, 1.0)) != 0) && (__HQAA_SHARPEN_ENABLE == true))
+		sharpenmultiplier = 0.5;
+	
+	// set sharpening amount
+	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
+	
+	// proceed with CAS math.
+	
+    float3 a = tex2Doffset(sTexColor, texcoord, int2(-1, -1)).rgb;
+    float3 b = tex2Doffset(sTexColor, texcoord, int2(0, -1)).rgb;
+    float3 c = tex2Doffset(sTexColor, texcoord, int2(1, -1)).rgb;
+    float3 d = tex2Doffset(sTexColor, texcoord, int2(-1, 0)).rgb;
+    float3 e = tex2D(sTexColor, texcoord).rgb;
+    float3 f = tex2Doffset(sTexColor, texcoord, int2(1, 0)).rgb;
+    float3 g = tex2Doffset(sTexColor, texcoord, int2(-1, 1)).rgb;
+    float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
+    float3 i = tex2Doffset(sTexColor, texcoord, int2(1, 1)).rgb;
+
+    float3 mnRGB = min(min(min(d, e), min(f, b)), h);
+    float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
+    mnRGB += mnRGB2;
+
+    float3 mxRGB = max(max(max(d, e), max(f, b)), h);
+    float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
+    mxRGB += mxRGB2;
+
+    float3 rcpMRGB = rcp(mxRGB);
+    float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);    
+    
+    ampRGB = rsqrt(ampRGB);
+    
+    float peak = 8.0;
+    float3 wRGB = -rcp(ampRGB * peak);
+
+    float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
+
+    float3 window = (b + d) + (f + h);
+    float3 outColor = saturate((window * wRGB + e) * rcpWeightRGB);
+    
+	return lerp(e, outColor, sharpening);
+}
+
+/*****************************************************************************************************************************************/
+/*********************************************************** CAS CODE BLOCK END **********************************************************/
 /*****************************************************************************************************************************************/
 
 /*****************************************************************************************************************************************/
@@ -1122,7 +1242,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
  __FxaaFloat4 fxaaConsoleRcpFrameOpt2, __FxaaFloat4 fxaaConsole360RcpFrameOpt2, __FxaaFloat fxaaQualitySubpix,
  __FxaaFloat fxaaQualityEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, __FxaaFloat fxaaConsoleEdgeSharpness,
  __FxaaFloat fxaaConsoleEdgeThreshold, __FxaaFloat fxaaConsoleEdgeThresholdMin, __FxaaFloat4 fxaaConsole360ConstDir, int pixelmode, int maxiterations) 
- // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only
+ // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only, 3 = experimental denoiser
  {
     __FxaaFloat2 posM;
     posM.x = pos.x;
@@ -1181,7 +1301,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
     __FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
     __FxaaFloat range = rangeMax - rangeMin;
     __FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
-    __FxaaBool earlyExit = range < rangeMaxClamped;
+	__FxaaBool earlyExit = false;
+	
+	if (pixelmode != 3) // normal early exit check
+		earlyExit = range < rangeMaxClamped;
+	else // denoiser early exit check
+		earlyExit = ((rangeMaxScaled < rangeMaxClamped) || (range > rangeMaxClamped));
 	
     if(earlyExit)
         #if (__FXAA_DISCARD == 1)
@@ -1454,7 +1579,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	// Set dither range
 	float randomDither = 0;
-	if (__HQAA_FXAA_DITHERING == true) {
+	if ((__HQAA_FXAA_DITHERING == true) && (pixelmode != 3)) {
 		int randomsign = 1;
 		if (float(random_value * 0.5) == trunc(float(random_value * 0.5)))
 			randomsign = -1;
@@ -1470,7 +1595,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	float sharpening = 0;
 	
-	if (__HQAA_SHARPEN_ENABLE == true) {
+	if ((__HQAA_SHARPEN_ENABLE == true) && (pixelmode != 3)) {
 		if (__HQAA_SHARPEN_MODE == 1)
 			sharpening += __HQAA_SHARPEN_AMOUNT;
 		else
@@ -1697,6 +1822,17 @@ float3 SMAASharpenWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 	return SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
 
+float4 FXAADenoisingPixelShader(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,HqaaDenoiserStrength,HqaaDenoiserCeiling,0.004,0,0,0,0,3,2);
+	return saturate(output);
+}
+
+float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+{
+	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
+}
+
 /***************************************************************************************************************************************/
 /*********************************************************** SHADER CODE END ***********************************************************/
 /***************************************************************************************************************************************/
@@ -1774,5 +1910,28 @@ technique HQAA <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderAdaptiveFine;
+	}
+}
+
+technique HQAADenoiser <
+	ui_tooltip = "HQAA Experimental Denoiser";
+>
+{
+	pass FXAADenoiser
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAADenoisingPixelShader;
+	}
+}
+
+technique HQAACAS <
+	ui_tooltip = "HQAA Optional CAS pass";
+>
+{
+	pass CAS
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAACASWrapPS;
+		SRGBWriteEnable = true;
 	}
 }
