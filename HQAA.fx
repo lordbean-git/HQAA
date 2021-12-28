@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v5.1 release
+ *                    v5.1.1 release
  *
  *                     by lordbean
  *
@@ -490,7 +490,9 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
 	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
 	
-	float gammabias = (0.625 - middle.a) * (__SMAA_EDGE_THRESHOLD * 0.75);
+	float thresholdmultiplier = 1 - (0.875 * sqrt(__SMAA_EDGE_THRESHOLD));
+	
+	float gammabias = (0.625 - middle.a) * (__SMAA_EDGE_THRESHOLD * thresholdmultiplier);
 	float weightedthreshold = max(0.01, __SMAA_EDGE_THRESHOLD - gammabias);
 	
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
