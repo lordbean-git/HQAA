@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v5.0 release
+ *                    v5.1 release
  *
  *                     by lordbean
  *
@@ -104,7 +104,7 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Local contrast required to run shader";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 0.025;
+> = 0.04;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -211,7 +211,7 @@ uniform int terminationspacer <
 
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.25,0.125,0.075,0.025,1};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.25,0.125,0.075,0.04,1};
 static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.25,0.5,1.0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[5] = {0,0,0,0,0};
@@ -372,7 +372,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.25 * __HQAA_SUBPIX))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1 + __HQAA_EDGE_THRESHOLD)
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
@@ -489,9 +489,12 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
 	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
-	float gammabias = (0.8 - middle.a) * 0.05;
-	float weightedthreshold = max(0.025, __SMAA_EDGE_THRESHOLD - gammabias);
+	
+	float gammabias = (0.625 - middle.a) * (__SMAA_EDGE_THRESHOLD * 0.75);
+	float weightedthreshold = max(0.01, __SMAA_EDGE_THRESHOLD - gammabias);
+	
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
+	
 	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
 	
 	if (grayscale == false)
