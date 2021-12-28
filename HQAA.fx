@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.4 release
+ *                    v4.5 release
  *
  *                     by lordbean
  *
@@ -255,7 +255,7 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 #define __HQAA_FXAA_QUALITY (preset == 4 ? (FxaaQualityCustom) : (HQAA_FXAA_QUALITY_PRESET[preset]))
 #define __HQAA_SMAA_CORNERING (preset == 4 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_DITHERING (preset == 4 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
-#define HQAA_MAX_COARSE_QUALITY 6
+#define HQAA_FXAA_COARSE_QUALITY 3
 #define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 1440)
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
 
@@ -1239,12 +1239,14 @@ __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
 		return (((1 - rgba.a) * rgba.g) + rgba.a);
 }
 
-__FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaConsolePosPos, __FxaaTex tex, __FxaaTex fxaaConsole360TexExpBiasNegOne,
- __FxaaTex fxaaConsole360TexExpBiasNegTwo, __FxaaFloat2 fxaaQualityRcpFrame, __FxaaFloat4 fxaaConsoleRcpFrameOpt,
- __FxaaFloat4 fxaaConsoleRcpFrameOpt2, __FxaaFloat4 fxaaConsole360RcpFrameOpt2, __FxaaFloat fxaaQualitySubpix,
- __FxaaFloat fxaaQualityEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, __FxaaFloat fxaaConsoleEdgeSharpness,
- __FxaaFloat fxaaConsoleEdgeThreshold, __FxaaFloat fxaaConsoleEdgeThresholdMin, __FxaaFloat4 fxaaConsole360ConstDir, int pixelmode, int maxiterations) 
- // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only, 3 = experimental denoiser
+#define __FXAA_MODE_NORMAL 0
+#define __FXAA_MODE_COLOR_ONLY 1
+#define __FXAA_MODE_GRAYSCALE_ONLY 2
+#define __FXAA_MODE_REVERSED_DETECTION 3
+__FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex,
+ __FxaaFloat2 fxaaQualityRcpFrame, __FxaaFloat fxaaQualitySubpix,
+ __FxaaFloat fxaaQualityEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, int maxiterations, int pixelmode)
+ // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only, 3 = reversed detection
  {
     __FxaaFloat2 posM;
     posM.x = pos.x;
@@ -1307,7 +1309,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	
 	if (pixelmode != 3) // normal early exit check
 		earlyExit = range < rangeMaxClamped;
-	else // denoiser early exit check
+	else // reversed detection early exit check
 		earlyExit = ((rangeMaxScaled < rangeMaxClamped) || (range > rangeMaxClamped));
 	
     if(earlyExit)
@@ -1733,10 +1735,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	
-	// exit here if in denoising mode
-	if (pixelmode == 3)
-		return float4(resultAA.r, resultAA.g, resultAA.b, 1 - resultAA.a);
-
 	// Check how strongly this pixel detected as aliasing
 	float detectionThreshold = range - rangeMaxClamped;
 	
@@ -1757,7 +1755,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaFloat4 fxaaCons
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	float sharpening = 0;
 	
-	if ((__HQAA_SHARPEN_ENABLE == true) && (pixelmode != 3)) {
+	if (__HQAA_SHARPEN_ENABLE == true) {
 		if (__HQAA_SHARPEN_MODE == 1)
 			sharpening += __HQAA_SHARPEN_AMOUNT;
 		else
@@ -1950,46 +1948,42 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 	float4 offset : TEXCOORD1) : SV_Target
 {
 	float3 SMAAresult = SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler).rgb;
-	return saturate(SMAAresult);
+	return SMAAresult;
 }
 
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.25 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,max(0.02,(__HQAA_EDGE_THRESHOLD)),0,0,0,0,0,0,__HQAA_FXAA_QUALITY);
-	return saturate(output);
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.02,(__HQAA_EDGE_THRESHOLD)),0.004,__HQAA_FXAA_QUALITY,__FXAA_MODE_NORMAL);
 }
 
-float4 FXAAPixelShaderAdaptiveCoarseColor(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float4 FXAAPixelShaderAdaptiveColor(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.016,0,0,0,0,1,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
-	return saturate(output);
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.004,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_COLOR_ONLY);
 }
-float4 FXAAPixelShaderAdaptiveCoarseGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float4 FXAAPixelShaderAdaptiveGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.016,0,0,0,0,2,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
-	return saturate(output);
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.004,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_GRAYSCALE_ONLY);
 }
-float4 FXAAPixelShaderAdaptiveCoarseFull(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.016,0,0,0,0,0,min(HQAA_MAX_COARSE_QUALITY,__HQAA_FXAA_QUALITY));
-	return saturate(output);
+	float floor = __HQAA_EDGE_THRESHOLD;
+	float ceiling = (1 - sqrt(__HQAA_EDGE_THRESHOLD));
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_REVERSED_DETECTION);
 }
 
 float3 SMAASharpenWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	return SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
-/*
-float4 FXAADenoisingPixelShader(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float4 output = FxaaAdaptiveLumaPixelShader(texcoord,0,HQAAFXTex,HQAAFXTex,HQAAFXTex,BUFFER_PIXEL_SIZE,0,0,0,HqaaDenoiserStrength,HqaaDenoiserCeiling,0.004,0,0,0,0,3,2);
-	return saturate(output);
-}
-*/
+
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
@@ -2042,23 +2036,28 @@ technique HQAA <
 		PixelShader = SMAASharpenWrapPS;
 		SRGBWriteEnable = true;
 	}
+	pass FXAA
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderAdaptiveCoarse;
+	}
 #if (BUFFER_HEIGHT > 1400) // resolution >= 1440p
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseColor;
+		PixelShader = FXAAPixelShaderAdaptiveColor;
 	}
 #if (BUFFER_HEIGHT > 2100) // resolution >= 2160p (4K)
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseGrayscale;
+		PixelShader = FXAAPixelShaderAdaptiveGrayscale;
 	}
 #if (BUFFER_HEIGHT > 4200) // resolution >= 4320p (8K)
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarseFull;
+		PixelShader = FXAAPixelShaderAdaptiveFine;
 	}
 #endif
 #endif
@@ -2069,28 +2068,7 @@ technique HQAA <
 		PixelShader = FXAAPixelShaderAdaptiveFine;
 	}
 }
-/*
-technique HQAADenoiser <
-	ui_tooltip = "HQAA Experimental Denoiser";
->
-{
-	pass FXAADenoiser
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAADenoisingPixelShader;
-	}
-	pass FXAADenoiser
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAADenoisingPixelShader;
-	}
-	pass FXAADenoiser
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAADenoisingPixelShader;
-	}
-}
-*/
+
 technique HQAACAS <
 	ui_tooltip = "HQAA Optional CAS pass";
 >
