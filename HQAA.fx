@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v5.1.1 release
+ *                    v5.1.2 release
  *
  *                     by lordbean
  *
@@ -228,7 +228,7 @@ static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
 #define __HQAA_FXAA_QUALITY (preset == 4 ? (FxaaQualityCustom) : (HQAA_FXAA_QUALITY_PRESET[preset]))
 #define __HQAA_SMAA_CORNERING (preset == 4 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_DITHERING (preset == 4 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
-#define HQAA_FXAA_COARSE_QUALITY 3
+#define HQAA_FXAA_COARSE_QUALITY 8
 #define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 1440)
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
 
@@ -490,10 +490,10 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
 	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
 	
-	float thresholdmultiplier = 1 - (0.875 * sqrt(__SMAA_EDGE_THRESHOLD));
+	float thresholdmultiplier = 1 - sqrt(__SMAA_EDGE_THRESHOLD);
 	
-	float gammabias = (0.625 - middle.a) * (__SMAA_EDGE_THRESHOLD * thresholdmultiplier);
-	float weightedthreshold = max(0.01, __SMAA_EDGE_THRESHOLD - gammabias);
+	float gammabias = (0.875 - middle.a) * (__SMAA_EDGE_THRESHOLD * thresholdmultiplier);
+	float weightedthreshold = max(0.005, __SMAA_EDGE_THRESHOLD - gammabias);
 	
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
@@ -1952,8 +1952,8 @@ float4 FXAAPixelShaderAdaptiveGrayscale(float4 vpos : SV_Position, float2 texcoo
 }
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float floor = max(0.02, __HQAA_EDGE_THRESHOLD);
+	float TotalSubpix = __HQAA_SUBPIX;
+	float floor = max(0.02, (1 - sqrt(__HQAA_EDGE_THRESHOLD)));
 	float ceiling = min(0.98, (1 - sqrt(__HQAA_EDGE_THRESHOLD)));
 	
 	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_REVERSED_DETECTION);
@@ -1961,12 +1961,12 @@ float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord 
 
 float3 SMAASharpenWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
+	return saturate(SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler));
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
+	return saturate(HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler));
 }
 
 /***************************************************************************************************************************************/
