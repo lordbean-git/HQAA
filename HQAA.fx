@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v4.5 release
+ *                    v5.0 release
  *
  *                     by lordbean
  *
@@ -104,7 +104,7 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Local contrast required to run shader";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 0.05;
+> = 0.025;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -183,34 +183,7 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
     ui_category = "Custom Preset";
 	ui_category_closed = true;
 > = 0;
-/*
-uniform int spacer5 <
-	ui_type = "radio";
-	ui_label = " ";
->;
 
-uniform int denoiserintro <
-	ui_type = "radio";
-	ui_label = " ";
-	ui_text = "This feature is toggled on/off in the ReShade effects list.\nIt uses an FXAA pass that detects edges below the threshold (instead of above)\nto try and simulate TAA denoising. YMMV.";
-	ui_category = "Experimental Denoiser";
->;
-
-uniform float HqaaDenoiserCeiling < __UNIFORM_SLIDER_FLOAT1
-	ui_spacing = 5;
-	ui_min = 0.01; ui_max = 0.1; ui_step = 0.001;
-	ui_label = "Noise Ceiling";
-	ui_tooltip = "Contrast above this threshold will be considered signal (not noise) and ignored";
-	ui_category = "Experimental Denoiser";
-> = 0.05;
-
-uniform float HqaaDenoiserStrength < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0; ui_max = 1; ui_step = 0.01;
-	ui_label = "Denoising Strength";
-	ui_tooltip = "Amount of correction to apply when noise is detected";
-	ui_category = "Experimental Denoiser";
-> = 0.5;
-*/
 uniform int spacer7 <
 	ui_type = "radio";
 	ui_label = " ";
@@ -238,8 +211,8 @@ uniform int terminationspacer <
 
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.125,0.1,0.075,0.05,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.375,0.75,1.0,0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.25,0.125,0.075,0.025,1};
+static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.25,0.5,1.0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[5] = {0,0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[5] = {0,0,0,0,0};
@@ -399,7 +372,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX))
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.25 * __HQAA_SUBPIX))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1 + __HQAA_EDGE_THRESHOLD)
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
@@ -516,7 +489,9 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
 	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
-	float2 threshold = float2(__SMAA_EDGE_THRESHOLD, __SMAA_EDGE_THRESHOLD);
+	float gammabias = (0.8 - middle.a) * 0.05;
+	float weightedthreshold = max(0.025, __SMAA_EDGE_THRESHOLD - gammabias);
+	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
 	
 	if (grayscale == false)
@@ -577,7 +552,7 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
                                 __SMAATexture2D(colorTex)
                                 ) {
     // Calculate the threshold:
-    float2 threshold = float2(__HQAA_EDGE_THRESHOLD, __HQAA_EDGE_THRESHOLD);
+    float2 threshold = float2(__SMAA_EDGE_THRESHOLD, __SMAA_EDGE_THRESHOLD);
 
     // Calculate color deltas:
     float4 delta;
@@ -1962,19 +1937,19 @@ float4 FXAAPixelShaderAdaptiveColor(float4 vpos : SV_Position, float2 texcoord :
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.004,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_COLOR_ONLY);
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.2,sqrt(__HQAA_EDGE_THRESHOLD)),0.004,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_COLOR_ONLY);
 }
 float4 FXAAPixelShaderAdaptiveGrayscale(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,sqrt(__HQAA_EDGE_THRESHOLD),0.004,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_GRAYSCALE_ONLY);
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.2,sqrt(__HQAA_EDGE_THRESHOLD)),0.004,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_GRAYSCALE_ONLY);
 }
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = 0.5 * __HQAA_SUBPIX;
-	float floor = __HQAA_EDGE_THRESHOLD;
-	float ceiling = (1 - sqrt(__HQAA_EDGE_THRESHOLD));
+	float floor = max(0.02, __HQAA_EDGE_THRESHOLD);
+	float ceiling = min(0.98, (1 - sqrt(__HQAA_EDGE_THRESHOLD)));
 	
 	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,HQAA_FXAA_COARSE_QUALITY,__FXAA_MODE_REVERSED_DETECTION);
 }
