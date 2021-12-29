@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                    v6.0 release
+ *                       v6.1
  *
  *                     by lordbean
  *
@@ -355,7 +355,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR (1 + __HQAA_EDGE_THRESHOLD)
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -456,79 +456,6 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
 
 
 
-/////////////////////////////////////////////// LUMA EDGE DETECTION ////////////////////////////////////////////////////
-/**
- * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
- * thus 'colorTex' should be a non-sRGB texture.
- */
-float2 SMAALumaEdgeDetectionPS(float2 texcoord,
-                               float4 offset[3],
-                               __SMAATexture2D(colorTex),
-							   __SMAATexture2D(gammaTex)
-                               ) {
- // SMAA default luma weights: 0.2126, 0.7152, 0.0722
-
-    // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
-	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
-	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
-	
-	float thresholdmultiplier = 1 - sqrt(__SMAA_EDGE_THRESHOLD);
-	
-	float gammabias = (0.875 - middle.a) * (__SMAA_EDGE_THRESHOLD * thresholdmultiplier);
-	float weightedthreshold = max(0.005, __SMAA_EDGE_THRESHOLD - gammabias);
-	
-	float2 threshold = float2(weightedthreshold, weightedthreshold);
-	
-	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
-	
-	if (grayscale == false)
-		if (middle.r > middle.g && middle.r >= middle.b) // strong red channel available
-			weights = float4(0.75, 0, 0, 0.25);
-		else if (middle.g >= middle.r && middle.g >= middle.b) // strong green channel available
-			weights = float4(0, 0.75, 0, 0.25);
-		else if (middle.r + middle.g > 0) // very weak red/green channels
-			weights = float4(0.25, 0.25, 0, 0.5);
-		else // red/green totally absent
-			weights = float4(0, 0, 0.375, 0.625);
-	
-    float L = dot(middle, weights);
-
-    float Lleft = dot(float4(__SMAASamplePoint(colorTex, offset[0].xy).rgb,__SMAASamplePoint(gammaTex, offset[0].xy).a), weights);
-    float Ltop  = dot(float4(__SMAASamplePoint(colorTex, offset[0].zw).rgb,__SMAASamplePoint(gammaTex, offset[0].zw).a), weights);
-
-    // We do the usual threshold:
-    float4 delta;
-    delta.xy = abs(L - float2(Lleft, Ltop));
-    float2 edges = step(threshold, delta.xy);
-	
-	
-	if (dot(edges, float2(1.0, 1.0)) == 0.0)
-		discard;
-	
-
-    // Calculate right and bottom deltas:
-    float Lright = dot(float4(__SMAASamplePoint(colorTex, offset[1].xy).rgb,__SMAASamplePoint(gammaTex, offset[1].xy).a), weights);
-    float Lbottom  = dot(float4(__SMAASamplePoint(colorTex, offset[1].zw).rgb,__SMAASamplePoint(gammaTex, offset[1].zw).a), weights);
-    delta.zw = abs(L - float2(Lright, Lbottom));
-
-    // Calculate the maximum delta in the direct neighborhood:
-    float2 maxDelta = max(delta.xy, delta.zw);
-
-    // Calculate left-left and top-top deltas:
-    float Lleftleft = dot(float4(__SMAASamplePoint(colorTex, offset[2].xy).rgb,__SMAASamplePoint(gammaTex, offset[2].xy).a), weights);
-    float Ltoptop = dot(float4(__SMAASamplePoint(colorTex, offset[2].zw).rgb,__SMAASamplePoint(gammaTex, offset[2].zw).a), weights);
-    delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
-
-    // Calculate the final maximum delta:
-    maxDelta = max(maxDelta.xy, delta.zw);
-    float finalDelta = max(maxDelta.x, maxDelta.y);
-
-    // Local contrast adaptation:
-	edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
-
-    return edges;
-}
-
 /////////////////////////////////////////////// COLOR EDGE DETECTION ////////////////////////////////////////////////////
 /**
  * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
@@ -536,11 +463,19 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
  */
 float2 SMAAColorEdgeDetectionPS(float2 texcoord,
                                 float4 offset[3],
-                                __SMAATexture2D(colorTex)
+                                __SMAATexture2D(colorTex),
+								__SMAATexture2D(gammaTex)
                                 ) {
-    // Calculate the threshold:
-    float2 threshold = float2(__SMAA_EDGE_THRESHOLD, __SMAA_EDGE_THRESHOLD);
-
+									
+	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
+	
+	float thresholdmultiplier = 1 - sqrt(__SMAA_EDGE_THRESHOLD);
+	
+	float gammabias = (1 - middle.a) * (__SMAA_EDGE_THRESHOLD * thresholdmultiplier);
+	float weightedthreshold = max(0.005, __SMAA_EDGE_THRESHOLD - gammabias);
+	
+	float2 threshold = float2(weightedthreshold, weightedthreshold);
+	
     // Calculate color deltas:
     float4 delta;
     float3 C = __SMAASamplePoint(colorTex, texcoord).rgb;
@@ -588,6 +523,81 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     // Local contrast adaptation:
     edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR * delta.xy);
+
+    return edges;
+}
+
+/////////////////////////////////////////////// LUMA EDGE DETECTION ////////////////////////////////////////////////////
+/**
+ * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
+ * thus 'colorTex' should be a non-sRGB texture.
+ */
+float2 SMAALumaEdgeDetectionPS(float2 texcoord,
+                               float4 offset[3],
+                               __SMAATexture2D(colorTex),
+							   __SMAATexture2D(gammaTex)
+                               ) {
+ // SMAA default luma weights: 0.2126, 0.7152, 0.0722
+
+    // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
+	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
+	float4 weights = float4(0.375,0.375,0 ,0.25); // default to grayscale weights
+	
+	float thresholdmultiplier = 1 - sqrt(__SMAA_EDGE_THRESHOLD);
+	
+	float gammabias = (0.875 - middle.a) * (__SMAA_EDGE_THRESHOLD * thresholdmultiplier);
+	float weightedthreshold = max(0.005, __SMAA_EDGE_THRESHOLD - gammabias);
+	
+	float2 threshold = float2(weightedthreshold, weightedthreshold);
+	
+	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
+	
+	if (grayscale == false)
+		if (middle.r > middle.g && middle.r >= middle.b) // strong red channel available
+			weights = float4(0.75, 0, 0, 0.25);
+		else if (middle.g >= middle.r && middle.g >= middle.b) // strong green channel available
+			weights = float4(0, 0.75, 0, 0.25);
+		else if (middle.r + middle.g > 0.05) // very weak but present red/green channels
+			weights = float4(0.25, 0.25, 0, 0.5);
+		else // red/green strength critically low - at this point, abort luma detection
+		{
+			return SMAAColorEdgeDetectionPS(texcoord, offset, colorTex, gammaTex);
+		}
+	
+    float L = dot(middle, weights);
+
+    float Lleft = dot(float4(__SMAASamplePoint(colorTex, offset[0].xy).rgb,__SMAASamplePoint(gammaTex, offset[0].xy).a), weights);
+    float Ltop  = dot(float4(__SMAASamplePoint(colorTex, offset[0].zw).rgb,__SMAASamplePoint(gammaTex, offset[0].zw).a), weights);
+
+    // We do the usual threshold:
+    float4 delta;
+    delta.xy = abs(L - float2(Lleft, Ltop));
+    float2 edges = step(threshold, delta.xy);
+	
+	
+	if (dot(edges, float2(1.0, 1.0)) == 0.0)
+		discard;
+	
+
+    // Calculate right and bottom deltas:
+    float Lright = dot(float4(__SMAASamplePoint(colorTex, offset[1].xy).rgb,__SMAASamplePoint(gammaTex, offset[1].xy).a), weights);
+    float Lbottom  = dot(float4(__SMAASamplePoint(colorTex, offset[1].zw).rgb,__SMAASamplePoint(gammaTex, offset[1].zw).a), weights);
+    delta.zw = abs(L - float2(Lright, Lbottom));
+
+    // Calculate the maximum delta in the direct neighborhood:
+    float2 maxDelta = max(delta.xy, delta.zw);
+
+    // Calculate left-left and top-top deltas:
+    float Lleftleft = dot(float4(__SMAASamplePoint(colorTex, offset[2].xy).rgb,__SMAASamplePoint(gammaTex, offset[2].xy).a), weights);
+    float Ltoptop = dot(float4(__SMAASamplePoint(colorTex, offset[2].zw).rgb,__SMAASamplePoint(gammaTex, offset[2].zw).a), weights);
+    delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
+
+    // Calculate the final maximum delta:
+    maxDelta = max(maxDelta.xy, delta.zw);
+    float finalDelta = max(maxDelta.x, maxDelta.y);
+
+    // Local contrast adaptation:
+	edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
 
     return edges;
 }
