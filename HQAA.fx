@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v6.1
+ *                       v6.1.1
  *
  *                     by lordbean
  *
@@ -82,8 +82,8 @@ uniform int preset <
 	ui_label = "Quality Preset\n\n";
 	ui_tooltip = "For quick start use, pick a preset. If you'd prefer to fine tune, select Custom.";
 	ui_category = "Presets";
-	ui_items = "Low\0Medium\0High\0Ultra\0Custom\0";
-> = 2;
+	ui_items = "Potato\0Low\0Medium\0High\0Ultra\0GLaDOS\0Custom\0";
+> = 3;
 
 uniform int spacer6 <
 	ui_type = "radio";
@@ -104,7 +104,7 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Local contrast required to run shader";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 0.04;
+> = 0.1;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -112,7 +112,7 @@ uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.5;
 
 uniform bool SharpenEnableCustom <
 	ui_label = "Enable sharpening of anti-aliasing results?";
@@ -167,7 +167,7 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_tooltip = "Affects the amount of blending performed when SMAA\ndetects crossing edges";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 0;
+> = 20;
 
 uniform int spacer7 <
 	ui_type = "radio";
@@ -196,21 +196,21 @@ uniform int terminationspacer <
 
 uniform uint random_value < source = "random"; min = 0; max = 100; >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.25,0.125,0.075,0.04,1};
-static const float HQAA_SUBPIX_PRESET[5] = {0.125,0.25,0.5,1.0,0};
-static const bool HQAA_SHARPEN_ENABLE_PRESET[5] = {false,false,true,true,false};
-static const float HQAA_SHARPEN_STRENGTH_PRESET[5] = {0,0,0,0,0};
-static const int HQAA_SHARPEN_MODE_PRESET[5] = {0,0,0,0,0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {25,15,10,0,0};
-static const bool HQAA_FXAA_DITHERING_PRESET[5] = {true,true,false,false,false};
+static const float HQAA_THRESHOLD_PRESET[7] = {0.375,0.2,0.125,0.075,0.05,0.0125,1};
+static const float HQAA_SUBPIX_PRESET[7] = {0,0.125,0.25,0.5,0.75,1.0,0};
+static const bool HQAA_SHARPEN_ENABLE_PRESET[7] = {false,false,false,true,true,true,false};
+static const float HQAA_SHARPEN_STRENGTH_PRESET[7] = {0,0,0,0,0,0,0};
+static const int HQAA_SHARPEN_MODE_PRESET[7] = {0,0,0,0,0,0,0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,10,15,25,50,0};
+static const bool HQAA_FXAA_DITHERING_PRESET[7] = {true,true,true,false,false,false,false};
 
-#define __HQAA_EDGE_THRESHOLD (preset == 4 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
-#define __HQAA_SUBPIX (preset == 4 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
-#define __HQAA_SHARPEN_ENABLE (preset == 4 ? (SharpenEnableCustom) : (HQAA_SHARPEN_ENABLE_PRESET[preset]))
-#define __HQAA_SHARPEN_AMOUNT (preset == 4 ? (SharpenAmountCustom) : (HQAA_SHARPEN_STRENGTH_PRESET[preset]))
-#define __HQAA_SHARPEN_MODE (preset == 4 ? (SharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
-#define __HQAA_SMAA_CORNERING (preset == 4 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
-#define __HQAA_FXAA_DITHERING (preset == 4 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
+#define __HQAA_EDGE_THRESHOLD (preset == 6 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
+#define __HQAA_SUBPIX (preset == 6 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
+#define __HQAA_SHARPEN_ENABLE (preset == 6 ? (SharpenEnableCustom) : (HQAA_SHARPEN_ENABLE_PRESET[preset]))
+#define __HQAA_SHARPEN_AMOUNT (preset == 6 ? (SharpenAmountCustom) : (HQAA_SHARPEN_STRENGTH_PRESET[preset]))
+#define __HQAA_SHARPEN_MODE (preset == 6 ? (SharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
+#define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
+#define __HQAA_FXAA_DITHERING (preset == 6 ? (FxaaDitheringCustom) : (HQAA_FXAA_DITHERING_PRESET[preset]))
 #define __HQAA_BUFFER_MULTIPLIER (BUFFER_HEIGHT / 2160)
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
 
@@ -1601,12 +1601,7 @@ float2 HQSMAAEdgeDetectionWrapPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	float2 luma = SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler, HQAAcolorLinearSampler);
-	
-	if (dot(luma, float2(1.0, 1.0)) == 0.0)
-		discard;
-	
-	return luma;
+	return SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler, HQAAcolorLinearSampler);
 }
 float4 HQSMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
@@ -1621,22 +1616,21 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset : TEXCOORD1) : SV_Target
 {
-	float3 SMAAresult = SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler).rgb;
-	return SMAAresult;
+	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler).rgb;
 }
 
 float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
-	if (BUFFER_HEIGHT < 2160)
+	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.02,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL);
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAFXTex,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL);
 }
 float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
-	if (BUFFER_HEIGHT < 2160)
+	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
 	float floor = max(0.02, (1 - sqrt(__HQAA_EDGE_THRESHOLD)));
