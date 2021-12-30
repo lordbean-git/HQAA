@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v6.2.1
+ *                        v6.3
  *
  *                     by lordbean
  *
@@ -256,33 +256,25 @@ float3 SMAASharpenPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	if (sharpening <= 0)
 		discard;
 	
-	// proceed with CAS math.
+	// proceed with CAS math
+	// we're doing a fast version that only uses immediate neighbors
 	
-    float3 a = tex2Doffset(sTexColor, texcoord, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(sTexColor, texcoord, int2(0, -1)).rgb;
-    float3 c = tex2Doffset(sTexColor, texcoord, int2(1, -1)).rgb;
     float3 d = tex2Doffset(sTexColor, texcoord, int2(-1, 0)).rgb;
     float3 e = tex2D(sTexColor, texcoord).rgb;
     float3 f = tex2Doffset(sTexColor, texcoord, int2(1, 0)).rgb;
-    float3 g = tex2Doffset(sTexColor, texcoord, int2(-1, 1)).rgb;
     float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
-    float3 i = tex2Doffset(sTexColor, texcoord, int2(1, 1)).rgb;
 
     float3 mnRGB = min(min(min(d, e), min(f, b)), h);
-    float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
-    mnRGB += mnRGB2;
 
     float3 mxRGB = max(max(max(d, e), max(f, b)), h);
-    float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
-    mxRGB += mxRGB2;
 
     float3 rcpMRGB = rcp(mxRGB);
-    float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);    
+    float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);
     
     ampRGB = rsqrt(ampRGB);
     
-    float peak = 8.0;
-    float3 wRGB = -rcp(ampRGB * peak);
+    float3 wRGB = -rcp(ampRGB * 8);
 
     float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
 
@@ -310,7 +302,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	float sharpenmultiplier = sqrt(eLuma);
 	
 	if ((dot(edgesdetected, float2(1.0, 1.0)) != 0) && (__HQAA_SHARPEN_ENABLE == true))
-		sharpenmultiplier *= 0.25;
+		sharpenmultiplier *= 0.5;
 	
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength * (0.25 + __HQAA_SUBPIX) * (1.125 - __HQAA_EDGE_THRESHOLD) * sharpenmultiplier;
@@ -340,8 +332,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     
     ampRGB = rsqrt(ampRGB);
     
-    float peak = 8.0;
-    float3 wRGB = -rcp(ampRGB * peak);
+    float3 wRGB = -rcp(ampRGB * 8);
 
     float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
 
@@ -1250,14 +1241,20 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	}
 			
 	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
-	float gammaM = tex2D(gammatex, pos).a;
-	float adjustmentrange = 0;
-	if (__HQAA_SUBPIX != 0)
-		adjustmentrange = (fxaaIncomingEdgeThreshold * sqrt(__HQAA_SUBPIX));
-	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
-	float thresholdOffset = -adjustmentrange + (2 * (estimatedbrightness * adjustmentrange));
+	float fxaaQualityEdgeThreshold = fxaaIncomingEdgeThreshold;
 	
-	float fxaaQualityEdgeThreshold = max(__HQAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
+	if (pixelmode != __FXAA_MODE_REVERSED_DETECTION) {
+		float gammaM = tex2D(gammatex, pos).a;
+		float adjustmentrange = 0;
+		
+		if (__HQAA_SUBPIX != 0)
+			adjustmentrange = (fxaaIncomingEdgeThreshold * sqrt(__HQAA_SUBPIX));
+		
+		float estimatedbrightness = (lumaMa + gammaM) * 0.5;
+		float thresholdOffset = -adjustmentrange + (2 * (estimatedbrightness * adjustmentrange));
+		
+		fxaaQualityEdgeThreshold = max(__HQAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
+	}
 	
 	// Determine color contrast ratio of the input pixel
 	float separation = max(max(abs(rgbyM.r - rgbyM.g), abs(rgbyM.r - rgbyM.b)), abs(rgbyM.g - rgbyM.b));
@@ -1465,30 +1462,21 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	
 	// CAS is enabled and wanted? - sharpen output
 	if (sharpening > 0) {
-		float3 a = tex2Doffset(tex, pos, int2(-1, -1)).rgb;
 		float3 b = tex2Doffset(tex, pos, int2(0, -1)).rgb;
-		float3 c = tex2Doffset(tex, pos, int2(1, -1)).rgb;
 		float3 d = tex2Doffset(tex, pos, int2(-1, 0)).rgb;
 		float3 e = float3(weightedresult.rgb);
 		float3 f = tex2Doffset(tex, pos, int2(1, 0)).rgb;
-		float3 g = tex2Doffset(tex, pos, int2(-1, 1)).rgb;
 		float3 h = tex2Doffset(tex, pos, int2(0, 1)).rgb;
-		float3 i = tex2Doffset(tex, pos, int2(1, 1)).rgb;
 		
 		float3 mnRGB = min(min(min(d, e), min(f, b)), h);
-		float3 mnRGB2 = min(mnRGB, min(min(a, c), min(g, i)));
-		mnRGB += mnRGB2;
 		float3 mxRGB = max(max(max(d, e), max(f, b)), h);
-		float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
-		mxRGB += mxRGB2;
 		
 		float3 rcpMRGB = rcp(mxRGB);
 		float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);
 		
 		ampRGB = rsqrt(ampRGB);
 		
-		float peak = 8.0;
-		float3 wRGB = -rcp(ampRGB * peak);
+		float3 wRGB = -rcp(ampRGB * 8);
 		float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
 		
 		float3 window = (b + d) + (f + h);
@@ -1639,34 +1627,34 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler).rgb;
 }
 
-float4 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float3 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL);
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL).rgb;
 }
-float4 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float3 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	float thresholdsquirt = sqrt(__HQAA_EDGE_THRESHOLD);
+	float floor = max(0.02, thresholdsquirt);
+	float ceiling = min(0.98, 1 - thresholdsquirt);
 	
-	float floor = max(0.02, (1 - sqrt(__HQAA_EDGE_THRESHOLD)));
-	float ceiling = min(0.98, (1 - sqrt(__HQAA_EDGE_THRESHOLD)));
-	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,__FXAA_MODE_REVERSED_DETECTION);
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,__FXAA_MODE_REVERSED_DETECTION).rgb;
 }
 
 float3 SMAASharpenWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return saturate(SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler));
+	return SMAASharpenPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return saturate(HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler));
+	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
 
 /***************************************************************************************************************************************/
