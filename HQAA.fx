@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v6.1.1
+ *                       v6.1.2
  *
  *                     by lordbean
  *
@@ -85,9 +85,21 @@ uniform int preset <
 	ui_items = "Potato\0Low\0Medium\0High\0Ultra\0GLaDOS\0Custom\0";
 > = 3;
 
-uniform int spacer6 <
+uniform int presetbreakdown <
 	ui_type = "radio";
 	ui_label = " ";
+	ui_text = "\n"
+	          "|-Preset---Threshold---Subpix---Sharpen?---Mode---Dither?---Corners-|\n"
+	          "|--------|-----------|--------|----------|------|---------|---------|\n"
+	          "| Potato |   0.375   |  0.00  |    No    |  n/a |   Yes   |    0%   |\n"
+			  "|  Low   |    0.2    | 0.125  |    No    |  n/a |   Yes   |    0%   |\n"
+			  "| Medium |   0.125   |  0.25  |    No    |  n/a |   Yes   |   10%   |\n"
+			  "|  High  |   0.075   |  0.50  |   Yes    | Auto |    No   |   15%   |\n"
+			  "| Ultra  |   0.050   |  0.75  |   Yes    | Auto |    No   |   25%   |\n"
+			  "| GLaDOS |   0.013   |  1.00  |   Yes    | Auto |    No   |   50%   |\n"
+			  "---------------------------------------------------------------------";
+	ui_category = "Click me to see what settings each preset uses!";
+	ui_category_closed = true;
 >;
 
 uniform int spacer3 <
@@ -179,6 +191,7 @@ uniform int sharpenerintro <
 	ui_label = " ";
 	ui_text = "This feature is toggled on/off in the ReShade effects list.\nWhen enabled HQAA will run full-scene CAS and will use\nsome basic adjustment math to reduce strength\nwhen the anti-aliasing result sharpener is enabled as long as\nit's placed below HQAA in the effects list.";
 	ui_category = "Optional CAS";
+	ui_category_closed = true;
 >;
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
@@ -187,6 +200,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Optional CAS";
+	ui_category_closed = true;
 > = 1.0;
 
 uniform int terminationspacer <
