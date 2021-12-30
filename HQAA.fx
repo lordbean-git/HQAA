@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v6.2
+ *                        v6.2.1
  *
  *                     by lordbean
  *
@@ -479,29 +479,10 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
 float2 SMAAColorEdgeDetectionPS(float2 texcoord,
                                 float4 offset[3],
                                 __SMAATexture2D(colorTex),
-								__SMAATexture2D(gammaTex)
+								__SMAATexture2D(gammaTex),
+								float2 threshold
                                 ) {
 									
-	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
-	
-	// calculate the threshold
-	float adjustmentrange = 0;
-	if (__HQAA_SUBPIX != 0)
-		adjustmentrange = (__SMAA_EDGE_THRESHOLD * sqrt(__HQAA_SUBPIX));
-	
-	float strongestcolor = max(max(middle.r, middle.g), middle.b);
-	float estimatedbrightness = (strongestcolor + middle.a) * 0.5;
-	float thresholdOffset = -(0.25 * adjustmentrange) + (2 * (estimatedbrightness * adjustmentrange));
-	
-	if (thresholdOffset > 0)
-		thresholdOffset *= 0.5;
-	else
-		thresholdOffset *= 8;
-	
-	float weightedthreshold = max(__HQAA_THRESHOLD_FLOOR, (__SMAA_EDGE_THRESHOLD + thresholdOffset));
-	
-	float2 threshold = float2(weightedthreshold, weightedthreshold);
-	
     // Calculate color deltas:
     float4 delta;
     float3 C = __SMAASamplePoint(colorTex, texcoord).rgb;
@@ -597,7 +578,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 			weights = float4(0.25, 0.25, 0, 0.5);
 		else // red/green strength critically low - at this point, abort luma detection
 		{
-			return SMAAColorEdgeDetectionPS(texcoord, offset, colorTex, gammaTex);
+			return SMAAColorEdgeDetectionPS(texcoord, offset, colorTex, gammaTex, threshold);
 		}
 	
     float L = dot(middle, weights);
