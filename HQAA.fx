@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v6.3
+ *                        v6.4
  *
  *                     by lordbean
  *
@@ -196,7 +196,7 @@ uniform int sharpenerintro <
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 5;
-	ui_min = 0; ui_max = 2; ui_step = 0.01;
+	ui_min = 0; ui_max = 4; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Optional CAS";
@@ -297,15 +297,13 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	// first check if SMAA detected any edges here
 	
 	float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
-	float eLuma = tex2D(sTexColor, texcoord).a;
-	
-	float sharpenmultiplier = sqrt(eLuma);
+	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
 	if ((dot(edgesdetected, float2(1.0, 1.0)) != 0) && (__HQAA_SHARPEN_ENABLE == true))
-		sharpenmultiplier *= 0.5;
+		sharpenmultiplier = 0.5;
 	
 	// set sharpening amount
-	float sharpening = HqaaSharpenerStrength * (0.25 + __HQAA_SUBPIX) * (1.125 - __HQAA_EDGE_THRESHOLD) * sharpenmultiplier;
+	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
 	
 	// proceed with CAS math.
 	
@@ -1637,12 +1635,12 @@ float3 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : 
 }
 float3 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX;
+	float TotalSubpix = __HQAA_SUBPIX * 0.5;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	float thresholdsquirt = sqrt(__HQAA_EDGE_THRESHOLD);
-	float floor = max(0.02, thresholdsquirt);
-	float ceiling = min(0.98, 1 - thresholdsquirt);
+	float thresholdsquirt = 0.5 * sqrt(__HQAA_EDGE_THRESHOLD);
+	float floor = max(0.0625, thresholdsquirt);
+	float ceiling = min(0.9375, 1 - thresholdsquirt);
 	
 	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,__FXAA_MODE_REVERSED_DETECTION).rgb;
 }
