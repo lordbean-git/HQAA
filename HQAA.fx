@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v6.4
+ *                        v6.4.1
  *
  *                     by lordbean
  *
@@ -300,7 +300,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
 	if ((dot(edgesdetected, float2(1.0, 1.0)) != 0) && (__HQAA_SHARPEN_ENABLE == true))
-		sharpenmultiplier = 0.5;
+		sharpenmultiplier *= 0.5;
 	
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
