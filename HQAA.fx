@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v7.0
+ *                        v7.1
  *
  *                     by lordbean
  *
@@ -207,7 +207,8 @@ static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,10,15,25,50,0};
 #define __HQAA_SHARPEN_MODE (preset == 6 ? (SharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
 #define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
-#define __HQAA_THRESHOLD_FLOOR 0.006
+#define __FXAA_THRESHOLD_FLOOR 0.0125
+#define __SMAA_THRESHOLD_FLOOR 0.004
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_BUFFER_MULTIPLIER (__HQAA_DISPLAY_DENOMINATOR / 2160)
@@ -220,14 +221,18 @@ static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,10,15,25,50,0};
 /*********************************************************** SMAA CAS START **************************************************************/
 /*****************************************************************************************************************************************/
 
-float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e)
+float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, float subpix)
 {
 	// calculate sharpening parameters
 	float sharpening = __HQAA_SHARPEN_AMOUNT;
 	
 	if (__HQAA_SHARPEN_MODE == 0) {
 		float strongestcolor = max(max(e.r, e.g), e.b);
-		sharpening = e.a * strongestcolor * __HQAA_SUBPIX;
+		float brightness = e.a * strongestcolor;
+		if (subpix <= 0)
+			sharpening = brightness * (1.0 - threshold);
+		else
+			sharpening = brightness * subpix;
 	}
 	
 	// exit if the pixel doesn't seem to warrant sharpening
@@ -333,7 +338,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 // Configurable
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
-#define __SMAA_EDGE_THRESHOLD (__HQAA_EDGE_THRESHOLD)
+#define __SMAA_EDGE_THRESHOLD max(0.0125, __HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.375 * __HQAA_SUBPIX))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA
@@ -529,7 +534,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	else
 		thresholdOffset *= 8;
 	
-	float weightedthreshold = max(__HQAA_THRESHOLD_FLOOR, (__SMAA_EDGE_THRESHOLD + thresholdOffset));
+	float weightedthreshold = max(__SMAA_THRESHOLD_FLOOR, (__SMAA_EDGE_THRESHOLD + thresholdOffset));
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
     // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
@@ -1000,7 +1005,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
     if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
         float4 color = __SMAASampleLevelZero(colorTex, texcoord);
 		if (__HQAA_SHARPEN_ENABLE == true)
-			return Sharpen(texcoord, colorTex, color);
+			return Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1);
 		else
 			return color;
     } else {
@@ -1022,7 +1027,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
 
 		if (__HQAA_SHARPEN_ENABLE == true)
-			return Sharpen(texcoord, colorTex, color);
+			return Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1);
 		else
 			return color;
     }
@@ -1229,7 +1234,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 		float estimatedbrightness = (lumaMa + gammaM) * 0.5;
 		float thresholdOffset = -(2 * adjustmentrange) + (2 * (estimatedbrightness * adjustmentrange));
 		
-		fxaaQualityEdgeThreshold = max(__HQAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
+		fxaaQualityEdgeThreshold = max(__FXAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
 	}
 	
 	// Determine color contrast ratio of the input pixel
@@ -1417,8 +1422,8 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	
 	// fart the result
-	if (__HQAA_SHARPEN_ENABLE == true && pixelmode == __FXAA_MODE_NORMAL)
-		return Sharpen(pos, tex, weightedresult);
+	if (__HQAA_SHARPEN_ENABLE == true)
+		return Sharpen(pos, tex, weightedresult, fxaaQualityEdgeThreshold, fxaaQualitySubpix);
 	else
 		return weightedresult;
 }
