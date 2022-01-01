@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v7.1.1
+ *                       v7.2
  *
  *                     by lordbean
  *
@@ -1200,6 +1200,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
  __FxaaFloat fxaaIncomingEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, int pixelmode)
  // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only, 3 = reversed detection
  {
+	 if (pixelmode == __FXAA_MODE_REVERSED_DETECTION) {
+		 float2 SMAAedges = tex2D(gammatex, pos).rg;
+		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) == 0;
+		 if (noSMAAedges)
+			 discard;
+	 }
     __FxaaFloat2 posM;
     posM.x = pos.x;
     posM.y = pos.y;
@@ -1366,9 +1372,9 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	uint iterations = 0;
 	uint maxiterations = 0;
 	if (pixelmode == 0)
-		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.05);
+		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.025);
 	else
-		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.005);
+		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.01);
 	
     while(doneNP == true && iterations < maxiterations) {
 		float offNPoff = float(iterations * 0.05);
@@ -1582,12 +1588,12 @@ float3 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord 
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
 	float thresholdmultiplier = rcp(__HQAA_BUFFER_MULTIPLIER);
-	float threshold = min(0.5, ((1.5 + thresholdmultiplier) * __HQAA_EDGE_THRESHOLD));
+	float threshold = min(0.5, thresholdmultiplier * __HQAA_EDGE_THRESHOLD);
 	
-	float floor = max(0.1, threshold);
-	float ceiling = min(0.9, 1 - threshold);
+	float floor = max(__FXAA_THRESHOLD_FLOOR, threshold);
+	float ceiling = min(1 - __FXAA_THRESHOLD_FLOOR, 1 - threshold);
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,__FXAA_MODE_REVERSED_DETECTION).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,__FXAA_MODE_REVERSED_DETECTION).rgb;
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
