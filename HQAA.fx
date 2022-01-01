@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v7.2
+ *                       v7.2.1
  *
  *                     by lordbean
  *
@@ -1209,9 +1209,9 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat2 posM;
     posM.x = pos.x;
     posM.y = pos.y;
+    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
 	
 	int lumatype = 1; // assume green is luma until determined otherwise
-    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
 	
 	float maxcolor = max(max(rgbyM.r, rgbyM.g), rgbyM.b);
 	bool stronggreen = rgbyM.g > (rgbyM.r + rgbyM.b);
@@ -1228,7 +1228,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	}
 			
 	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
-	float fxaaQualityEdgeThreshold = fxaaIncomingEdgeThreshold;
+	float fxaaQualityEdgeThreshold = __FXAA_THRESHOLD_FLOOR;
 	
 	if (pixelmode != __FXAA_MODE_REVERSED_DETECTION) {
 		float gammaM = tex2D(gammatex, pos).a;
@@ -1273,12 +1273,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
     __FxaaFloat range = rangeMax - rangeMin;
     __FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
-	__FxaaBool earlyExit = false;
-	
-	if (pixelmode != __FXAA_MODE_REVERSED_DETECTION) // normal early exit check
-		earlyExit = range < rangeMaxClamped;
-	else // reversed detection early exit check
-		earlyExit = ((range < fxaaQualityEdgeThresholdMin) || (range > rangeMaxScaled));
+	__FxaaBool earlyExit = range < rangeMaxClamped;
 	
     if(earlyExit)
         #if (__FXAA_DISCARD == 1)
@@ -1586,14 +1581,14 @@ float3 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord 
 	float TotalSubpix = __HQAA_SUBPIX * 0.5;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	
+/*	
 	float thresholdmultiplier = rcp(__HQAA_BUFFER_MULTIPLIER);
 	float threshold = min(0.5, thresholdmultiplier * __HQAA_EDGE_THRESHOLD);
 	
 	float floor = max(__FXAA_THRESHOLD_FLOOR, threshold);
 	float ceiling = min(1 - __FXAA_THRESHOLD_FLOOR, 1 - threshold);
-	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,ceiling,floor,__FXAA_MODE_REVERSED_DETECTION).rgb;
+*/	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,-1,-1,__FXAA_MODE_REVERSED_DETECTION).rgb;
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
