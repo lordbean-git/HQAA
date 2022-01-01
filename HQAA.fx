@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v7.1
+ *                       v7.1.1
  *
  *                     by lordbean
  *
@@ -228,9 +228,9 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
 	
 	if (__HQAA_SHARPEN_MODE == 0) {
 		float strongestcolor = max(max(e.r, e.g), e.b);
-		float brightness = e.a * strongestcolor;
+		float brightness = -0.375 + e.a * strongestcolor;
 		if (subpix <= 0)
-			sharpening = brightness * (1.0 - threshold);
+			sharpening = brightness * (1 - threshold);
 		else
 			sharpening = brightness * subpix;
 	}
@@ -276,13 +276,13 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
 
 float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
-	// first check if SMAA detected any edges here
-	
-	float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
 	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
-	if ((dot(edgesdetected, float2(1.0, 1.0)) != 0) && (__HQAA_SHARPEN_ENABLE == true))
-		sharpenmultiplier *= 0.5;
+	if (__HQAA_SHARPEN_ENABLE == true) {
+		float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
+		if ((dot(edgesdetected, float2(1.0, 1.0)) != 0))
+			sharpenmultiplier *= 0.125;
+	}
 	
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
