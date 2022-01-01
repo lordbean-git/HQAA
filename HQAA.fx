@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v7.2.1
+ *                       v7.3
  *
  *                     by lordbean
  *
@@ -1365,26 +1365,32 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y += offNP.y;
 	
 	uint iterations = 0;
-	uint maxiterations = 0;
-	if (pixelmode == 0)
-		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.025);
-	else
-		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.01);
+	uint maxiterations = 8;
+	float granularity = 0.5;
+	float granularitystep = 0.25;
+	if (pixelmode == 0) {
+		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.125);
+		granularity = 0.125;
+		granularitystep = 0.025;
+	}
 	
-    while(doneNP == true && iterations < maxiterations) {
-		float offNPoff = float(iterations * 0.05);
+	bool posValid = true;
+	
+    while(doneNP == true && iterations < maxiterations && posValid == true) {
         if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
         if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
         if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
         if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
         doneN = abs(lumaEndN) >= gradientScaled;
         doneP = abs(lumaEndP) >= gradientScaled;
-        if(!doneN) posN.x -= offNP.x * offNPoff;
-        if(!doneN) posN.y -= offNP.y * offNPoff;
+        if(!doneN) posN.x -= offNP.x * granularity;
+        if(!doneN) posN.y -= offNP.y * granularity;
         doneNP = (!doneN) || (!doneP);
-        if(!doneP) posP.x += offNP.x * offNPoff;
-        if(!doneP) posP.y += offNP.y * offNPoff;
+        if(!doneP) posP.x += offNP.x * granularity;
+        if(!doneP) posP.y += offNP.y * granularity;
+		posValid = posN.x > 0 && posN.y > 0 && (posP.x - BUFFER_WIDTH) < 0 && (posP.y - BUFFER_HEIGHT) < 0;
 		iterations++;
+		granularity += granularitystep;
     }
 	
     __FxaaFloat dstN = posM.x - posN.x;
@@ -1413,12 +1419,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	
-	// Check how strongly this pixel detected as aliasing
-	float detectionThreshold = range - rangeMaxClamped;
+	// Check how much blending was done
+	float blendStrength = iterations / maxiterations;
 	
 	// Calculate level of interpolation with original input
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
-	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * detectionThreshold, 1), 0.75);
+	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * blendStrength, 1), 0.75);
 	
 	float4 weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	
