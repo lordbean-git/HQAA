@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v7.4
+ *                       v8.0
  *
  *                     by lordbean
  *
@@ -192,6 +192,8 @@ uniform int terminationspacer <
 	ui_type = "radio";
 	ui_label = " ";
 >;
+
+uniform float frametime < source = "frametime"; >;
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.375,0.2,0.125,0.075,0.05,0.025,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0,0.125,0.25,0.5,0.75,1.0,0};
@@ -1198,15 +1200,21 @@ __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
 #define __FXAA_MODE_COLOR_ONLY 1
 #define __FXAA_MODE_GRAYSCALE_ONLY 2
 #define __FXAA_MODE_REVERSED_DETECTION 3
-__FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __FxaaTex gammatex,
+__FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __FxaaTex edgestex,
  __FxaaFloat2 fxaaQualityRcpFrame, __FxaaFloat fxaaQualitySubpix,
  __FxaaFloat fxaaIncomingEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, int pixelmode)
  // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only, 3 = reversed detection
  {
 	 if (pixelmode == __FXAA_MODE_REVERSED_DETECTION) {
-		 float2 SMAAedges = tex2D(gammatex, pos).rg;
+		 float2 SMAAedges = tex2D(edgestex, pos).rg;
 		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) == 0;
 		 if (noSMAAedges)
+			 discard;
+	 }
+	 if (pixelmode == __FXAA_MODE_NORMAL) {
+		 float2 SMAAedges = tex2D(edgestex, pos).rg;
+		 bool SMAAran = dot(float2(1.0, 1.0), SMAAedges) != 0;
+		 if (SMAAran)
 			 discard;
 	 }
     __FxaaFloat2 posM;
@@ -1231,20 +1239,17 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	}
 			
 	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
-	float fxaaQualityEdgeThreshold = __FXAA_THRESHOLD_FLOOR;
 	
-	if (pixelmode != __FXAA_MODE_REVERSED_DETECTION) {
-		float gammaM = tex2D(gammatex, pos).a;
-		float adjustmentrange = 0;
+	float gammaM = (0.3333 * rgbyM.r) + (0.3334 * rgbyM.g) + (0.3333 * rgbyM.b);
+	float adjustmentrange = 0;
 		
-		if (__HQAA_SUBPIX != 0)
-			adjustmentrange = (fxaaIncomingEdgeThreshold * sqrt(__HQAA_SUBPIX));
+	if (__HQAA_SUBPIX != 0)
+		adjustmentrange = (fxaaIncomingEdgeThreshold * sqrt(__HQAA_SUBPIX));
 		
-		float estimatedbrightness = (lumaMa + gammaM) * 0.5;
-		float thresholdOffset = -(2 * adjustmentrange) + (2 * (estimatedbrightness * adjustmentrange));
+	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
+	float thresholdOffset = -(2 * adjustmentrange) + (2 * (estimatedbrightness * adjustmentrange));
 		
-		fxaaQualityEdgeThreshold = max(__FXAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
-	}
+	float fxaaQualityEdgeThreshold = max(__FXAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
 	
 	// Determine color contrast ratio of the input pixel
 	float separation = max(max(abs(rgbyM.r - rgbyM.g), abs(rgbyM.r - rgbyM.b)), abs(rgbyM.g - rgbyM.b));
@@ -1275,7 +1280,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat rangeMin = min(minWN, minESM);
     __FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
     __FxaaFloat range = rangeMax - rangeMin;
-	if (pixelmode != __FXAA_MODE_REVERSED_DETECTION) {
     __FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
 	__FxaaBool earlyExit = range < rangeMaxClamped;
 	
@@ -1285,7 +1289,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
         #else
             return rgbyM;
         #endif
-	}
+	
 		
 		
     __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
@@ -1370,14 +1374,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y += offNP.y;
 	
 	uint iterations = 0;
-	uint maxiterations = 8;
-	float granularity = 0.25;
-	float granularitystep = 0.125;
-	if (pixelmode == 0) {
-		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.25);
-		granularity = 0.5;
-		granularitystep = 0.0025;
-	}
+	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.1);
+	if (pixelmode == __FXAA_MODE_NORMAL)
+		maxiterations = trunc(maxiterations * 0.2);
+	float granularity = 0.125;
+	if (frametime > 17)
+		maxiterations = max(4, trunc(rcp(frametime - 16) * maxiterations));
 	
 	bool posValid = true;
 	
@@ -1395,7 +1397,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
         if(!doneP) posP.y += offNP.y * granularity;
 		posValid = posN.x > 0 && posN.y > 0 && (BUFFER_WIDTH - posP.x) > 0 && (BUFFER_HEIGHT - posP.y) > 0;
 		iterations++;
-		granularity += granularitystep;
     }
 	
     __FxaaFloat dstN = posM.x - posN.x;
@@ -1423,18 +1424,14 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
-	
-	// Check how much blending was done
-	float blendStrength = iterations / maxiterations;
+	float4 weightedresult = resultAA;
 	
 	// Calculate level of interpolation with original input
-	float4 weightedresult = resultAA;
-	if (pixelmode != __FXAA_MODE_REVERSED_DETECTION) {
 	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
+	float blendStrength = 1 - (iterations / maxiterations);
 	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * blendStrength, 1), 0.75);
 	
 	weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
-	}
 	
 	// fart the result
 	if (__HQAA_SHARPEN_ENABLE == true)
@@ -1456,6 +1453,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 //////////////////////////////////////////////////////////// TEXTURES ///////////////////////////////////////////////////////////////////
 
 texture HQAAedgesTex < pooled = true; >
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	Format = RG8;
+};
+texture HQAAstepTwoEdgesTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
@@ -1498,6 +1501,13 @@ sampler HQAAcolorLinearSampler
 	SRGBTexture = true;
 };
 sampler HQAAedgesSampler
+{
+	Texture = HQAAedgesTex;
+	AddressU = Clamp; AddressV = Clamp;
+	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
+	SRGBTexture = false;
+};
+sampler HQAAstepTwoEdgesSampler
 {
 	Texture = HQAAedgesTex;
 	AddressU = Clamp; AddressV = Clamp;
@@ -1582,27 +1592,22 @@ float3 HQSMAANeighborhoodBlendingWrapPS(
 	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler).rgb;
 }
 
-float3 FXAAPixelShaderAdaptiveFine(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float3 FXAAPixelShaderPostPass(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float TotalSubpix = __HQAA_SUBPIX * 0.25;
+	if (__HQAA_BUFFER_MULTIPLIER < 1)
+		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAstepTwoEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL).rgb;
+}
+
+float3 FXAAPixelShaderSMAADetection(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorLinearSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL).rgb;
-}
-float3 FXAAPixelShaderAdaptiveCoarse(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float TotalSubpix = __HQAA_SUBPIX * 0.5;
-	if (__HQAA_BUFFER_MULTIPLIER < 1)
-		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-/*	
-	float thresholdmultiplier = rcp(__HQAA_BUFFER_MULTIPLIER);
-	float threshold = min(0.5, thresholdmultiplier * __HQAA_EDGE_THRESHOLD);
-	
-	float floor = max(__FXAA_THRESHOLD_FLOOR, threshold);
-	float ceiling = min(1 - __FXAA_THRESHOLD_FLOOR, 1 - threshold);
-*/	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,-1,-1,__FXAA_MODE_REVERSED_DETECTION).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAstepTwoEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_REVERSED_DETECTION).rgb;
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
@@ -1651,15 +1656,25 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
-	pass FXAA
+	pass SMAAEdgeDetection
 	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveCoarse;
+		VertexShader = HQSMAAEdgeDetectionWrapVS;
+		PixelShader = HQSMAAEdgeDetectionWrapPS;
+		RenderTarget = HQAAstepTwoEdgesTex;
+		ClearRenderTargets = true;
+		StencilEnable = true;
+		StencilPass = REPLACE;
+		StencilRef = 1;
 	}
-	pass FXAA
+	pass SMAAbasedFXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderAdaptiveFine;
+		PixelShader = FXAAPixelShaderSMAADetection;
+	}
+	pass FXAAPostPass
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderPostPass;
 	}
 }
 
