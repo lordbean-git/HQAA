@@ -1026,7 +1026,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         color = blendingWeight.x * __SMAASampleLevelZero(colorTex, blendingCoord.xy);
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
-	if (dot(color,float4(1,1,1,1)) > 0) {
+	if (abs(dot(color,float4(1,1,1,1))) > 0) {
 	if (__HQAA_SHARPEN_ENABLE == true)
 		return Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1);
 	else
