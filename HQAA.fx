@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.2.1
+ *                       v8.3
  *
  *                     by lordbean
  *
@@ -379,8 +379,8 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD max(0.0125, __HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA 1.125
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 1.625
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA 2.0
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 3.0
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -553,35 +553,26 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
  // SMAA default luma weights: 0.2126, 0.7152, 0.0722
 
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
-	float4 weights = float4(0.375,0.375,0,0.25); // default to grayscale weights
 	
 	// calculate the threshold
-	float adjustmentrange = __SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR;
+	float adjustmentrange = (__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * __HQAA_SUBPIX * 0.5;
 	
 	float strongestcolor = max(max(middle.r, middle.g), middle.b);
 	float estimatedgamma = (0.3333 * middle.r) + (0.3334 * middle.g) + (0.3333 * middle.b);
-	float estimatedbrightness = 1 - ((strongestcolor + estimatedgamma) * 0.5);
-	float thresholdOffset = adjustmentrange - (estimatedbrightness * adjustmentrange);
+	float estimatedbrightness = (strongestcolor + estimatedgamma) * 0.5;
+	float thresholdOffset = -adjustmentrange + (estimatedbrightness * adjustmentrange);
 	
-	float weightedthreshold = __SMAA_EDGE_THRESHOLD;
-	if (estimatedbrightness > 0.5)
-		weightedthreshold -= thresholdOffset;
+	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
 	
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
-    // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
-	bool grayscale = (max(abs(middle.r - middle.g),max(abs(middle.r-middle.b),abs(middle.g-middle.b))) < __HQAA_GRAYSCALE_THRESHOLD);
-	bool runLumaDetection = true;
+	// calculate color channel weighting
+	float4 weights = float4(0.25,0.5,0.125,0.125);
+	weights *= middle;
+	float scale = rcp(weights.r + weights.g + weights.b + weights.a);
+	weights *= float4(scale,scale,scale,scale);
 	
-	if (grayscale == false)
-		if (middle.r > middle.g && middle.r >= middle.b) // strong red channel available
-			weights = float4(0.625, 0, 0, 0.375);
-		else if (middle.g >= middle.r && middle.g >= middle.b) // strong green channel available
-			weights = float4(0, 0.625, 0, 0.375);
-		else if (middle.r + middle.g > middle.b) // very weak but present red/green channels
-			weights = float4(0.25, 0.25, 0.125, 0.375);
-		else // red/green strength critically low - at this point, abort luma detection
-		    runLumaDetection = false;
+	bool runLumaDetection = (weights.r + weights.g) > (weights.b + weights.a);
 	
 	if (runLumaDetection) {
 	
