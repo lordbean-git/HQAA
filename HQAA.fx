@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.1.1
+ *                       v8.2
  *
  *                     by lordbean
  *
@@ -100,6 +100,22 @@ uniform int presetbreakdown <
 			  "---------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
+>;
+
+uniform int spacer69 <
+	ui_type = "radio";
+	ui_label = " ";
+>;
+
+uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
+	ui_min = 30; ui_max = 120; ui_step = 1;
+	ui_label = "Target Minimum Framerate";
+	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
+> = 60;
+
+uniform int spacer420 <
+	ui_type = "radio";
+	ui_label = " ";
 >;
 
 uniform int spacer3 <
@@ -232,6 +248,7 @@ static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.1,0.2,0.4,0.8,1,
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_BUFFER_MULTIPLIER (__HQAA_DISPLAY_DENOMINATOR / 2160)
+#define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1359,11 +1376,11 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y += offNP.y;
 	
 	uint iterations = 0;
-	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.5) * __HQAA_FXAA_SCAN_MULTIPLIER;
+	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.125) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	float granularity = 0.25;
 	
-	if (frametime > 10)
-		maxiterations = max(4, trunc(rcp(frametime - 9) * maxiterations));
+	if (frametime > __HQAA_DESIRED_FRAMETIME)
+		maxiterations = max(4, trunc(rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1)) * maxiterations));
 	
 	
 	bool posValid = true;
