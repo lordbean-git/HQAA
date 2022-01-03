@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.0
+ *                       v8.1
  *
  *                     by lordbean
  *
@@ -209,7 +209,7 @@ static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,10,15,25,50,0};
 #define __HQAA_SHARPEN_MODE (preset == 6 ? (SharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
 #define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
-#define __FXAA_THRESHOLD_FLOOR 0.0125
+#define __FXAA_THRESHOLD_FLOOR 0.004
 #define __SMAA_THRESHOLD_FLOOR 0.004
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
@@ -223,7 +223,7 @@ static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,10,15,25,50,0};
 /*********************************************************** SMAA CAS START **************************************************************/
 /*****************************************************************************************************************************************/
 
-float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, float subpix)
+float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, float subpix)
 {
 	// calculate sharpening parameters
 	float sharpening = __HQAA_SHARPEN_AMOUNT;
@@ -239,7 +239,7 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
 	
 	// exit if the pixel doesn't seem to warrant sharpening
 	if (sharpening <= 0)
-		return e;
+		return e.rgb;
 	else {
 	
 	// proceed with CAS math
@@ -264,9 +264,9 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
     float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
 
     float3 window = (b + d) + (f + h);
-    float4 outColor = saturate(float4((window * wRGB + e.rgb) * rcpWeightRGB, e.a));
+    float3 outColor = saturate((window * wRGB + e.rgb) * rcpWeightRGB);
     
-	return lerp(e, outColor, sharpening);
+	return lerp(e.rgb, outColor, sharpening);
 	}
 }
 
@@ -473,10 +473,6 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
     // We do the usual threshold:
     float2 edges = step(threshold, delta.xy);
 
-	
-	if (dot(edges, float2(1.0, 1.0)) == 0.0)
-		discard;
-	
 
     // Calculate right and bottom deltas:
     float3 Cright = __SMAASamplePoint(colorTex, offset[1].xy).rgb;
@@ -522,23 +518,20 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
  // SMAA default luma weights: 0.2126, 0.7152, 0.0722
 
 	float4 middle = float4(__SMAASamplePoint(colorTex, texcoord).rgb,__SMAASamplePoint(gammaTex, texcoord).a);
-	float4 weights = float4(0.3,0.6,0,0.1); // default to grayscale weights
+	float4 weights = float4(0.375,0.375,0,0.25); // default to grayscale weights
 	
 	// calculate the threshold
-	float adjustmentrange = 0;
-	if (__HQAA_SUBPIX != 0)
-		adjustmentrange = (__SMAA_EDGE_THRESHOLD * sqrt(__HQAA_SUBPIX));
+	float adjustmentrange = __SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR;
 	
 	float strongestcolor = max(max(middle.r, middle.g), middle.b);
-	float estimatedbrightness = (strongestcolor + middle.a) * 0.5;
-	float thresholdOffset = -(0.25 * adjustmentrange) + (2 * (estimatedbrightness * adjustmentrange));
+	float estimatedgamma = (0.3333 * middle.r) + (0.3334 * middle.g) + (0.3333 * middle.b);
+	float estimatedbrightness = 1 - ((strongestcolor + estimatedgamma) * 0.5);
+	float thresholdOffset = adjustmentrange - (estimatedbrightness * adjustmentrange);
 	
-	if (thresholdOffset > 0)
-		thresholdOffset *= 0.125;
-	else
-		thresholdOffset *= 8;
+	float weightedthreshold = __SMAA_EDGE_THRESHOLD;
+	if (estimatedbrightness > 0.5)
+		weightedthreshold -= thresholdOffset;
 	
-	float weightedthreshold = max(__SMAA_THRESHOLD_FLOOR, (__SMAA_EDGE_THRESHOLD + thresholdOffset));
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
     // Calculate lumas - blue is avoided at all costs because edge detection uses red + green
@@ -547,11 +540,11 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	
 	if (grayscale == false)
 		if (middle.r > middle.g && middle.r >= middle.b) // strong red channel available
-			weights = float4(0.9, 0, 0, 0.1);
+			weights = float4(0.625, 0, 0, 0.375);
 		else if (middle.g >= middle.r && middle.g >= middle.b) // strong green channel available
-			weights = float4(0, 0.9, 0, 0.1);
-		else if (middle.r + middle.g > 0.125) // very weak but present red/green channels
-			weights = float4(0.45, 0.45, 0, 0.1);
+			weights = float4(0, 0.625, 0, 0.375);
+		else if (middle.r + middle.g > middle.b) // very weak but present red/green channels
+			weights = float4(0.25, 0.25, 0.125, 0.375);
 		else // red/green strength critically low - at this point, abort luma detection
 		    runLumaDetection = false;
 	
@@ -566,10 +559,6 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     float4 delta;
     delta.xy = abs(L - float2(Lleft, Ltop));
     float2 edges = step(threshold, delta.xy);
-	
-	
-	if (dot(edges, float2(1.0, 1.0)) == 0.0)
-		discard;
 	
 
     // Calculate right and bottom deltas:
@@ -1028,14 +1017,10 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         color = blendingWeight.x * __SMAASampleLevelZero(colorTex, blendingCoord.xy);
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
-	if (abs(dot(color,float4(1,1,1,1))) > 0) {
 	if (__HQAA_SHARPEN_ENABLE == true)
-		return Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1);
+		return float4(Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1), color.a);
 	else
 		return color;
-	}
-	else
-		discard;
 }
 
 #endif // SMAA_INCLUDE_PS
@@ -1100,7 +1085,6 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 
 #if (__FXAA_GLSL_120 == 1) || (__FXAA_GLSL_130 == 1)
     #define __FxaaBool bool
-    #define __FxaaDiscard discard
     #define __FxaaFloat float
     #define __FxaaFloat2 vec2
     #define __FxaaFloat3 vec3
@@ -1114,7 +1098,6 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
     #define __FxaaTex sampler2D
 #else
     #define __FxaaBool bool
-    #define __FxaaDiscard discard
     #define __FxaaFloat float
     #define __FxaaFloat2 float2
     #define __FxaaFloat3 float3
@@ -1197,30 +1180,28 @@ __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
 }
 
 #define __FXAA_MODE_NORMAL 0
-#define __FXAA_MODE_COLOR_ONLY 1
-#define __FXAA_MODE_GRAYSCALE_ONLY 2
-#define __FXAA_MODE_REVERSED_DETECTION 3
+#define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
+#define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __FxaaTex edgestex,
  __FxaaFloat2 fxaaQualityRcpFrame, __FxaaFloat fxaaQualitySubpix,
  __FxaaFloat fxaaIncomingEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, int pixelmode)
- // For pixelmode, 0 = normal pass, 1 = color only, 2 = grayscale only, 3 = reversed detection
  {
-	 if (pixelmode == __FXAA_MODE_REVERSED_DETECTION) {
+    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
+	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
 		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) == 0;
 		 if (noSMAAedges)
-			 discard;
+			 return rgbyM;
 	 }
-	 if (pixelmode == __FXAA_MODE_NORMAL) {
+	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
 		 bool SMAAran = dot(float2(1.0, 1.0), SMAAedges) != 0;
 		 if (SMAAran)
-			 discard;
+			 return rgbyM;
 	 }
     __FxaaFloat2 posM;
     posM.x = pos.x;
     posM.y = pos.y;
-    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
 	
 	int lumatype = 1; // assume green is luma until determined otherwise
 	
@@ -1251,20 +1232,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 		
 	float fxaaQualityEdgeThreshold = max(__FXAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
 	
-	// Determine color contrast ratio of the input pixel
-	float separation = max(max(abs(rgbyM.r - rgbyM.g), abs(rgbyM.r - rgbyM.b)), abs(rgbyM.g - rgbyM.b));
 	
-	// Check if this is a grayscale pixel
-	bool grayscale = separation < __HQAA_GRAYSCALE_THRESHOLD;
-	
-	if ((grayscale && pixelmode == __FXAA_MODE_COLOR_ONLY) || (!grayscale && pixelmode == __FXAA_MODE_GRAYSCALE_ONLY))
-        #if (__FXAA_DISCARD == 1)
-            __FxaaDiscard;
-        #else
-            return rgbyM;
-        #endif
-		
-		
     __FxaaFloat lumaS = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 0, 1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 0), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaN = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 0,-1), fxaaQualityRcpFrame.xy));
@@ -1280,18 +1248,17 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat rangeMin = min(minWN, minESM);
     __FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
     __FxaaFloat range = rangeMax - rangeMin;
-    __FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
-	__FxaaBool earlyExit = range < rangeMaxClamped;
 	
-    if(earlyExit)
-        #if (__FXAA_DISCARD == 1)
-            __FxaaDiscard;
-        #else
-            return rgbyM;
-        #endif
+	// Skip threshold check when in SMAA positives mode
+	if (pixelmode != __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
+		__FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
+		__FxaaBool earlyExit = range < rangeMaxClamped;
+		
+		if(earlyExit)
+			return rgbyM;
+	}
 	
-		
-		
+	
     __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaNE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1,-1), fxaaQualityRcpFrame.xy));
@@ -1374,12 +1341,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y += offNP.y;
 	
 	uint iterations = 0;
-	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.1);
-	if (pixelmode == __FXAA_MODE_NORMAL)
-		maxiterations = trunc(maxiterations * 0.2);
-	float granularity = 0.125;
+	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.125);
+	float granularity = 0.25;
+	
 	if (frametime > 17)
 		maxiterations = max(4, trunc(rcp(frametime - 16) * maxiterations));
+	
 	
 	bool posValid = true;
 	
@@ -1424,20 +1391,12 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
-	float4 weightedresult = resultAA;
-	
-	// Calculate level of interpolation with original input
-	float4 inputPixel = float4(tex2D(tex,pos).rgb,lumaMa);
-	float blendStrength = 1 - (iterations / maxiterations);
-	float subpixWeight = max(min((1 - fxaaQualityEdgeThreshold) * (1 + fxaaQualitySubpix) * blendStrength, 1), 0.75);
-	
-	weightedresult = (subpixWeight * resultAA) + ((1 - subpixWeight) * inputPixel);
 	
 	// fart the result
 	if (__HQAA_SHARPEN_ENABLE == true)
-		return Sharpen(pos, tex, weightedresult, fxaaQualityEdgeThreshold, fxaaQualitySubpix);
+		return float4(Sharpen(pos, tex, resultAA, fxaaQualityEdgeThreshold, fxaaQualitySubpix), resultAA.a);
 	else
-		return weightedresult;
+		return resultAA;
 }
 
 /***************************************************************************************************************************************/
@@ -1458,7 +1417,7 @@ texture HQAAedgesTex < pooled = true; >
 	Height = BUFFER_HEIGHT;
 	Format = RG8;
 };
-texture HQAAstepTwoEdgesTex < pooled = true; >
+texture HQAAFXAAEdgesTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
@@ -1507,9 +1466,9 @@ sampler HQAAedgesSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
-sampler HQAAstepTwoEdgesSampler
+sampler HQAAFXAAEdgesSampler
 {
-	Texture = HQAAedgesTex;
+	Texture = HQAAFXAAEdgesTex;
 	AddressU = Clamp; AddressV = Clamp;
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
@@ -1584,35 +1543,43 @@ float4 HQSMAABlendingWeightCalculationWrapPS(
 {
 	return SMAABlendingWeightCalculationPS(texcoord, pixcoord, offset, HQAAedgesSampler, HQAAareaSampler, HQAAsearchSampler, 0.0);
 }
-float3 HQSMAANeighborhoodBlendingWrapPS(
+float4 HQSMAANeighborhoodBlendingWrapPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
 	float4 offset : TEXCOORD1) : SV_Target
 {
-	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler).rgb;
+	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler);
 }
 
 float3 FXAAPixelShaderPostPass(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * 0.25;
+	float TotalSubpix = __HQAA_SUBPIX * 0.125;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAstepTwoEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorGammaSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL).rgb;
 }
 
-float3 FXAAPixelShaderSMAADetection(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAstepTwoEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_REVERSED_DETECTION).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAFXAAEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES).rgb;
+}
+float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float TotalSubpix = __HQAA_SUBPIX;
+	if (__HQAA_BUFFER_MULTIPLIER < 1)
+		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAFXAAEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES).rgb;
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
+	return HQAACASPS(texcoord, HQAAFXAAEdgesSampler, HQAAcolorLinearSampler);
 }
 
 /***************************************************************************************************************************************/
@@ -1656,25 +1623,25 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
-	pass SMAAEdgeDetection
+	pass FXAAEdgeDetection
 	{
 		VertexShader = HQSMAAEdgeDetectionWrapVS;
 		PixelShader = HQSMAAEdgeDetectionWrapPS;
-		RenderTarget = HQAAstepTwoEdgesTex;
+		RenderTarget = HQAAFXAAEdgesTex;
 		ClearRenderTargets = true;
 		StencilEnable = true;
 		StencilPass = REPLACE;
 		StencilRef = 1;
 	}
-	pass SMAAbasedFXAA
+	pass FXAABlendPositives
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderSMAADetection;
+		PixelShader = FXAAPixelShaderSMAADetectionPositives;
 	}
-	pass FXAAPostPass
+	pass FXAACheckNegatives
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderPostPass;
+		PixelShader = FXAAPixelShaderSMAADetectionNegatives;
 	}
 }
 
