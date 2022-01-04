@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.4
+ *                       v8.5
  *
  *                     by lordbean
  *
@@ -89,15 +89,15 @@ uniform int presetbreakdown <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n"
-	          "|-Preset---Threshold---Subpix---Sharpen?---Mode---Corners---FXAAQUL-|\n"
-	          "|--------|-----------|--------|----------|------|---------|---------|\n"
-	          "| Potato |   0.250   |  0.000 |    No    |  n/a |    0%   |   0.1   |\n"
-			  "|  Low   |   0.200   |  0.125 |    No    |  n/a |    0%   |   0.2   |\n"
-			  "| Medium |   0.125   |  0.375 |    No    |  n/a |    0%   |   0.4   |\n"
-			  "|  High  |   0.100   |  0.625 |   Yes    | Auto |    0%   |   0.8   |\n"
-			  "| Ultra  |   0.050   |  1.000 |   Yes    | Auto |    0%   |   1.0   |\n"
-			  "| GLaDOS |   0.025   |  1.000 |   Yes    | Auto |   25%   |   1.0   |\n"
-			  "---------------------------------------------------------------------";
+	          "|-Preset---Threshold---Subpix---Sharpen?---Mode---Corners---Quality---Texel-|\n"
+	          "|--------|-----------|--------|----------|------|---------|---------|-------|\n"
+	          "| Potato |   0.250   |  0.000 |    No    |  n/a |    0%   |   0.1   | 2.000 |\n"
+			  "|  Low   |   0.200   |  0.125 |    No    |  n/a |    0%   |   0.2   | 1.500 |\n"
+			  "| Medium |   0.125   |  0.375 |    No    |  n/a |    0%   |   0.4   | 1.000 |\n"
+			  "|  High  |   0.100   |  0.625 |   Yes    | Auto |    0%   |   0.8   | 0.500 |\n"
+			  "| Ultra  |   0.050   |  1.000 |   Yes    | Auto |    0%   |   1.0   | 0.250 |\n"
+			  "| GLaDOS |   0.025   |  1.000 |   Yes    | Auto |   25%   |   1.0   | 0.125 |\n"
+			  "-----------------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
@@ -192,9 +192,17 @@ uniform int spacer9001 <
 
 uniform float FxaaIterationsCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.01;
-	ui_label = "FXAA Quality Multiplier";
-	ui_tooltip = "Multiplies the maximum number of FXAA edge gradient\nscanning iterations that each FXAA pass will perform";
+	ui_label = "Quality Multiplier";
+	ui_tooltip = "Multiplies the maximum number of edge gradient\nscanning iterations that FXAA will perform";
     ui_category = "Custom Preset";
+	ui_category_closed = true;
+> = 0.5;
+
+uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0.125; ui_max = 4.0; ui_step = 0.005;
+	ui_label = "Edge Gradient Texel Size";
+	ui_tooltip = "Determines how far along an edge FXAA will move\nfrom one scan iteration to the next.\n\nLower = slower, more accurate\nHigher = faster, more blurry";
+	ui_category = "Custom Preset";
 	ui_category_closed = true;
 > = 0.5;
 
@@ -234,6 +242,7 @@ static const float HQAA_SHARPEN_STRENGTH_PRESET[7] = {0,0,0,0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[7] = {0,0,0,0,0,0,0};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,0,0,0,25,0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.1,0.2,0.4,0.8,1,1,0};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,0.5,0.25,0.125,4};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 6 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
 #define __HQAA_SUBPIX (preset == 6 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
@@ -242,6 +251,7 @@ static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.1,0.2,0.4,0.8,1,
 #define __HQAA_SHARPEN_MODE (preset == 6 ? (SharpenAdaptiveCustom) : (HQAA_SHARPEN_MODE_PRESET[preset]))
 #define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_MULTIPLIER (preset == 6 ? (FxaaIterationsCustom) : (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[preset]))
+#define __HQAA_FXAA_SCAN_GRANULARITY (preset == 6 ? (FxaaTexelSizeCustom) : (HQAA_FXAA_TEXEL_SIZE_PRESET[preset]))
 #define __HQAA_GRAYSCALE_THRESHOLD 0.02
 #define __FXAA_THRESHOLD_FLOOR 0.004
 #define __SMAA_THRESHOLD_FLOOR 0.004
@@ -1353,7 +1363,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat subpixF = subpixD * subpixE;
     __FxaaBool lumaMLTZero = lumaMM < 0.0;
 	
-	float granularity = 0.5;
+	float granularity = __HQAA_FXAA_SCAN_GRANULARITY;
 	
     lumaEndN = mad(0.5, -lumaNN, lumaEndN);
     lumaEndP = mad(0.5, -lumaNN, lumaEndP);
@@ -1366,10 +1376,10 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y = mad(granularity, offNP.y, posP.y);
 	
 	uint iterations = 0;
-	uint maxiterations = 3;
+	uint maxiterations = 15;
 	
 	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)
-		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.125) * __HQAA_FXAA_SCAN_MULTIPLIER;
+		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.25) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
 		maxiterations = max(3, trunc(rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1)) * maxiterations));
