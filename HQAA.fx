@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.5
+ *                       v8.5.1
  *
  *                     by lordbean
  *
@@ -384,7 +384,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 // Configurable
 #define __SMAA_MAX_SEARCH_STEPS 112
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
-#define __SMAA_EDGE_THRESHOLD max(0.0125, __HQAA_EDGE_THRESHOLD)
+#define __SMAA_EDGE_THRESHOLD max(__SMAA_THRESHOLD_FLOOR, __HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA 2.0
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 3.0
@@ -810,8 +810,9 @@ float SMAASearchLength(__SMAATexture2D(HQAAsearchTex), float2 e, float offset) {
  */
 float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
+	float threshold = mad(0.5,sqrt(__SMAA_EDGE_THRESHOLD),0.5);
     while (texcoord.x > end && 
-           (e.g > 0.8281) && // Is there some edge not activated?
+           (e.g > threshold) && // Is there some edge not activated?
            e.r == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -823,8 +824,9 @@ float SMAASearchXLeft(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchT
 
 float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
+	float threshold = mad(0.5,sqrt(__SMAA_EDGE_THRESHOLD),0.5);
     while (texcoord.x < end && 
-           (e.g > 0.8281) && // Is there some edge not activated?
+           (e.g > threshold) && // Is there some edge not activated?
            e.r == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -835,8 +837,9 @@ float SMAASearchXRight(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearch
 
 float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
+	float threshold = mad(0.5,sqrt(__SMAA_EDGE_THRESHOLD),0.5);
     while (texcoord.y > end && 
-           (e.r > 0.8281) && // Is there some edge not activated?
+           (e.r > threshold) && // Is there some edge not activated?
            e.g == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -847,8 +850,9 @@ float SMAASearchYUp(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex
 
 float SMAASearchYDown(__SMAATexture2D(HQAAedgesTex), __SMAATexture2D(HQAAsearchTex), float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
+	float threshold = mad(0.5,sqrt(__SMAA_EDGE_THRESHOLD),0.5);
     while (texcoord.y < end && 
-           (e.r > 0.8281) && // Is there some edge not activated?
+           (e.r > threshold) && // Is there some edge not activated?
            e.g == 0) { // Or is there a crossing edge that breaks the line?
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
