@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.3
+ *                       v8.4
  *
  *                     by lordbean
  *
@@ -265,11 +265,8 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
 	
 	if (__HQAA_SHARPEN_MODE == 0) {
 		float strongestcolor = max(max(e.r, e.g), e.b);
-		float brightness = -0.375 + e.a * strongestcolor;
-		if (subpix <= 0)
-			sharpening = brightness * (1 - threshold);
-		else
-			sharpening = brightness * subpix;
+		float brightness = mad(strongestcolor, e.a, -0.375);
+		sharpening = brightness * (1 - threshold);
 	}
 	
 	// exit if the pixel doesn't seem to warrant sharpening
@@ -296,10 +293,10 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
     
     float3 wRGB = -rcp(ampRGB * 8);
 
-    float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
+    float3 rcpWeightRGB = rcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
-    float3 outColor = saturate((window * wRGB + e.rgb) * rcpWeightRGB);
+    float3 outColor = saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB);
     
 	return lerp(e.rgb, outColor, sharpening);
 	}
@@ -318,9 +315,9 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
-		float2 edgesdetected = float2(tex2D(edgesTex, texcoord).rg);
-		if ((dot(edgesdetected, float2(1.0, 1.0)) != 0))
-			sharpenmultiplier *= 0.125;
+		float2 edgesdetected = tex2D(edgesTex, texcoord).rg;
+		if (dot(edgesdetected, float2(1.0, 1.0)) != 0)
+			sharpenmultiplier *= 0.25;
 	}
 	
 	// set sharpening amount
@@ -353,10 +350,10 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     
     float3 wRGB = -rcp(ampRGB * 8);
 
-    float3 rcpWeightRGB = rcp(4.0 * wRGB + 1.0);
+    float3 rcpWeightRGB = rcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
-    float3 outColor = saturate((window * wRGB + e) * rcpWeightRGB);
+    float3 outColor = saturate(mad(window, wRGB, e) * rcpWeightRGB);
     
 	return lerp(e, outColor, sharpening);
 }
@@ -560,7 +557,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float strongestcolor = max(max(middle.r, middle.g), middle.b);
 	float estimatedgamma = (0.3333 * middle.r) + (0.3334 * middle.g) + (0.3333 * middle.b);
 	float estimatedbrightness = (strongestcolor + estimatedgamma) * 0.5;
-	float thresholdOffset = -adjustmentrange + (estimatedbrightness * adjustmentrange);
+	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
 	
@@ -570,7 +567,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 weights = float4(0.25,0.5,0.125,0.125);
 	weights *= middle;
 	float scale = rcp(weights.r + weights.g + weights.b + weights.a);
-	weights *= float4(scale,scale,scale,scale);
+	weights *= scale;
 	
 	bool runLumaDetection = (weights.r + weights.g) > (weights.b + weights.a);
 	
@@ -1241,7 +1238,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 		
 		if (strongred == true || rgbyM.r == maxcolor)
 			lumatype = 0;
-		else if (strongblue == true || rgbyM.b == maxcolor)
+		else
 			lumatype = 2;
 	}
 			
@@ -1251,10 +1248,10 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	float adjustmentrange = 0;
 		
 	if (__HQAA_SUBPIX != 0)
-		adjustmentrange = (fxaaIncomingEdgeThreshold * sqrt(__HQAA_SUBPIX));
+		adjustmentrange = (max(fxaaIncomingEdgeThreshold, __FXAA_THRESHOLD_FLOOR) * sqrt(__HQAA_SUBPIX));
 		
 	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
-	float thresholdOffset = -(2 * adjustmentrange) + (2 * (estimatedbrightness * adjustmentrange));
+	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 		
 	float fxaaQualityEdgeThreshold = max(__FXAA_THRESHOLD_FLOOR, fxaaIncomingEdgeThreshold + thresholdOffset);
 	
@@ -1294,32 +1291,32 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat lumaWE = lumaW + lumaE;
     __FxaaFloat subpixRcpRange = 1.0/range;
     __FxaaFloat subpixNSWE = lumaNS + lumaWE;
-    __FxaaFloat edgeHorz1 = (-2.0 * lumaMa) + lumaNS;
-    __FxaaFloat edgeVert1 = (-2.0 * lumaMa) + lumaWE;
+    __FxaaFloat edgeHorz1 = mad(-2, lumaMa, lumaNS);
+    __FxaaFloat edgeVert1 = mad(-2, lumaMa, lumaWE);
 	
     __FxaaFloat lumaNESE = lumaNE + lumaSE;
     __FxaaFloat lumaNWNE = lumaNW + lumaNE;
-    __FxaaFloat edgeHorz2 = (-2.0 * lumaE) + lumaNESE;
-    __FxaaFloat edgeVert2 = (-2.0 * lumaN) + lumaNWNE;
+    __FxaaFloat edgeHorz2 = mad(-2, lumaE, lumaNESE);
+    __FxaaFloat edgeVert2 = mad(-2, lumaN, lumaNWNE);
 	
     __FxaaFloat lumaNWSW = lumaNW + lumaSW;
     __FxaaFloat lumaSWSE = lumaSW + lumaSE;
-    __FxaaFloat edgeHorz4 = (abs(edgeHorz1) * 2.0) + abs(edgeHorz2);
-    __FxaaFloat edgeVert4 = (abs(edgeVert1) * 2.0) + abs(edgeVert2);
-    __FxaaFloat edgeHorz3 = (-2.0 * lumaW) + lumaNWSW;
-    __FxaaFloat edgeVert3 = (-2.0 * lumaS) + lumaSWSE;
+    __FxaaFloat edgeHorz4 = mad(2, abs(edgeHorz1), abs(edgeHorz2));
+    __FxaaFloat edgeVert4 = mad(2, abs(edgeVert1), abs(edgeVert2));
+    __FxaaFloat edgeHorz3 = mad(-2, lumaW, lumaNWSW);
+    __FxaaFloat edgeVert3 = mad(-2, lumaS, lumaSWSE);
     __FxaaFloat edgeHorz = abs(edgeHorz3) + edgeHorz4;
     __FxaaFloat edgeVert = abs(edgeVert3) + edgeVert4;
 	
     __FxaaFloat subpixNWSWNESE = lumaNWSW + lumaNESE;
     __FxaaFloat lengthSign = fxaaQualityRcpFrame.x;
     __FxaaBool horzSpan = edgeHorz >= edgeVert;
-    __FxaaFloat subpixA = subpixNSWE * 2.0 + subpixNWSWNESE;
+    __FxaaFloat subpixA = mad(2, subpixNSWE, subpixNWSWNESE);
 	
     if(!horzSpan) lumaN = lumaW;
     if(!horzSpan) lumaS = lumaE;
     if(horzSpan) lengthSign = fxaaQualityRcpFrame.y;
-    __FxaaFloat subpixB = (subpixA * (1.0/12.0)) - lumaMa;
+    __FxaaFloat subpixB = mad((1.0/12.0), subpixA, -lumaMa);
 	
     __FxaaFloat gradientN = lumaN - lumaMa;
     __FxaaFloat gradientS = lumaS - lumaMa;
@@ -1336,8 +1333,8 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat2 offNP;
     offNP.x = (!horzSpan) ? 0.0 : fxaaQualityRcpFrame.x;
     offNP.y = ( horzSpan) ? 0.0 : fxaaQualityRcpFrame.y;
-    if(!horzSpan) posB.x += lengthSign * 0.5;
-    if( horzSpan) posB.y += lengthSign * 0.5;
+    if(!horzSpan) posB.x = mad(0.5, lengthSign, posB.x);
+    if( horzSpan) posB.y = mad(0.5, lengthSign, posB.y);
 	
     __FxaaFloat2 posN;
     posN.x = posB.x - offNP.x;
@@ -1345,33 +1342,37 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat2 posP;
     posP.x = posB.x + offNP.x;
     posP.y = posB.y + offNP.y;
-    __FxaaFloat subpixD = ((-2.0)*subpixC) + 3.0;
+    __FxaaFloat subpixD = mad(-2, subpixC, 3);
     __FxaaFloat lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN));
     __FxaaFloat subpixE = subpixC * subpixC;
     __FxaaFloat lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP));
 	
     if(!pairN) lumaNN = lumaSS;
     __FxaaFloat gradientScaled = gradient * 1.0/4.0;
-    __FxaaFloat lumaMM = lumaMa - lumaNN * 0.5;
+    __FxaaFloat lumaMM = mad(0.5, -lumaNN, lumaMa);
     __FxaaFloat subpixF = subpixD * subpixE;
     __FxaaBool lumaMLTZero = lumaMM < 0.0;
 	
-    lumaEndN -= lumaNN * 0.5;
-    lumaEndP -= lumaNN * 0.5;
+	float granularity = 0.5;
+	
+    lumaEndN = mad(0.5, -lumaNN, lumaEndN);
+    lumaEndP = mad(0.5, -lumaNN, lumaEndP);
     __FxaaBool doneN = abs(lumaEndN) >= gradientScaled;
     __FxaaBool doneP = abs(lumaEndP) >= gradientScaled;
-    if(!doneN) posN.x -= offNP.x;
-    if(!doneN) posN.y -= offNP.y;
+    if(!doneN) posN.x = mad(granularity, -offNP.x, posN.x);
+    if(!doneN) posN.y = mad(granularity, -offNP.y, posN.y);
     __FxaaBool doneNP = (!doneN) || (!doneP);
-    if(!doneP) posP.x += offNP.x;
-    if(!doneP) posP.y += offNP.y;
+    if(!doneP) posP.x = mad(granularity, offNP.x, posP.x);
+    if(!doneP) posP.y = mad(granularity, offNP.y, posP.y);
 	
 	uint iterations = 0;
-	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.125) * __HQAA_FXAA_SCAN_MULTIPLIER;
-	float granularity = 0.25;
+	uint maxiterations = 3;
+	
+	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)
+		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.125) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
-		maxiterations = max(4, trunc(rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1)) * maxiterations));
+		maxiterations = max(3, trunc(rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1)) * maxiterations));
 	
 	
 	bool posValid = true;
@@ -1379,15 +1380,15 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     while(doneNP == true && iterations < maxiterations && posValid == true) {
         if(!doneN) lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
         if(!doneP) lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
-        if(!doneN) lumaEndN = lumaEndN - lumaNN * 0.5;
-        if(!doneP) lumaEndP = lumaEndP - lumaNN * 0.5;
+        if(!doneN) lumaEndN = mad(0.5, -lumaNN, lumaEndN);
+        if(!doneP) lumaEndP = mad(0.5, -lumaNN, lumaEndP);
         doneN = abs(lumaEndN) >= gradientScaled;
         doneP = abs(lumaEndP) >= gradientScaled;
-        if(!doneN) posN.x -= offNP.x * granularity;
-        if(!doneN) posN.y -= offNP.y * granularity;
+        if(!doneN) posN.x = mad(granularity, -offNP.x, posN.x);
+        if(!doneN) posN.y = mad(granularity, -offNP.y, posN.y);
         doneNP = (!doneN) || (!doneP);
-        if(!doneP) posP.x += offNP.x * granularity;
-        if(!doneP) posP.y += offNP.y * granularity;
+        if(!doneP) posP.x = mad(granularity, offNP.x, posP.x);
+        if(!doneP) posP.y = mad(granularity, offNP.y, posP.y);
 		posValid = posN.x > 0 && posN.y > 0 && (BUFFER_WIDTH - posP.x) > 0 && (BUFFER_HEIGHT - posP.y) > 0;
 		iterations++;
     }
@@ -1400,20 +1401,20 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaBool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
     __FxaaFloat spanLength = (dstP + dstN);
     __FxaaBool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
-    __FxaaFloat spanLengthRcp = 1.0/spanLength;
+    __FxaaFloat spanLengthRcp = rcp(spanLength);
 	
     __FxaaBool directionN = dstN < dstP;
     __FxaaFloat dst = min(dstN, dstP);
     __FxaaBool goodSpan = directionN ? goodSpanN : goodSpanP;
     __FxaaFloat subpixG = subpixF * subpixF;
-    __FxaaFloat pixelOffset = (dst * (-spanLengthRcp)) + 0.5;
+    __FxaaFloat pixelOffset = mad(-spanLengthRcp, dst, 0.5);
     __FxaaFloat subpixH = subpixG * fxaaQualitySubpix;
 	
     __FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
     __FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
 	
-    if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;
-    if( horzSpan) posM.y += pixelOffsetSubpix * lengthSign;
+    if(!horzSpan) posM.x = mad(lengthSign, pixelOffsetSubpix, posM.x);
+    if( horzSpan) posM.y = mad(lengthSign, pixelOffsetSubpix, posM.y);
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
