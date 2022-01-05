@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.1
+ *                       v9.1.1
  *
  *                     by lordbean
  *
@@ -1390,7 +1390,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y = mad(granularity, offNP.y, posP.y);
 	
 	uint iterations = 0;
-	uint maxiterations = 31;
+	uint maxiterations = 7;
 	
 	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)
 		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.25) * __HQAA_FXAA_SCAN_MULTIPLIER;
@@ -1805,6 +1805,11 @@ technique HQAA <
 		StencilEnable = false;
 		SRGBWriteEnable = true;
 	}
+	pass FXAADampenSpuriousPixels
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderSpuriousPixels;
+	}
 	pass FXAABlendPositives
 	{
 		VertexShader = PostProcessVS;
@@ -1814,11 +1819,6 @@ technique HQAA <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderSMAADetectionNegatives;
-	}
-	pass FXAADampenSpuriousPixels
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = FXAAPixelShaderSpuriousPixels;
 	}
 }
 
