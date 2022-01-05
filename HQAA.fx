@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.2
+ *                       v9.2.1
  *
  *                     by lordbean
  *
@@ -386,7 +386,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD max(__SMAA_THRESHOLD_FLOOR, __HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + __SMAA_EDGE_THRESHOLD)
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.5 * sqrt(__SMAA_EDGE_THRESHOLD)) + (0.5 * (__HQAA_SUBPIX * __HQAA_SUBPIX)))
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 3.0
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
