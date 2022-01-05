@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.0
+ *                       v9.0.1
  *
  *                     by lordbean
  *
@@ -493,6 +493,7 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
  * IMPORTANT NOTICE: color edge detection requires gamma-corrected colors, and
  * thus 'colorTex' should be a non-sRGB texture.
  */
+ /*
 float2 SMAAColorEdgeDetectionPS(float2 texcoord,
                                 float4 offset[3],
                                 __SMAATexture2D(colorTex),
@@ -549,7 +550,7 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     return edges;
 }
-
+*/
 /////////////////////////////////////////////// LUMA EDGE DETECTION ////////////////////////////////////////////////////
 /**
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
