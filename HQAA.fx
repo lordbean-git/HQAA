@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.2.1
+ *                       v9.2.2
  *
  *                     by lordbean
  *
@@ -386,8 +386,6 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD max(__SMAA_THRESHOLD_FLOOR, __HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + (0.5 * sqrt(__SMAA_EDGE_THRESHOLD)) + (0.5 * (__HQAA_SUBPIX * __HQAA_SUBPIX)))
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 3.0
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
 #define __SMAATexturePass2D(tex) tex
@@ -587,6 +585,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float2 edges = float2(0,0);
 	
 	if (runLumaDetection) {
+		
 	
     float L = dot(middle, weights);
 
@@ -600,6 +599,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	
 	if (dot(edges, float2(1,1)) != 0) {
 	
+	float contrastadaptation = max(1.0, rcp(weights.r + weights.g));
 
     // Calculate right and bottom deltas:
     float Lright = dot(float4(__SMAASamplePoint(colorTex, offset[1].xy).rgb,__SMAASamplePoint(gammaTex, offset[1].xy).a), weights);
@@ -619,7 +619,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     float finalDelta = max(maxDelta.x, maxDelta.y);
 
     // Local contrast adaptation:
-	edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
+	edges.xy *= step(finalDelta, contrastadaptation * delta.xy);
 	}
 	}
     return edges;
