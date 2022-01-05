@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.0.1
+ *                       v9.1
  *
  *                     by lordbean
  *
@@ -1222,6 +1222,7 @@ __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
 }
 
 #define __FXAA_MODE_NORMAL 0
+#define __FXAA_MODE_SPURIOUS_PIXELS 2
 #define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
 #define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __FxaaTex edgestex,
@@ -1229,7 +1230,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
  __FxaaFloat fxaaIncomingEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, int pixelmode)
  {
     __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
-	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
+	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES || pixelmode == __FXAA_MODE_SPURIOUS_PIXELS) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
 		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) == 0;
 		 if (noSMAAedges)
@@ -1372,7 +1373,11 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     __FxaaFloat subpixF = subpixD * subpixE;
     __FxaaBool lumaMLTZero = lumaMM < 0.0;
 	
-	float granularity = __HQAA_FXAA_SCAN_GRANULARITY;
+	float granularity;
+	if (pixelmode == __FXAA_MODE_SPURIOUS_PIXELS)
+		granularity = 2;
+	else
+		granularity = __HQAA_FXAA_SCAN_GRANULARITY;
 	
     lumaEndN = mad(0.5, -lumaNN, lumaEndN);
     lumaEndP = mad(0.5, -lumaNN, lumaEndP);
@@ -1385,13 +1390,16 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
     if(!doneP) posP.y = mad(granularity, offNP.y, posP.y);
 	
 	uint iterations = 0;
-	uint maxiterations = 15;
+	uint maxiterations = 31;
 	
 	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)
 		maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.25) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
 		maxiterations = max(3, trunc(rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1)) * maxiterations));
+	
+	if (pixelmode == __FXAA_MODE_SPURIOUS_PIXELS)
+		granularity = 0;
 	
 	
 	bool posValid = true;
@@ -1667,17 +1675,29 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES).rgb;
 }
 float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES).rgb;
 }
+float3 FXAAPixelShaderSpuriousPixels(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float TotalSubpix = __HQAA_SUBPIX;
+	if (__HQAA_BUFFER_MULTIPLIER < 1)
+		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	float threshold = sqrt(sqrt(max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD)));
+	
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SPURIOUS_PIXELS).rgb;
+}
+
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
@@ -1794,6 +1814,11 @@ technique HQAA <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = FXAAPixelShaderSMAADetectionNegatives;
+	}
+	pass FXAADampenSpuriousPixels
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = FXAAPixelShaderSpuriousPixels;
 	}
 }
 
