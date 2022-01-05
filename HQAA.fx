@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.1.1
+ *                       v9.2
  *
  *                     by lordbean
  *
@@ -386,7 +386,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
 #define __SMAA_EDGE_THRESHOLD max(__SMAA_THRESHOLD_FLOOR, __HQAA_EDGE_THRESHOLD)
 #define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA 2.0
+#define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA (1.0 + __SMAA_EDGE_THRESHOLD)
 #define __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR 3.0
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAATexture2D(tex) sampler tex
@@ -578,7 +578,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
 	// calculate color channel weighting
-	float4 weights = float4(0.25,0.5,0.125,0.125);
+	float4 weights = float4(0.28,0.4,0.22,0.1);
 	weights *= middle;
 	float scale = rcp(weights.r + weights.g + weights.b + weights.a);
 	weights *= scale;
