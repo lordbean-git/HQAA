@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.5.1
+ *                       v8.5.2
  *
  *                     by lordbean
  *
@@ -514,6 +514,8 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     // We do the usual threshold:
     float2 edges = step(threshold, delta.xy);
+	
+	if (dot(edges, float2(1,1)) != 0) {
 
 
     // Calculate right and bottom deltas:
@@ -543,6 +545,7 @@ float2 SMAAColorEdgeDetectionPS(float2 texcoord,
 
     // Local contrast adaptation:
     edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_COLOR * delta.xy);
+	}
 
     return edges;
 }
@@ -593,6 +596,8 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     delta.xy = abs(L - float2(Lleft, Ltop));
     float2 edges = step(threshold, delta.xy);
 	
+	if (dot(edges, float2(1,1)) != 0) {
+	
 
     // Calculate right and bottom deltas:
     float Lright = dot(float4(__SMAASamplePoint(colorTex, offset[1].xy).rgb,__SMAASamplePoint(gammaTex, offset[1].xy).a), weights);
@@ -613,6 +618,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 
     // Local contrast adaptation:
 	edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
+	}
 
     return edges;
 	}
