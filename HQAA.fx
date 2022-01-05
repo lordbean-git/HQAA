@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v8.5.2
+ *                       v9.0
  *
  *                     by lordbean
  *
@@ -583,6 +583,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	weights *= scale;
 	
 	bool runLumaDetection = (weights.r + weights.g) > (weights.b + weights.a);
+	float2 edges = float2(0,0);
 	
 	if (runLumaDetection) {
 	
@@ -594,7 +595,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     // We do the usual threshold:
     float4 delta;
     delta.xy = abs(L - float2(Lleft, Ltop));
-    float2 edges = step(threshold, delta.xy);
+    edges = step(threshold, delta.xy);
 	
 	if (dot(edges, float2(1,1)) != 0) {
 	
@@ -619,11 +620,8 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
     // Local contrast adaptation:
 	edges.xy *= step(finalDelta, __SMAA_LOCAL_CONTRAST_ADAPTATION_FACTOR_LUMA * delta.xy);
 	}
-
-    return edges;
 	}
-	else
-		return SMAAColorEdgeDetectionPS(texcoord, offset, colorTex, gammaTex, threshold);
+    return edges;
 }
 
 
@@ -1450,6 +1448,46 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 /*********************************************************** FXAA CODE BLOCK END *******************************************************/
 /***************************************************************************************************************************************/
 
+///////////////////////////////////////////////////////////// SUPPORT PASSES ////////////////////////////////////////////////////////////
+
+float4 GenerateImageColorShiftLeftPS(float2 texcoord, sampler2D tex)
+{
+	float4 input = tex2D(tex,texcoord);
+	float4 output;
+	
+	output.r = input.g;
+	output.g = input.b;
+	output.b = input.r;
+	output.a = input.a;
+	
+	return output;
+}
+float4 GenerateImageColorShiftRightPS(float2 texcoord, sampler2D tex)
+{
+	float4 input = tex2D(tex,texcoord);
+	float4 output;
+	
+	output.r = input.b;
+	output.g = input.r;
+	output.b = input.g;
+	output.a = input.a;
+	
+	return output;
+}
+float4 GenerateImageNegativePS(float2 texcoord, sampler2D tex)
+{
+	float4 input = tex2D(tex,texcoord);
+	float4 output;
+	
+	output.r = 1 - input.r;
+	output.g = 1 - input.g;
+	output.b = 1 - input.b;
+	output.a = input.a;
+	
+	return output;
+}
+
+
 /***************************************************************************************************************************************/
 /*********************************************************** SHADER CODE START *********************************************************/
 /***************************************************************************************************************************************/
@@ -1459,12 +1497,6 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 //////////////////////////////////////////////////////////// TEXTURES ///////////////////////////////////////////////////////////////////
 
 texture HQAAedgesTex < pooled = true; >
-{
-	Width = BUFFER_WIDTH;
-	Height = BUFFER_HEIGHT;
-	Format = RG8;
-};
-texture HQAAFXAAEdgesTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
@@ -1490,6 +1522,18 @@ texture HQAAsearchTex < source = "SearchTex.png"; >
 	Format = R8;
 };
 
+texture HQAAnegativeTex < pooled = true; >
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	#if (BUFFER_COLOR_BIT_DEPTH == 10)
+	Format = RGB10A2;
+	#else
+	Format = RGBA8;
+	#endif
+};
+
+
 //////////////////////////////////////////////////////////// SAMPLERS ///////////////////////////////////////////////////////////////////
 
 sampler HQAAcolorGammaSampler
@@ -1506,16 +1550,16 @@ sampler HQAAcolorLinearSampler
 	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = true;
 };
+sampler HQAAnegativeGammaSampler
+{
+	Texture = HQAAnegativeTex;
+	AddressU = Clamp; AddressV = Clamp;
+	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
+	SRGBTexture = false;
+};
 sampler HQAAedgesSampler
 {
 	Texture = HQAAedgesTex;
-	AddressU = Clamp; AddressV = Clamp;
-	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
-	SRGBTexture = false;
-};
-sampler HQAAFXAAEdgesSampler
-{
-	Texture = HQAAFXAAEdgesTex;
 	AddressU = Clamp; AddressV = Clamp;
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
@@ -1575,12 +1619,31 @@ void HQSMAANeighborhoodBlendingWrapVS(
 
 //////////////////////////////////////////////////////////// PIXEL SHADERS //////////////////////////////////////////////////////////////
 
+float4 GenerateImageColorShiftLeftWrapPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return GenerateImageColorShiftLeftPS(texcoord, HQAAcolorGammaSampler);
+}
+float4 GenerateImageColorShiftRightWrapPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return GenerateImageColorShiftRightPS(texcoord, HQAAcolorGammaSampler);
+}
+float4 GenerateImageNegativeWrapPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return GenerateImageNegativePS(texcoord, HQAAcolorGammaSampler);
+}
 float2 HQSMAAEdgeDetectionWrapPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
 	return SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler, HQAAcolorLinearSampler);
+}
+float2 HQSMAANegativeEdgeDetectionWrapPS(
+	float4 position : SV_Position,
+	float2 texcoord : TEXCOORD0,
+	float4 offset[3] : TEXCOORD1) : SV_Target
+{
+	return SMAALumaEdgeDetectionPS(texcoord, offset, HQAAnegativeGammaSampler, HQAAnegativeGammaSampler);
 }
 float4 HQSMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
@@ -1598,22 +1661,13 @@ float4 HQSMAANeighborhoodBlendingWrapPS(
 	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler);
 }
 
-float3 FXAAPixelShaderPostPass(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float TotalSubpix = __HQAA_SUBPIX * 0.125;
-	if (__HQAA_BUFFER_MULTIPLIER < 1)
-		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAcolorGammaSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_NORMAL).rgb;
-}
-
 float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAFXAAEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES).rgb;
 }
 float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
@@ -1621,12 +1675,12 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAFXAAEdgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES).rgb;
+	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,max(0.01,(__HQAA_EDGE_THRESHOLD)),0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES).rgb;
 }
 
 float3 HQAACASWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return HQAACASPS(texcoord, HQAAFXAAEdgesSampler, HQAAcolorLinearSampler);
+	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 }
 
 /***************************************************************************************************************************************/
@@ -1652,6 +1706,66 @@ technique HQAA <
 		StencilPass = REPLACE;
 		StencilRef = 1;
 	}
+	pass GenerateBufferColorShiftLeft
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateImageColorShiftLeftWrapPS;
+		RenderTarget = HQAAnegativeTex;
+		ClearRenderTargets = true;
+	}
+	pass SMAAalteredBufferEdgeDetection
+	{
+		VertexShader = HQSMAAEdgeDetectionWrapVS;
+		PixelShader = HQSMAANegativeEdgeDetectionWrapPS;
+		RenderTarget = HQAAedgesTex;
+		ClearRenderTargets = false;
+		BlendEnable = true;
+		BlendOp = MAX;
+		BlendOpAlpha = MAX;
+		StencilEnable = true;
+		StencilPass = REPLACE;
+		StencilRef = 1;
+	}
+	pass GenerateBufferColorShiftRight
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateImageColorShiftRightWrapPS;
+		RenderTarget = HQAAnegativeTex;
+		ClearRenderTargets = true;
+	}
+	pass SMAAalteredBufferEdgeDetection
+	{
+		VertexShader = HQSMAAEdgeDetectionWrapVS;
+		PixelShader = HQSMAANegativeEdgeDetectionWrapPS;
+		RenderTarget = HQAAedgesTex;
+		ClearRenderTargets = false;
+		BlendEnable = true;
+		BlendOp = MAX;
+		BlendOpAlpha = MAX;
+		StencilEnable = true;
+		StencilPass = REPLACE;
+		StencilRef = 1;
+	}
+	pass GenerateBufferNegative
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateImageNegativeWrapPS;
+		RenderTarget = HQAAnegativeTex;
+		ClearRenderTargets = true;
+	}
+	pass SMAAalteredBufferEdgeDetection
+	{
+		VertexShader = HQSMAAEdgeDetectionWrapVS;
+		PixelShader = HQSMAANegativeEdgeDetectionWrapPS;
+		RenderTarget = HQAAedgesTex;
+		ClearRenderTargets = false;
+		BlendEnable = true;
+		BlendOp = MAX;
+		BlendOpAlpha = MAX;
+		StencilEnable = true;
+		StencilPass = REPLACE;
+		StencilRef = 1;
+	}
 	pass SMAABlendWeightCalculation
 	{
 		VertexShader = HQSMAABlendingWeightCalculationWrapVS;
@@ -1669,16 +1783,6 @@ technique HQAA <
 		PixelShader = HQSMAANeighborhoodBlendingWrapPS;
 		StencilEnable = false;
 		SRGBWriteEnable = true;
-	}
-	pass FXAAEdgeDetection
-	{
-		VertexShader = HQSMAAEdgeDetectionWrapVS;
-		PixelShader = HQSMAAEdgeDetectionWrapPS;
-		RenderTarget = HQAAFXAAEdgesTex;
-		ClearRenderTargets = true;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
 	}
 	pass FXAABlendPositives
 	{
