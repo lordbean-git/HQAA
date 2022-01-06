@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.3.1
+ *                       v9.3.2
  *
  *                     by lordbean
  *
@@ -1735,9 +1735,9 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
 		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
 		if (differingOutput)
-			return colornegative(result).rgb;
+			return float3(1.0, 1.0, 1.0);
 		else
-			return inDot;
+			return float3(0.0, 0.0, 0.0);
 	}
 	else
 		return result.rgb;
@@ -1762,9 +1762,9 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
 		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
 		if (differingOutput)
-			return colornegative(result).rgb;
+			return float3(1.0, 1.0, 1.0);
 		else
-			return inDot;
+			return float3(0.0, 0.0, 0.0);
 	}
 	else
 		return result.rgb;
@@ -1783,9 +1783,9 @@ float3 FXAAPixelShaderSpuriousPixels(float4 vpos : SV_Position, float2 texcoord 
 		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
 		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
 		if (differingOutput)
-			return colornegative(result).rgb;
+			return float3(1.0, 1.0, 1.0);
 		else
-			return inDot;
+			return float3(0.0, 0.0, 0.0);
 	}
 	else
 		return result.rgb;
