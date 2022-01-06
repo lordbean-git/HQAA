@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.3
+ *                       v9.3.1
  *
  *                     by lordbean
  *
@@ -260,6 +260,15 @@ uniform uint debugmode <
 	ui_category_closed = true;
 	ui_label = "Debug Mode";
 	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA results\0";
+> = 0;
+
+uniform uint debugFXAApass <
+	ui_type = "combo";
+	ui_category = "Debug";
+	ui_category_closed = true;
+	ui_label = "FXAA Pass to Debug";
+	ui_tooltip = "FXAA runs its passes in the following order:\nSpurious Pixels -> SMAA Positives -> SMAA Negatives";
+	ui_items = "Spurious Pixels\0SMAA Positives\0SMAA Negatives\0";
 > = 0;
 
 uniform int terminationspacer <
@@ -1489,9 +1498,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	
 	// fart the result
-	if (debugmode == 3)
-		resultAA = colornegative(resultAA);
-	if (__HQAA_SHARPEN_ENABLE == true && debugmode != 3)
+	if (__HQAA_SHARPEN_ENABLE == true)
 		return float4(Sharpen(pos, tex, resultAA, fxaaQualityEdgeThreshold, fxaaQualitySubpix), resultAA.a);
 	else
 		return resultAA;
@@ -1719,32 +1726,69 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
+	
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES).rgb;
+	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
+	
+	if (debugmode == 3 && debugFXAApass == 1) {
+		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
+		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
+		if (differingOutput)
+			return colornegative(result).rgb;
+		else
+			return inDot;
+	}
+	else
+		return result.rgb;
 }
 float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	// debugs 1 and 2 need to output from the last pass in the technique
 	if (debugmode == 1)
 		return tex2D(HQAAedgesSampler, texcoord).rgb;
 	if (debugmode == 2)
 		return tex2D(HQAAblendSampler, texcoord).rgb;
-
+	
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES).rgb;
+	float threshold = sqrt(max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD));
+	
+	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
+	
+	if (debugmode == 3 && debugFXAApass == 2) {
+		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
+		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
+		if (differingOutput)
+			return colornegative(result).rgb;
+		else
+			return inDot;
+	}
+	else
+		return result.rgb;
 }
 float3 FXAAPixelShaderSpuriousPixels(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	float threshold = sqrt(sqrt(max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD)));
 	
-	return FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SPURIOUS_PIXELS).rgb;
+	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
+	
+	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,1 - sqrt(threshold),__FXAA_MODE_SPURIOUS_PIXELS);
+	
+	if (debugmode == 3 && debugFXAApass == 0) {
+		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
+		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
+		if (differingOutput)
+			return colornegative(result).rgb;
+		else
+			return inDot;
+	}
+	else
+		return result.rgb;
 }
 
 
