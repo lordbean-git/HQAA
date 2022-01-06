@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                       v9.2.2
+ *                       v9.3
  *
  *                     by lordbean
  *
@@ -228,6 +228,40 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 1.0;
 
+uniform int spacergiggity <
+	ui_type = "radio";
+	ui_label = " ";
+>;
+
+uniform int debugexplainer <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "                   HOW TO READ DEBUG RESULTS\n"
+              "------------------------------------------------------------------\n"
+			  "When viewing the detected edges, the colors shown in the texture\n"
+			  "are not related to the image on the screen directly, rather they\n"
+			  "are markers indicating the following.\n"
+			  "Green = Probable Horizontal Edge Here\n"
+			  "Red = Probable Vertical Edge Here\n"
+			  "Yellow = Probable Diagonal Edge Here\n\n"
+			  "The SMAA blending weight pattern represents what SMAA is going\n"
+			  "to blend with the image on the screen to produce its anti-aliasing\n"
+			  "effects.\n\n"
+			  "FXAA debug results are currently experimental and difficult to\n"
+			  "interpret. FXAA debug mode causes FXAA anti-aliasing results to\n"
+			  "flip to their color negatives to show where it's running onscreen.";
+	ui_category = "Debug";
+	ui_category_closed = true;
+>;
+
+uniform uint debugmode <
+	ui_type = "radio";
+	ui_category = "Debug";
+	ui_category_closed = true;
+	ui_label = "Debug Mode";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA results\0";
+> = 0;
+
 uniform int terminationspacer <
 	ui_type = "radio";
 	ui_label = " ";
@@ -371,6 +405,13 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 /*****************************************************************************************************************************************/
 /*********************************************************** CAS CODE BLOCK END **********************************************************/
 /*****************************************************************************************************************************************/
+
+///////////////////////////////////////////////////////////// MISC SUPPORT FUNCTIONS //////////////////////////////////////////////////////
+
+float4 colornegative(float4 input)
+{
+	return float4(1 - input.r, 1 - input.g, 1 - input.b, input.a);
+}
 
 /*****************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
@@ -1059,6 +1100,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         color = blendingWeight.x * __SMAASampleLevelZero(colorTex, blendingCoord.xy);
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
+	
 	if (__HQAA_SHARPEN_ENABLE == true)
 		return float4(Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1), color.a);
 	else
@@ -1447,7 +1489,9 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	
 	// fart the result
-	if (__HQAA_SHARPEN_ENABLE == true)
+	if (debugmode == 3)
+		resultAA = colornegative(resultAA);
+	if (__HQAA_SHARPEN_ENABLE == true && debugmode != 3)
 		return float4(Sharpen(pos, tex, resultAA, fxaaQualityEdgeThreshold, fxaaQualitySubpix), resultAA.a);
 	else
 		return resultAA;
@@ -1681,6 +1725,11 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 }
 float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	if (debugmode == 1)
+		return tex2D(HQAAedgesSampler, texcoord).rgb;
+	if (debugmode == 2)
+		return tex2D(HQAAblendSampler, texcoord).rgb;
+
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
