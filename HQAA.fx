@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.4
+ *                        v9.4.1
  *
  *                     by lordbean
  *
@@ -670,9 +670,10 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 
     // Local contrast adaptation:
 	edges.xy *= step(finalDelta, contrastadaptation * delta.xy);
-	}
-	}
     return edges;
+	}
+	}
+	discard;
 }
 
 
@@ -1724,9 +1725,8 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
 	if (debugmode == 3 && debugFXAApass == 0) {
-		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
-		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
-		if (differingOutput)
+		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
+		if (validResult)
 			return float3(1.0, 1.0, 1.0);
 		else
 			return float3(0.0, 0.0, 0.0);
@@ -1752,9 +1752,8 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
 	if (debugmode == 3 && debugFXAApass == 1) {
-		float3 inDot = tex2D(HQAAcolorGammaSampler, texcoord).rgb;
-		bool differingOutput = abs(inDot.r - result.r) > 1e-5 || abs(inDot.g - result.g) > 1e-5 || abs(inDot.b - result.b) > 1e-5;
-		if (differingOutput)
+		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
+		if (validResult)
 			return float3(1.0, 1.0, 1.0);
 		else
 			return float3(0.0, 0.0, 0.0);
