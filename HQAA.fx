@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.5
+ *                        v9.6
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.5\n"
+	          "Version: 9.6\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 >;
 
@@ -1248,6 +1248,17 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	if (earlyExit)
 		return rgbyM;
 	
+	// green luma default weights
+	float4 weights = float4(0.2, 0.5, 0.2, 0.1);
+	
+	if (lumatype == 0)
+		weights = float4(0.5, 0.2, 0.2, 0.1);
+	else if (lumatype == 2)
+		weights = float4(0.2, 0.2, 0.5, 0.1);
+	
+	weights *= rgbyM;
+	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
+	float blendfactor = 1 - __FxaaAdaptiveLuma(weights);
 	
     __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
@@ -1381,12 +1392,13 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
+	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
 	
 	// fart the result
 	if (__HQAA_SHARPEN_ENABLE == true)
-		return float4(Sharpen(pos, tex, resultAA, fxaaQualityEdgeThreshold, fxaaQualitySubpix), resultAA.a);
+		return float4(Sharpen(pos, tex, weightedresult, fxaaQualityEdgeThreshold, fxaaQualitySubpix), weightedresult.a);
 	else
-		return resultAA;
+		return weightedresult;
 }
 
 /***************************************************************************************************************************************/
