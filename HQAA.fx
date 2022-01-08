@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.6.1
+ *                        v9.6.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.6.1\n"
+	          "Version: 9.6.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 >;
 
@@ -1249,16 +1249,17 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 		return rgbyM;
 	
 	// green luma default weights
-	float4 weights = float4(0.2, 0.5, 0.2, 0.1);
+	float4 weights = float4(0.125, 0.625, 0.125, 0.125);
 	
 	if (lumatype == 0)
-		weights = float4(0.5, 0.2, 0.2, 0.1);
+		weights = float4(0.625, 0.125, 0.125, 0.125);
 	else if (lumatype == 2)
-		weights = float4(0.2, 0.2, 0.5, 0.1);
+		weights = float4(0.125, 0.125, 0.625, 0.125);
 	
 	weights *= rgbyM;
 	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
-	float blendfactor = 1 - __FxaaAdaptiveLuma(weights);
+	
+	float blendfactor = __FxaaAdaptiveLuma(weights);
 	
     __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
     __FxaaFloat lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
@@ -1392,7 +1393,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
-	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
+	float4 weightedresult = (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES ? (lerp(rgbyM, resultAA, blendfactor)) : (resultAA));
 	
 	// fart the result
 	if (__HQAA_SHARPEN_ENABLE == true)
@@ -1613,7 +1614,7 @@ float4 HQSMAANeighborhoodBlendingWrapPS(
 
 float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX;
+	float TotalSubpix = __HQAA_SUBPIX * 0.375;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
@@ -1639,7 +1640,7 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 	if (debugmode == 2)
 		return tex2D(HQAAblendSampler, texcoord).rgb;
 	
-	float TotalSubpix = __HQAA_SUBPIX * 0.5;
+	float TotalSubpix = __HQAA_SUBPIX * 0.625;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
