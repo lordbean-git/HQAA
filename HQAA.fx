@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.6
+ *                        v9.6.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.6\n"
+	          "Version: 9.6.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 >;
 
@@ -162,7 +162,7 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
 > = 20;
 
 uniform float FxaaIterationsCustom < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0; ui_max = 4; ui_step = 0.01;
+	ui_min = 0; ui_max = 5; ui_step = 0.01;
 	ui_label = "Quality Multiplier";
 	ui_tooltip = "Multiplies the maximum number of edge gradient\nscanning iterations that FXAA will perform";
     ui_category = "Custom Preset";
@@ -171,7 +171,7 @@ uniform float FxaaIterationsCustom < __UNIFORM_SLIDER_FLOAT1
 > = 0.5;
 
 uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.125; ui_max = 4.0; ui_step = 0.005;
+	ui_min = 0.025; ui_max = 4.0; ui_step = 0.005;
 	ui_label = "Edge Gradient Texel Size";
 	ui_tooltip = "Determines how far along an edge FXAA will move\nfrom one scan iteration to the next.\n\nLower = slower, more accurate\nHigher = faster, more blurry";
 	ui_category = "Custom Preset";
@@ -217,7 +217,7 @@ uniform int debugexplainer <
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 5;
-	ui_min = 0; ui_max = 4; ui_step = 0.01;
+	ui_min = 0; ui_max = 10; ui_step = 0.1;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Optional Sharpening (HQAACAS)";
@@ -1613,7 +1613,7 @@ float4 HQSMAANeighborhoodBlendingWrapPS(
 
 float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * 0.25;
+	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
