@@ -184,7 +184,7 @@ uniform uint debugmode <
 	ui_category_closed = true;
 	ui_label = " ";
 	ui_text = "\nDebug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA results:\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA results:\0FXAA lumas:\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -209,7 +209,9 @@ uniform int debugexplainer <
 			  "- Red = Probable Vertical Edge Here\n"
 			  "- Yellow = Probable Diagonal Edge Here\n\n"
 			  "SMAA blending weights and FXAA results show what each related\n"
-			  "pass is blending with the screen to produce its AA effect.\n"
+			  "pass is blending with the screen to produce its AA effect.\n\n"
+			  "FXAA lumas shows which color channel FXAA decided to use to\n"
+			  "represent the brightness of the pixel.\n"
 	          "----------------------------------------------------------------";
 	ui_category = "Debug";
 	ui_category_closed = true;
@@ -1161,19 +1163,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	if (earlyExit)
 		return rgbyM;
 	
-	// green luma default weights
-	float4 weights = float4(0.125, 0.625, 0.125, 0.125);
-	
-	if (lumatype == 0)
-		weights = float4(0.625, 0.125, 0.125, 0.125);
-	else if (lumatype == 2)
-		weights = float4(0.125, 0.125, 0.625, 0.125);
-	
-	weights *= rgbyM;
-	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
-	
-	float blendfactor = __FxaaAdaptiveLuma(weights);
-	
     float lumaNS = lumaN + lumaS;
     float lumaWE = lumaW + lumaE;
     float subpixRcpRange = 1.0/range;
@@ -1309,13 +1298,31 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
-	float4 weightedresult = (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES ? (lerp(rgbyM, resultAA, blendfactor)) : (resultAA));
+	
+	// calculate interpolation level
+	float4 weights = float4(0.125, 0.625, 0.125, 0.125);
+	if (lumatype == 0)
+		weights = float4(0.625, 0.125, 0.125, 0.125);
+	else if (lumatype == 2)
+		weights = float4(0.125, 0.125, 0.625, 0.125);
+	
+	weights *= rgbyM;
+	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
+	weights *= resultAA;
+	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
+	
+	float blendfactor = __FxaaAdaptiveLuma(weights);
+	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
 	
 	// fart the result
+	if (debugmode != 4) {
 	if (__HQAA_SHARPEN_ENABLE == true)
 		return float4(Sharpen(pos, tex, weightedresult, fxaaQualityEdgeThreshold, fxaaQualitySubpix), weightedresult.a);
 	else
 		return weightedresult;
+	}
+	else
+		return weights;
 }
 
 /***************************************************************************************************************************************/
@@ -1543,7 +1550,7 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
-	if (debugmode == 3 && debugFXAApass == 0) {
+	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 0) {
 		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
 		if (validResult)
 			return result.rgb;
@@ -1570,7 +1577,7 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
-	if (debugmode == 3 && debugFXAApass == 1) {
+	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 1) {
 		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
 		if (validResult)
 			return result.rgb;
