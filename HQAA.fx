@@ -269,6 +269,16 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,0.5,0.25,0.125,4};
 #define __HQAA_BUFFER_MULTIPLIER (__HQAA_DISPLAY_DENOMINATOR / 2160)
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
 
+
+#ifndef HDR_BACKBUFFER_IS_LINEAR
+	#define HDR_BACKBUFFER_IS_LINEAR 0
+#endif
+
+#ifndef HDR_DISPLAY_NITS
+	#define HDR_DISPLAY_NITS 1000
+#endif
+
+
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
 /*****************************************************************************************************************************************/
@@ -277,20 +287,28 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,0.5,0.25,0.125,4};
 /*********************************************************** SMAA CAS START **************************************************************/
 /*****************************************************************************************************************************************/
 
-float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, float subpix)
+float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float threshold, float subpix)
 {
 	// calculate sharpening parameters
 	float sharpening = __HQAA_SHARPEN_AMOUNT;
+	#if HDR_BACKBUFFER_IS_LINEAR
+		float e = AAresult * (1 / HDR_DISPLAY_NITS);
+	#else
+		float e = AAresult;
+	#endif
 	
 	if (__HQAA_SHARPEN_MODE == 0) {
 		float strongestcolor = max(max(e.r, e.g), e.b);
+		#if HDR_BACKBUFFER_IS_LINEAR
+			strongestcolor *= 1 / HDR_DISPLAY_NITS;
+		#endif
 		float brightness = mad(strongestcolor, e.a, -0.375);
 		sharpening = brightness * (1 - threshold);
 	}
 	
 	// exit if the pixel doesn't seem to warrant sharpening
 	if (sharpening <= 0)
-		return e.rgb;
+		return AAresult.rgb;
 	else {
 	
 	// proceed with CAS math
@@ -301,9 +319,12 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
     float3 f = tex2Doffset(sTexColor, texcoord, int2(1, 0)).rgb;
     float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
 
-    float3 mnRGB = min(min(min(d, e.rgb), min(f, b)), h);
-
-    float3 mxRGB = max(max(max(d, e.rgb), max(f, b)), h);
+    float3 mnRGB = min(min(min(d, AAresult.rgb), min(f, b)), h);
+    float3 mxRGB = max(max(max(d, AAresult.rgb), max(f, b)), h);
+	#if HDR_BACKBUFFER_IS_LINEAR
+	mnRGB *= 1 / HDR_DISPLAY_NITS;
+	mxRGB *= 1 / HDR_DISPLAY_NITS;
+	#endif
 
     float3 rcpMRGB = rcp(mxRGB);
     float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);
@@ -315,9 +336,16 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 e, float threshold, 
     float3 rcpWeightRGB = rcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
+	#if HDR_BACKBUFFER_IS_LINEAR
+	window *= 1 / HDR_DISPLAY_NITS;
+	#endif
     float3 outColor = saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB);
     
-	return lerp(e.rgb, outColor, sharpening);
+	#if HDR_BACKBUFFER_IS_LINEAR
+	return lerp(AAresult.rgb, outColor, sharpening) * HDR_DISPLAY_NITS;
+	#else
+	return lerp(AAresult.rgb, outColor, sharpening);
+	#endif
 	}
 }
 
@@ -361,6 +389,12 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     float3 mxRGB = max(max(max(d, e), max(f, b)), h);
     float3 mxRGB2 = max(mxRGB, max(max(a, c), max(g, i)));
     mxRGB += mxRGB2;
+	
+	#if HDR_BACKBUFFER_IS_LINEAR
+	mnRGB *= 1 / HDR_DISPLAY_NITS;
+	mxRGB *= 1 / HDR_DISPLAY_NITS;
+	e *= 1 / HDR_DISPLAY_NITS;
+	#endif
 
     float3 rcpMRGB = rcp(mxRGB);
     float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);    
@@ -372,9 +406,17 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     float3 rcpWeightRGB = rcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
+	#if HDR_BACKBUFFER_IS_LINEAR
+	window *= 1 / HDR_DISPLAY_NITS;
+	#endif
+	
     float3 outColor = saturate(mad(window, wRGB, e) * rcpWeightRGB);
     
+	#if HDR_BACKBUFFER_IS_LINEAR
+	return lerp(e, outColor, sharpening) * HDR_DISPLAY_NITS;
+	#else
 	return lerp(e, outColor, sharpening);
+	#endif
 }
 
 /*****************************************************************************************************************************************/
@@ -1310,14 +1352,6 @@ float4 GenerateImageNegativePS(float4 input)
 
 #include "ReShade.fxh"
 
-
-#ifndef HDR_BACKBUFFER_IS_LINEAR
-	#define HDR_BACKBUFFER_IS_LINEAR 0
-#endif
-
-#ifndef HDR_MAX_COLOR_VALUE
-	#define HDR_MAX_COLOR_VALUE 1
-#endif
 
 //////////////////////////////////////////////////////////// TEXTURES ///////////////////////////////////////////////////////////////////
 
