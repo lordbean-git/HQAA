@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.6.2
+ *          v9.7 beta - experimental HDR support
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.6.2\n"
+	          "Version: 9.7 beta\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 >;
 
@@ -262,7 +262,6 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,0.5,0.25,0.125,4};
 #define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_MULTIPLIER (preset == 6 ? (FxaaIterationsCustom) : (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_GRANULARITY (preset == 6 ? (FxaaTexelSizeCustom) : (HQAA_FXAA_TEXEL_SIZE_PRESET[preset]))
-#define __HQAA_GRAYSCALE_THRESHOLD 0.02
 #define __FXAA_THRESHOLD_FLOOR 0.004
 #define __SMAA_THRESHOLD_FLOOR 0.004
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
@@ -1023,143 +1022,19 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define __FXAA_QUALITY__PRESET 39
-#define __FXAA_PC 1
-#define __FXAA_HLSL_3 1
 #define __FxaaTexLuma4(t, p) textureGather(t, p, lumatype)
 #define __FxaaTexOffLuma4(t, p, o) textureGatherOffset(t, p, o, lumatype)
 #define __FxaaAdaptiveLuma(t) __FxaaAdaptiveLumaSelect(t, lumatype)
-#define __FXAA_DISCARD 1
-#define __FXAA_GLSL_120 0
-#define __FXAA_GLSL_130 0
-#define __FXAA_HLSL_4 0
-#define __FXAA_HLSL_5 0
-#ifndef __FXAA_FAST_PIXEL_OFFSET
-    //
-    // Used for GLSL 120 only.
-    //
-    // 1 = GL API supports fast pixel offsets
-    // 0 = do not use fast pixel offsets
-    //
-    #ifdef GL_EXT_gpu_shader4
-        #define __FXAA_FAST_PIXEL_OFFSET 1
-    #endif
-    #ifdef GL_NV_gpu_shader5
-        #define __FXAA_FAST_PIXEL_OFFSET 1
-    #endif
-    #ifdef GL_ARB_gpu_shader5
-        #define __FXAA_FAST_PIXEL_OFFSET 1
-    #endif
-    #ifndef __FXAA_FAST_PIXEL_OFFSET
-        #define __FXAA_FAST_PIXEL_OFFSET 0
-    #endif
-#endif
-#ifndef __FXAA_GATHER4_ALPHA
-    //
-    // 1 = API supports gather4 on alpha channel.
-    // 0 = API does not support gather4 on alpha channel.
-    //
-    #if (__FXAA_HLSL_5 == 1)
-        #define __FXAA_GATHER4_ALPHA 1
-    #endif
-    #ifdef GL_ARB_gpu_shader5
-        #define __FXAA_GATHER4_ALPHA 1
-    #endif
-    #ifdef GL_NV_gpu_shader5
-        #define __FXAA_GATHER4_ALPHA 1
-    #endif
-    #ifndef __FXAA_GATHER4_ALPHA
-        #define __FXAA_GATHER4_ALPHA 0
-    #endif
-#endif
 
+#define __FxaaTexTop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
+#define __FxaaTexOff(t, p, o, r) tex2Dlod(t, float4(p + (o * r), 0, 0))
 
-#if (__FXAA_GLSL_120 == 1) || (__FXAA_GLSL_130 == 1)
-    #define __FxaaBool bool
-    #define __FxaaFloat float
-    #define __FxaaFloat2 vec2
-    #define __FxaaFloat3 vec3
-    #define __FxaaFloat4 vec4
-    #define __FxaaHalf float
-    #define __FxaaHalf2 vec2
-    #define __FxaaHalf3 vec3
-    #define __FxaaHalf4 vec4
-    #define __FxaaInt2 ivec2
-    #define __FxaaSat(x) clamp(x, 0.0, 1.0)
-    #define __FxaaTex sampler2D
-#else
-    #define __FxaaBool bool
-    #define __FxaaFloat float
-    #define __FxaaFloat2 float2
-    #define __FxaaFloat3 float3
-    #define __FxaaFloat4 float4
-    #define __FxaaHalf half
-    #define __FxaaHalf2 half2
-    #define __FxaaHalf3 half3
-    #define __FxaaHalf4 half4
-    #define __FxaaSat(x) saturate(x)
-#endif
+#define __FXAA_MODE_NORMAL 0
+#define __FXAA_MODE_SPURIOUS_PIXELS 2
+#define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
+#define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 
-#if (__FXAA_GLSL_120 == 1)
-    // Requires,
-    //  #version 120
-    // And at least,
-    //  #extension GL_EXT_gpu_shader4 : enable
-    //  (or set __FXAA_FAST_PIXEL_OFFSET 1 to work like DX9)
-    #define __FxaaTexTop(t, p) texture2DLod(t, p, 0.0)
-    #if (__FXAA_FAST_PIXEL_OFFSET == 1)
-        #define __FxaaTexOff(t, p, o, r) texture2DLodOffset(t, p, 0.0, o)
-    #else
-        #define __FxaaTexOff(t, p, o, r) texture2DLod(t, p + (o * r), 0.0)
-    #endif
-    #if (__FXAA_GATHER4_ALPHA == 1)
-        // use #extension GL_ARB_gpu_shader5 : enable
-        #define __FxaaTexAlpha4(t, p) textureGather(t, p, 3)
-        #define __FxaaTexOffAlpha4(t, p, o) textureGatherOffset(t, p, o, 3)
-        #define __FxaaTexGreen4(t, p) textureGather(t, p, 1)
-        #define __FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
-    #endif
-#endif
-
-#if (__FXAA_GLSL_130 == 1)
-    // Requires "#version 130" or better
-    #define __FxaaTexTop(t, p) textureLod(t, p, 0.0)
-    #define __FxaaTexOff(t, p, o, r) textureLodOffset(t, p, 0.0, o)
-    #if (__FXAA_GATHER4_ALPHA == 1)
-        // use #extension GL_ARB_gpu_shader5 : enable
-        #define __FxaaTexAlpha4(t, p) textureGather(t, p, 3)
-        #define __FxaaTexOffAlpha4(t, p, o) textureGatherOffset(t, p, o, 3)
-        #define __FxaaTexGreen4(t, p) textureGather(t, p, 1)
-        #define __FxaaTexOffGreen4(t, p, o) textureGatherOffset(t, p, o, 1)
-    #endif
-#endif
-
-#if (__FXAA_HLSL_3 == 1)
-    #define __FxaaInt2 float2
-    #define __FxaaTex sampler2D
-    #define __FxaaTexTop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
-    #define __FxaaTexOff(t, p, o, r) tex2Dlod(t, float4(p + (o * r), 0, 0))
-#endif
-
-#if (__FXAA_HLSL_4 == 1)
-    #define __FxaaInt2 int2
-    struct __FxaaTex { SamplerState smpl; Texture2D tex; };
-    #define __FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
-    #define __FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
-#endif
-
-#if (__FXAA_HLSL_5 == 1)
-    #define __FxaaInt2 int2
-    struct __FxaaTex { SamplerState smpl; Texture2D tex; };
-    #define __FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
-    #define __FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
-    #define __FxaaTexAlpha4(t, p) t.tex.GatherAlpha(t.smpl, p)
-    #define __FxaaTexOffAlpha4(t, p, o) t.tex.GatherAlpha(t.smpl, p, o)
-    #define __FxaaTexGreen4(t, p) t.tex.GatherGreen(t.smpl, p)
-    #define __FxaaTexOffGreen4(t, p, o) t.tex.GatherGreen(t.smpl, p, o)
-#endif
-
-__FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
+float __FxaaAdaptiveLumaSelect (float4 rgba, int lumatype)
 // Luma types match variable positions. 0=R 1=G 2=B
 {
 	if (lumatype == 0)
@@ -1170,15 +1045,11 @@ __FxaaFloat __FxaaAdaptiveLumaSelect (__FxaaFloat4 rgba, int lumatype)
 		return (((1 - rgba.a) * rgba.g) + rgba.a);
 }
 
-#define __FXAA_MODE_NORMAL 0
-#define __FXAA_MODE_SPURIOUS_PIXELS 2
-#define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
-#define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
-__FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __FxaaTex edgestex,
- __FxaaFloat2 fxaaQualityRcpFrame, __FxaaFloat fxaaQualitySubpix,
- __FxaaFloat fxaaIncomingEdgeThreshold, __FxaaFloat fxaaQualityEdgeThresholdMin, int pixelmode)
+float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex,
+ float2 fxaaQualityRcpFrame, float fxaaQualitySubpix,
+ float fxaaIncomingEdgeThreshold, float fxaaQualityEdgeThresholdMin, int pixelmode)
  {
-    __FxaaFloat4 rgbyM = __FxaaTexTop(tex, pos);
+    float4 rgbyM = __FxaaTexTop(tex, pos);
 	float baseThreshold = max(fxaaIncomingEdgeThreshold, __FXAA_THRESHOLD_FLOOR);
 	
 	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
@@ -1193,7 +1064,7 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 		 if (SMAAran)
 			 return rgbyM;
 	 }
-    __FxaaFloat2 posM;
+    float2 posM;
     posM.x = pos.x;
     posM.y = pos.y;
 	
@@ -1223,22 +1094,22 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	float fxaaQualityEdgeThreshold = baseThreshold + thresholdOffset;
 	
 	
-    __FxaaFloat lumaS = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 0, 1), fxaaQualityRcpFrame.xy));
-    __FxaaFloat lumaE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 0), fxaaQualityRcpFrame.xy));
-    __FxaaFloat lumaN = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 0,-1), fxaaQualityRcpFrame.xy));
-    __FxaaFloat lumaW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1, 0), fxaaQualityRcpFrame.xy));
+    float lumaS = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2( 0, 1), fxaaQualityRcpFrame.xy));
+    float lumaE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2( 1, 0), fxaaQualityRcpFrame.xy));
+    float lumaN = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2( 0,-1), fxaaQualityRcpFrame.xy));
+    float lumaW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2(-1, 0), fxaaQualityRcpFrame.xy));
 	
-    __FxaaFloat maxSM = max(lumaS, lumaMa);
-    __FxaaFloat minSM = min(lumaS, lumaMa);
-    __FxaaFloat maxESM = max(lumaE, maxSM);
-    __FxaaFloat minESM = min(lumaE, minSM);
-    __FxaaFloat maxWN = max(lumaN, lumaW);
-    __FxaaFloat minWN = min(lumaN, lumaW);
-    __FxaaFloat rangeMax = max(maxWN, maxESM);
-    __FxaaFloat rangeMin = min(minWN, minESM);
-    __FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
-    __FxaaFloat range = rangeMax - rangeMin;
-    __FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
+    float maxSM = max(lumaS, lumaMa);
+    float minSM = min(lumaS, lumaMa);
+    float maxESM = max(lumaE, maxSM);
+    float minESM = min(lumaE, minSM);
+    float maxWN = max(lumaN, lumaW);
+    float minWN = min(lumaN, lumaW);
+    float rangeMax = max(maxWN, maxESM);
+    float rangeMin = min(minWN, minESM);
+    float rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;
+    float range = rangeMax - rangeMin;
+    float rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);
 	
 	bool earlyExit = (range < rangeMaxClamped) || ((rgbyM.r + rgbyM.g + rgbyM.b) < fxaaQualityEdgeThresholdMin);
 	
@@ -1261,86 +1132,86 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 	
 	float blendfactor = __FxaaAdaptiveLuma(weights);
 	
-    __FxaaFloat lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1,-1), fxaaQualityRcpFrame.xy));
-    __FxaaFloat lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1, 1), fxaaQualityRcpFrame.xy));
-    __FxaaFloat lumaNE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2( 1,-1), fxaaQualityRcpFrame.xy));
-    __FxaaFloat lumaSW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, __FxaaInt2(-1, 1), fxaaQualityRcpFrame.xy));
+    float lumaNW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2(-1,-1), fxaaQualityRcpFrame.xy));
+    float lumaSE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2( 1, 1), fxaaQualityRcpFrame.xy));
+    float lumaNE = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2( 1,-1), fxaaQualityRcpFrame.xy));
+    float lumaSW = __FxaaAdaptiveLuma(__FxaaTexOff(tex, posM, float2(-1, 1), fxaaQualityRcpFrame.xy));
 	
-    __FxaaFloat lumaNS = lumaN + lumaS;
-    __FxaaFloat lumaWE = lumaW + lumaE;
-    __FxaaFloat subpixRcpRange = 1.0/range;
-    __FxaaFloat subpixNSWE = lumaNS + lumaWE;
-    __FxaaFloat edgeHorz1 = mad(-2, lumaMa, lumaNS);
-    __FxaaFloat edgeVert1 = mad(-2, lumaMa, lumaWE);
+    float lumaNS = lumaN + lumaS;
+    float lumaWE = lumaW + lumaE;
+    float subpixRcpRange = 1.0/range;
+    float subpixNSWE = lumaNS + lumaWE;
+    float edgeHorz1 = mad(-2, lumaMa, lumaNS);
+    float edgeVert1 = mad(-2, lumaMa, lumaWE);
 	
-    __FxaaFloat lumaNESE = lumaNE + lumaSE;
-    __FxaaFloat lumaNWNE = lumaNW + lumaNE;
-    __FxaaFloat edgeHorz2 = mad(-2, lumaE, lumaNESE);
-    __FxaaFloat edgeVert2 = mad(-2, lumaN, lumaNWNE);
+    float lumaNESE = lumaNE + lumaSE;
+    float lumaNWNE = lumaNW + lumaNE;
+    float edgeHorz2 = mad(-2, lumaE, lumaNESE);
+    float edgeVert2 = mad(-2, lumaN, lumaNWNE);
 	
-    __FxaaFloat lumaNWSW = lumaNW + lumaSW;
-    __FxaaFloat lumaSWSE = lumaSW + lumaSE;
-    __FxaaFloat edgeHorz4 = mad(2, abs(edgeHorz1), abs(edgeHorz2));
-    __FxaaFloat edgeVert4 = mad(2, abs(edgeVert1), abs(edgeVert2));
-    __FxaaFloat edgeHorz3 = mad(-2, lumaW, lumaNWSW);
-    __FxaaFloat edgeVert3 = mad(-2, lumaS, lumaSWSE);
-    __FxaaFloat edgeHorz = abs(edgeHorz3) + edgeHorz4;
-    __FxaaFloat edgeVert = abs(edgeVert3) + edgeVert4;
+    float lumaNWSW = lumaNW + lumaSW;
+    float lumaSWSE = lumaSW + lumaSE;
+    float edgeHorz4 = mad(2, abs(edgeHorz1), abs(edgeHorz2));
+    float edgeVert4 = mad(2, abs(edgeVert1), abs(edgeVert2));
+    float edgeHorz3 = mad(-2, lumaW, lumaNWSW);
+    float edgeVert3 = mad(-2, lumaS, lumaSWSE);
+    float edgeHorz = abs(edgeHorz3) + edgeHorz4;
+    float edgeVert = abs(edgeVert3) + edgeVert4;
 	
-    __FxaaFloat subpixNWSWNESE = lumaNWSW + lumaNESE;
-    __FxaaFloat lengthSign = fxaaQualityRcpFrame.x;
-    __FxaaBool horzSpan = edgeHorz >= edgeVert;
-    __FxaaFloat subpixA = mad(2, subpixNSWE, subpixNWSWNESE);
+    float subpixNWSWNESE = lumaNWSW + lumaNESE;
+    float lengthSign = fxaaQualityRcpFrame.x;
+    bool horzSpan = edgeHorz >= edgeVert;
+    float subpixA = mad(2, subpixNSWE, subpixNWSWNESE);
 	
     if(!horzSpan) lumaN = lumaW;
     if(!horzSpan) lumaS = lumaE;
     if(horzSpan) lengthSign = fxaaQualityRcpFrame.y;
-    __FxaaFloat subpixB = mad((1.0/12.0), subpixA, -lumaMa);
+    float subpixB = mad((1.0/12.0), subpixA, -lumaMa);
 	
-    __FxaaFloat gradientN = lumaN - lumaMa;
-    __FxaaFloat gradientS = lumaS - lumaMa;
-    __FxaaFloat lumaNN = lumaN + lumaMa;
-    __FxaaFloat lumaSS = lumaS + lumaMa;
-    __FxaaBool pairN = abs(gradientN) >= abs(gradientS);
-    __FxaaFloat gradient = max(abs(gradientN), abs(gradientS));
+    float gradientN = lumaN - lumaMa;
+    float gradientS = lumaS - lumaMa;
+    float lumaNN = lumaN + lumaMa;
+    float lumaSS = lumaS + lumaMa;
+    bool pairN = abs(gradientN) >= abs(gradientS);
+    float gradient = max(abs(gradientN), abs(gradientS));
     if(pairN) lengthSign = -lengthSign;
-    __FxaaFloat subpixC = __FxaaSat(abs(subpixB) * subpixRcpRange);
+    float subpixC = saturate(abs(subpixB) * subpixRcpRange);
 	
-    __FxaaFloat2 posB;
+    float2 posB;
     posB.x = posM.x;
     posB.y = posM.y;
-    __FxaaFloat2 offNP;
+    float2 offNP;
     offNP.x = (!horzSpan) ? 0.0 : fxaaQualityRcpFrame.x;
     offNP.y = ( horzSpan) ? 0.0 : fxaaQualityRcpFrame.y;
     if(!horzSpan) posB.x = mad(0.5, lengthSign, posB.x);
     if( horzSpan) posB.y = mad(0.5, lengthSign, posB.y);
 	
-    __FxaaFloat2 posN;
+    float2 posN;
     posN.x = posB.x - offNP.x;
     posN.y = posB.y - offNP.y;
-    __FxaaFloat2 posP;
+    float2 posP;
     posP.x = posB.x + offNP.x;
     posP.y = posB.y + offNP.y;
-    __FxaaFloat subpixD = mad(-2, subpixC, 3);
-    __FxaaFloat lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN));
-    __FxaaFloat subpixE = subpixC * subpixC;
-    __FxaaFloat lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP));
+    float subpixD = mad(-2, subpixC, 3);
+    float lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN));
+    float subpixE = subpixC * subpixC;
+    float lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP));
 	
     if(!pairN) lumaNN = lumaSS;
-    __FxaaFloat gradientScaled = gradient * 1.0/4.0;
-    __FxaaFloat lumaMM = mad(0.5, -lumaNN, lumaMa);
-    __FxaaFloat subpixF = subpixD * subpixE;
-    __FxaaBool lumaMLTZero = lumaMM < 0.0;
+    float gradientScaled = gradient * 1.0/4.0;
+    float lumaMM = mad(0.5, -lumaNN, lumaMa);
+    float subpixF = subpixD * subpixE;
+    bool lumaMLTZero = lumaMM < 0.0;
 	
 	float granularity = __HQAA_FXAA_SCAN_GRANULARITY;
 	
     lumaEndN = mad(0.5, -lumaNN, lumaEndN);
     lumaEndP = mad(0.5, -lumaNN, lumaEndP);
-    __FxaaBool doneN = abs(lumaEndN) >= gradientScaled;
-    __FxaaBool doneP = abs(lumaEndP) >= gradientScaled;
+    bool doneN = abs(lumaEndN) >= gradientScaled;
+    bool doneP = abs(lumaEndP) >= gradientScaled;
     if(!doneN) posN.x = mad(granularity, -offNP.x, posN.x);
     if(!doneN) posN.y = mad(granularity, -offNP.y, posN.y);
-    __FxaaBool doneNP = (!doneN) || (!doneP);
+    bool doneNP = (!doneN) || (!doneP);
     if(!doneP) posP.x = mad(granularity, offNP.x, posP.x);
     if(!doneP) posP.y = mad(granularity, offNP.y, posP.y);
 	
@@ -1368,25 +1239,25 @@ __FxaaFloat4 FxaaAdaptiveLumaPixelShader(__FxaaFloat2 pos, __FxaaTex tex, __Fxaa
 		iterations++;
     }
 	
-    __FxaaFloat dstN = posM.x - posN.x;
-    __FxaaFloat dstP = posP.x - posM.x;
+    float dstN = posM.x - posN.x;
+    float dstP = posP.x - posM.x;
     if(!horzSpan) dstN = posM.y - posN.y;
     if(!horzSpan) dstP = posP.y - posM.y;
 	
-    __FxaaBool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
-    __FxaaFloat spanLength = (dstP + dstN);
-    __FxaaBool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
-    __FxaaFloat spanLengthRcp = rcp(spanLength);
+    bool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
+    float spanLength = (dstP + dstN);
+    bool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
+    float spanLengthRcp = rcp(spanLength);
 	
-    __FxaaBool directionN = dstN < dstP;
-    __FxaaFloat dst = min(dstN, dstP);
-    __FxaaBool goodSpan = directionN ? goodSpanN : goodSpanP;
-    __FxaaFloat subpixG = subpixF * subpixF;
-    __FxaaFloat pixelOffset = mad(-spanLengthRcp, dst, 0.5);
-    __FxaaFloat subpixH = subpixG * fxaaQualitySubpix;
+    bool directionN = dstN < dstP;
+    float dst = min(dstN, dstP);
+    bool goodSpan = directionN ? goodSpanN : goodSpanP;
+    float subpixG = subpixF * subpixF;
+    float pixelOffset = mad(-spanLengthRcp, dst, 0.5);
+    float subpixH = subpixG * fxaaQualitySubpix;
 	
-    __FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
-    __FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
+    float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
+    float pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
 	
     if(!horzSpan) posM.x = mad(lengthSign, pixelOffsetSubpix, posM.x);
     if( horzSpan) posM.y = mad(lengthSign, pixelOffsetSubpix, posM.y);
@@ -1436,6 +1307,15 @@ float4 GenerateImageNegativePS(float4 input)
 
 #include "ReShade.fxh"
 
+
+#ifndef HDR_BACKBUFFER_IS_LINEAR
+	#define HDR_BACKBUFFER_IS_LINEAR 0
+#endif
+
+#ifndef HDR_MAX_COLOR_VALUE
+	#define HDR_MAX_COLOR_VALUE 1
+#endif
+
 //////////////////////////////////////////////////////////// TEXTURES ///////////////////////////////////////////////////////////////////
 
 texture HQAAedgesTex < pooled = true; >
@@ -1468,11 +1348,11 @@ texture HQAAnegativeTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-	#if (BUFFER_COLOR_BIT_DEPTH == 10)
+#if (BUFFER_COLOR_BIT_DEPTH == 10)
 	Format = RGB10A2;
-	#else
+#else
 	Format = RGBA8;
-	#endif
+#endif
 };
 
 
@@ -1490,7 +1370,11 @@ sampler HQAAcolorLinearSampler
 	Texture = ReShade::BackBufferTex;
 	AddressU = Clamp; AddressV = Clamp;
 	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
+#if HDR_BACKBUFFER_IS_LINEAR
+	SRGBTexture = false;
+#else
 	SRGBTexture = true;
+#endif
 };
 sampler HQAAnegativeGammaSampler
 {
@@ -1804,7 +1688,11 @@ technique HQAA <
 		VertexShader = HQSMAANeighborhoodBlendingWrapVS;
 		PixelShader = HQSMAANeighborhoodBlendingWrapPS;
 		StencilEnable = false;
+#if HDR_BACKBUFFER_IS_LINEAR
+		SRGBWriteEnable = false;
+#else
 		SRGBWriteEnable = true;
+#endif
 	}
 	pass FXAABlendPositives
 	{
@@ -1826,6 +1714,10 @@ technique HQAACAS <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAACASWrapPS;
+#if HDR_BACKBUFFER_IS_LINEAR
+		SRGBWriteEnable = false;
+#else
 		SRGBWriteEnable = true;
+#endif
 	}
 }
