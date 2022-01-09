@@ -275,7 +275,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,0.5,0.25,0.125,4};
 #endif
 
 #ifndef HDR_DISPLAY_NITS
-	#define HDR_DISPLAY_NITS 1000
+	#define HDR_DISPLAY_NITS 1000.0f
 #endif
 
 
@@ -292,15 +292,15 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 	// calculate sharpening parameters
 	float sharpening = __HQAA_SHARPEN_AMOUNT;
 	#if HDR_BACKBUFFER_IS_LINEAR
-		float e = AAresult * (1 / HDR_DISPLAY_NITS);
+		float4 e = AAresult * (1 / HDR_DISPLAY_NITS);
 	#else
-		float e = AAresult;
+		float4 e = AAresult;
 	#endif
 	
 	if (__HQAA_SHARPEN_MODE == 0) {
 		float strongestcolor = max(max(e.r, e.g), e.b);
 		#if HDR_BACKBUFFER_IS_LINEAR
-			strongestcolor *= 1 / HDR_DISPLAY_NITS;
+			strongestcolor *= (1 / HDR_DISPLAY_NITS);
 		#endif
 		float brightness = mad(strongestcolor, e.a, -0.375);
 		sharpening = brightness * (1 - threshold);
@@ -322,8 +322,8 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
     float3 mnRGB = min(min(min(d, AAresult.rgb), min(f, b)), h);
     float3 mxRGB = max(max(max(d, AAresult.rgb), max(f, b)), h);
 	#if HDR_BACKBUFFER_IS_LINEAR
-	mnRGB *= 1 / HDR_DISPLAY_NITS;
-	mxRGB *= 1 / HDR_DISPLAY_NITS;
+	mnRGB *= (1 / HDR_DISPLAY_NITS);
+	mxRGB *= (1 / HDR_DISPLAY_NITS);
 	#endif
 
     float3 rcpMRGB = rcp(mxRGB);
@@ -337,7 +337,7 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 
     float3 window = (b + d) + (f + h);
 	#if HDR_BACKBUFFER_IS_LINEAR
-	window *= 1 / HDR_DISPLAY_NITS;
+	window *= (1 / HDR_DISPLAY_NITS);
 	#endif
     float3 outColor = saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB);
     
@@ -391,9 +391,9 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     mxRGB += mxRGB2;
 	
 	#if HDR_BACKBUFFER_IS_LINEAR
-	mnRGB *= 1 / HDR_DISPLAY_NITS;
-	mxRGB *= 1 / HDR_DISPLAY_NITS;
-	e *= 1 / HDR_DISPLAY_NITS;
+	mnRGB *= (1 / HDR_DISPLAY_NITS);
+	mxRGB *= (1 / HDR_DISPLAY_NITS);
+	e *= (1 / HDR_DISPLAY_NITS);
 	#endif
 
     float3 rcpMRGB = rcp(mxRGB);
@@ -407,7 +407,7 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 
     float3 window = (b + d) + (f + h);
 	#if HDR_BACKBUFFER_IS_LINEAR
-	window *= 1 / HDR_DISPLAY_NITS;
+	window *= (1 / HDR_DISPLAY_NITS);
 	#endif
 	
     float3 outColor = saturate(mad(window, wRGB, e) * rcpWeightRGB);
