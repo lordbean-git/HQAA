@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.7
+ *                        v9.7.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.7\n"
+	          "Version: 9.7.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 >;
 
@@ -1130,9 +1130,11 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 			
 	float lumaMa = __FxaaAdaptiveLuma(rgbyM);
 	
-	float gammaM = (0.3333 * rgbyM.r) + (0.3334 * rgbyM.g) + (0.3333 * rgbyM.b);
-	float adjustmentrange = (baseThreshold * __HQAA_SUBPIX) * 0.125;
-	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
+	float4 gammaAdjust = float4(0.1666, 0.1667, 0.1667, 0.5) * rgbyM;
+	gammaAdjust *= rcp(gammaAdjust.r + gammaAdjust.g + gammaAdjust.b + gammaAdjust.a);
+	float gammaM = __FxaaAdaptiveLuma(gammaAdjust);
+	float adjustmentrange = (baseThreshold * __HQAA_SUBPIX) * 0.75;
+	float estimatedbrightness = lerp(lumaMa, gammaM, 0.5);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float fxaaQualityEdgeThreshold = baseThreshold + thresholdOffset;
@@ -1306,7 +1308,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	weights *= resultAA;
 	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
 	
-	float blendfactor = 1 - __FxaaAdaptiveLuma(weights);
+	float blendfactor = mad(0.75, 1 - __FxaaAdaptiveLuma(weights), 0.25);
 	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
 	
 	// fart the result
