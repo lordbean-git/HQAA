@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v9.7.1
+ *                        v9.7.2
  *
  *                     by lordbean
  *
@@ -81,9 +81,16 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.7.1\n"
+	          "Version: 9.7.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
+	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
+
+uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
+	ui_min = 30; ui_max = 120; ui_step = 1;
+	ui_label = "Target Minimum Framerate";
+	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
+> = 60;
 
 uniform int preset <
 	ui_type = "combo";
@@ -211,7 +218,9 @@ uniform int debugexplainer <
 			  "SMAA blending weights and FXAA results show what each related\n"
 			  "pass is blending with the screen to produce its AA effect.\n\n"
 			  "FXAA lumas shows which color channel FXAA decided to use to\n"
-			  "represent the brightness of the pixel.\n"
+			  "represent the brightness of the pixel.\n\n"
+			  "Debug checks can optionally be excluded from the compiled shader\n"
+			  "by setting HQAA_INCLUDE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
 	ui_category = "Debug";
 	ui_category_closed = true;
@@ -237,13 +246,6 @@ uniform int sharpenerintro <
 	ui_category = "Optional Sharpening (HQAACAS)";
 	ui_category_closed = true;
 >;
-
-uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
-	ui_min = 30; ui_max = 120; ui_step = 1;
-	ui_label = "Target Minimum Framerate";
-	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
-	ui_text = "\n";
-> = 60;
 
 uniform float frametime < source = "frametime"; >;
 
@@ -278,6 +280,10 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,0.5,0.25,0.125,4};
 
 #ifndef HDR_DISPLAY_NITS
 	#define HDR_DISPLAY_NITS 1000.0f
+#endif
+
+#ifndef HQAA_INCLUDE_DEBUG_CODE
+	#define HQAA_INCLUDE_DEBUG_CODE 1
 #endif
 
 
@@ -1312,17 +1318,22 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
 	
 	// fart the result
-	if (debugmode != 4) {
+#if HQAA_INCLUDE_DEBUG_CODE
+	if (debugmode != 4) 
+	{
+#endif
 	if (__HQAA_SHARPEN_ENABLE == true)
 		return float4(Sharpen(pos, tex, weightedresult, fxaaQualityEdgeThreshold, fxaaQualitySubpix), weightedresult.a);
 	else
 		return weightedresult;
+#if HQAA_INCLUDE_DEBUG_CODE
 	}
 	else {
 		if (lumatype == 0) return float4(__FxaaAdaptiveLuma(rgbyM), 0, 0, rgbyM.a);
 		else if (lumatype == 1) return float4(0, __FxaaAdaptiveLuma(rgbyM), 0, rgbyM.a);
 		else return float4(0, 0, __FxaaAdaptiveLuma(rgbyM), rgbyM.a);
 	}
+#endif
 }
 
 /***************************************************************************************************************************************/
@@ -1550,6 +1561,7 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
+#if HQAA_INCLUDE_DEBUG_CODE
 	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 0) {
 		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
 		if (validResult)
@@ -1558,15 +1570,18 @@ float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 t
 			return float3(0.0, 0.0, 0.0);
 	}
 	else
+#endif
 		return result.rgb;
 }
 float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	// debugs 1 and 2 need to output from the last pass in the technique
+#if HQAA_INCLUDE_DEBUG_CODE
 	if (debugmode == 1)
 		return tex2D(HQAAedgesSampler, texcoord).rgb;
 	if (debugmode == 2)
 		return tex2D(HQAAblendSampler, texcoord).rgb;
+#endif
 	
 	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
@@ -1577,6 +1592,7 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,BUFFER_PIXEL_SIZE,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
+#if HQAA_INCLUDE_DEBUG_CODE
 	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 1) {
 		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
 		if (validResult)
@@ -1585,6 +1601,7 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 			return float3(0.0, 0.0, 0.0);
 	}
 	else
+#endif
 		return result.rgb;
 }
 
