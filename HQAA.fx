@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *          v9.7 beta - experimental HDR support
+ *                        v9.7
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 9.7 beta\n"
+	          "Version: 9.7\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 >;
 
@@ -1082,11 +1082,11 @@ float __FxaaAdaptiveLumaSelect (float4 rgba, int lumatype)
 // Luma types match variable positions. 0=R 1=G 2=B
 {
 	if (lumatype == 0)
-		return (((1 - rgba.a) * rgba.r) + rgba.a);
+		return mad(1 - rgba.a, rgba.r, rgba.a);
 	else if (lumatype == 2)
-		return (((1 - rgba.a) * rgba.b) + rgba.a);
+		return mad(1 - rgba.a, rgba.b, rgba.a);
 	else
-		return (((1 - rgba.a) * rgba.g) + rgba.a);
+		return mad(1 - rgba.a, rgba.g, rgba.a);
 }
 
 float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex,
@@ -1300,18 +1300,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	
 	// calculate interpolation level
-	float4 weights = float4(0.125, 0.625, 0.125, 0.125);
-	if (lumatype == 0)
-		weights = float4(0.625, 0.125, 0.125, 0.125);
-	else if (lumatype == 2)
-		weights = float4(0.125, 0.125, 0.625, 0.125);
-	
+	float4 weights = float4(0.1666, 0.1667, 0.1667, 0.5);
 	weights *= rgbyM;
 	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
 	weights *= resultAA;
 	weights *= rcp(weights.r + weights.g + weights.b + weights.a);
 	
-	float blendfactor = __FxaaAdaptiveLuma(weights);
+	float blendfactor = 1 - __FxaaAdaptiveLuma(weights);
 	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
 	
 	// fart the result
@@ -1321,8 +1316,11 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	else
 		return weightedresult;
 	}
-	else
-		return weights;
+	else {
+		if (lumatype == 0) return float4(__FxaaAdaptiveLuma(rgbyM), 0, 0, rgbyM.a);
+		else if (lumatype == 1) return float4(0, __FxaaAdaptiveLuma(rgbyM), 0, rgbyM.a);
+		else return float4(0, 0, __FxaaAdaptiveLuma(rgbyM), rgbyM.a);
+	}
 }
 
 /***************************************************************************************************************************************/
@@ -1542,7 +1540,7 @@ float4 HQSMAANeighborhoodBlendingWrapPS(
 
 float3 FXAAPixelShaderSMAADetectionPositives(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * 0.375;
+	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
@@ -1568,7 +1566,7 @@ float3 FXAAPixelShaderSMAADetectionNegatives(float4 vpos : SV_Position, float2 t
 	if (debugmode == 2)
 		return tex2D(HQAAblendSampler, texcoord).rgb;
 	
-	float TotalSubpix = __HQAA_SUBPIX * 0.625;
+	float TotalSubpix = __HQAA_SUBPIX;
 	if (__HQAA_BUFFER_MULTIPLIER < 1)
 		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
 	
