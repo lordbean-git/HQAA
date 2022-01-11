@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.3
+ *                        v10.3.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.3\n"
+	          "Version: 10.3.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -305,6 +305,15 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 
 #ifndef HQAA_INCLUDE_DEBUG_CODE
 	#define HQAA_INCLUDE_DEBUG_CODE 1
+#endif
+
+// FXAA branching costs performance on DX9 or OpenGL but saves performance on DX10+/Vulkan
+#if (__RENDERER__ < 0xa000)
+	#define __HQAA_ENABLE_FXAA_BRANCHING 0
+#elif (__RENDERER__ >= 0x10000) && (__RENDERER__ < 0x20000)
+	#define __HQAA_ENABLE_FXAA_BRANCHING 0
+#else
+	#define __HQAA_ENABLE_FXAA_BRANCHING 1
 #endif
 
 
@@ -1097,22 +1106,45 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     if(!doneP) posP = mad(granularity, offNP, posP);
 	
 	uint iterationsN = 0;
+#if __HQAA_ENABLE_FXAA_BRANCHING
 	uint iterationsP = 0;
+#endif
 	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.05) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME && maxiterations > 3)
 		maxiterations = max(3, trunc(rcp(frametime - __HQAA_DESIRED_FRAMETIME + 1) * maxiterations));
 	
+#if __HQAA_ENABLE_FXAA_BRANCHING
 	[branch]
 	if (!doneN)
-    while(!doneN && iterationsN < maxiterations) {
+#endif
+    while(iterationsN < maxiterations
+#if __HQAA_ENABLE_FXAA_BRANCHING
+          && !doneN)
+#else
+	      && (!doneN || !doneP))
+#endif
+	{
+#if !__HQAA_ENABLE_FXAA_BRANCHING
+        if (!doneN) {
+#endif
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posN.xy));
 		lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 		doneN = abs(lumaEndN) >= gradientScaled;
         if(!doneN) posN = mad(granularity, -offNP, posN);
+#if !__HQAA_ENABLE_FXAA_BRANCHING
+        }
+        if (!doneP) {
+		lumaEndP = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posP.xy));
+		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
+		doneP = abs(lumaEndP) >= gradientScaled;
+        if(!doneP) posP = mad(granularity, offNP, posP);
+		}
+#endif
 		iterationsN++;
     }
 	
+#if __HQAA_ENABLE_FXAA_BRANCHING
 	[branch]
 	if (!doneP)
     while(!doneP && iterationsP < maxiterations) {
@@ -1122,6 +1154,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
         if(!doneP) posP = mad(granularity, offNP, posP);
 		iterationsP++;
     }
+#endif
 	
     float dstN = posM.x - posN.x;
     float dstP = posP.x - posM.x;
