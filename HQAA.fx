@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.1.1
+ *                        v10.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.1.1\n"
+	          "Version: 10.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -270,7 +270,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define __SMAA_THRESHOLD_FLOOR 0.0025
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
-#define __HQAA_BUFFER_MULTIPLIER (__HQAA_DISPLAY_DENOMINATOR / 2160)
+#define __HQAA_BUFFER_MULTIPLIER (__HQAA_DISPLAY_DENOMINATOR / 1440)
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
 
 #define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
@@ -1397,10 +1397,7 @@ float4 SMAANeighborhoodBlendingWrapPS(
 
 float3 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * 0.75;
-	if (__HQAA_BUFFER_MULTIPLIER < 1)
-		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	
+	float TotalSubpix = __HQAA_SUBPIX * saturate(__HQAA_BUFFER_MULTIPLIER);
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
@@ -1427,10 +1424,7 @@ float3 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		return tex2D(HQAAblendSampler, texcoord).rgb;
 #endif
 	
-	float TotalSubpix = __HQAA_SUBPIX * 0.5;
-	if (__HQAA_BUFFER_MULTIPLIER < 1)
-		TotalSubpix *= __HQAA_BUFFER_MULTIPLIER;
-	
+	float TotalSubpix = __HQAA_SUBPIX * saturate(__HQAA_BUFFER_MULTIPLIER);
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	threshold = sqrt(threshold);
 	
