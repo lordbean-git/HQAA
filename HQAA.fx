@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.3.1
+ *                        v10.3.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.3.1\n"
+	          "Version: 10.3.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -1186,19 +1186,18 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
 	
 	// grab original buffer state
-	float4 prerender = tex2D(referencetex, posM);
+    float4 prerender = tex2D(referencetex, pos);
 	
-	// normalize lumas for blending
+	// get normalized lumas for each state of this pixel: unmodified, post-SMAA, post-FXAA
 	float4 resultAAnormal = resultAA * __HQAA_LUMA_REFERENCE;
-	resultAAnormal *= rcp(vec4add(resultAAnormal));
 	float4 prerendernormal = prerender * __HQAA_LUMA_REFERENCE;
-	prerendernormal *= rcp(vec4add(prerendernormal));
 	float4 rgbyMnormal = rgbyM * __HQAA_LUMA_REFERENCE;
+	resultAAnormal *= rcp(vec4add(resultAAnormal));
+	prerendernormal *= rcp(vec4add(prerendernormal));
 	rgbyMnormal *= rcp(vec4add(rgbyMnormal));
-	
 	float resultAAluma = dotluma(resultAAnormal);
-	float stepluma = dotluma(rgbyMnormal);
 	float originalluma = dotluma(prerendernormal);
+	float stepluma = dotluma(rgbyMnormal);
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
