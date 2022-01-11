@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.0
+ *                        v10.0.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.0\n"
+	          "Version: 10.0.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -328,9 +328,6 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 	
 	if (__HQAA_SHARPEN_MODE == 0) {
 		float strongestcolor = max3(e.r, e.g, e.b);
-		#if HDR_BACKBUFFER_IS_LINEAR
-			strongestcolor *= (1 / HDR_DISPLAY_NITS);
-		#endif
 		float brightness = mad(strongestcolor, e.a, -0.375);
 		sharpening = brightness * (1 - threshold);
 	}
