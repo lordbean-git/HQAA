@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.1
+ *                        v10.1.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.1\n"
+	          "Version: 10.1.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -532,7 +532,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
-	float adjustmentrange = (__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * __HQAA_SUBPIX * 0.875;
+	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * __HQAA_SUBPIX * 0.875, 0.125);
 	
 	float4 middlenormal = middle * __HQAA_LUMA_REFERENCE;
 	middlenormal *= rcp(vec4add(middlenormal));
@@ -986,7 +986,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float4 gammaAdjust = __HQAA_LUMA_REFERENCE * rgbyM;
 	gammaAdjust *= rcp(vec4add(gammaAdjust));
 	float gammaM = dotluma(gammaAdjust);
-	float adjustmentrange = (baseThreshold * __HQAA_SUBPIX) * 0.875;
+	float adjustmentrange = min((baseThreshold * __HQAA_SUBPIX) * 0.875, 0.125);
 	float estimatedbrightness = sqrt((lumaMa + gammaM) * 0.5);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
