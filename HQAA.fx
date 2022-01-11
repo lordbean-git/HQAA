@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.0.1
+ *                        v10.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.0.1\n"
+	          "Version: 10.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -539,7 +539,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	
 	float strongestcolor = max3(middle.r,middle.g,middle.b);
 	float estimatedgamma = dotluma(middlenormal);
-	float estimatedbrightness = (strongestcolor + estimatedgamma) * 0.5;
+	float estimatedbrightness = sqrt((strongestcolor + estimatedgamma) * 0.5);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
@@ -571,7 +571,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	if (dot(edges, float2(1,1)) != 0) {
 		
 	// calculate contrast multiplier. scale has a floor value of 0.25 on a pure bright white pixel
-	float adaptationscale = saturate(scale * scale);
+	float adaptationscale = abs(saturate(scale * scale * scale) + thresholdOffset);
 	float contrastadaptation = 1 + adaptationscale;
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
@@ -893,7 +893,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 	float4 color = float4(0,0,0,0);
 
     __SMAA_BRANCH
-    if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
+    if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) < 1e-4) {
         color = __SMAASampleLevelZero(colorTex, texcoord);
     } else {
         bool horiz = max(m.x, m.z) > max(m.y, m.w);
@@ -954,41 +954,40 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
-		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) == 0;
+		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) < 1e-4;
 		 if (noSMAAedges)
 			 return rgbyM;
 	 }
 	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
-		 bool SMAAran = dot(float2(1.0, 1.0), SMAAedges) > 1e-5;
+		 bool SMAAran = dot(float2(1.0, 1.0), SMAAedges) > 1e-4;
 		 if (SMAAran)
 			 return rgbyM;
 	 }
     float2 posM = pos;
 	
-	int lumatype = 1; // assume green is luma until determined otherwise
+	int lumatype = 2; // assume blue is luma until determined otherwise
 	
 	float maxcolor = max3(rgbyM.r, rgbyM.g, rgbyM.b);
-	bool stronggreen = rgbyM.g > (rgbyM.r + rgbyM.b);
+	bool strongblue = rgbyM.b > (rgbyM.r + rgbyM.g);
 	
-	if (stronggreen == false && rgbyM.g != maxcolor) // check if luma color needs changed
+	if (strongblue == false && rgbyM.b != maxcolor) // check if luma color needs changed
 	{
 		bool strongred = rgbyM.r > (rgbyM.g + rgbyM.b);
-		bool strongblue = rgbyM.b > (rgbyM.g + rgbyM.r);
 		
 		if (strongred == true || rgbyM.r == maxcolor)
 			lumatype = 0;
 		else
-			lumatype = 2;
+			lumatype = 1;
 	}
 			
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
 	
 	float4 gammaAdjust = __HQAA_LUMA_REFERENCE * rgbyM;
 	gammaAdjust *= rcp(vec4add(gammaAdjust));
-	float gammaM = FxaaAdaptiveLuma(gammaAdjust);
+	float gammaM = dotluma(gammaAdjust);
 	float adjustmentrange = (baseThreshold * __HQAA_SUBPIX) * 0.875;
-	float estimatedbrightness = lerp(lumaMa, gammaM, 0.5);
+	float estimatedbrightness = sqrt((lumaMa + gammaM) * 0.5);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float fxaaQualityEdgeThreshold = baseThreshold + thresholdOffset;
@@ -1169,9 +1168,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float stepluma = dotluma(rgbyMnormal);
 	float originalluma = dotluma(prerendernormal);
 	
-	// calculate interpolation
-	float blendfactor = 1 - abs(resultAAluma - (stepluma - abs(stepluma - originalluma)));
-	float4 weightedresult = lerp(rgbyM, resultAA, blendfactor);
+	// calculate interpolation - we use normalized estimated lumas
+	// between the FXAA result and the original game-rendered scene
+	// using the SMAA result as the pivot to choose how much to
+	// blend the FXAA results. This helps to minimize overcorrection
+	// artifacts from both SMAA and FXAA
+	float blendfactor = lerp(resultAAluma, originalluma, stepluma);
+	float4 weightedresult = lerp(resultAA, prerender, blendfactor);
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1404,7 +1407,7 @@ float3 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 #if HQAA_INCLUDE_DEBUG_CODE
 	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 0) {
-		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
+		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-4;
 		if (validResult)
 			return result.rgb;
 		else
@@ -1435,7 +1438,7 @@ float3 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 #if HQAA_INCLUDE_DEBUG_CODE
 	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 1) {
-		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-5;
+		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-4;
 		if (validResult)
 			return result.rgb;
 		else
