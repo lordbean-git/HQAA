@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.3.4
+ *                        v10.4
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.3.4\n"
+	          "Version: 10.4\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -191,7 +191,7 @@ uniform uint debugmode <
 	ui_category_closed = true;
 	ui_label = " ";
 	ui_text = "\nDebug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA results:\0FXAA lumas:\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Original Buffer Copy\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -199,7 +199,7 @@ uniform uint debugFXAApass <
 	ui_category = "Debug";
 	ui_category_closed = true;
 	ui_label = " ";
-	ui_text = "-----------------";
+	ui_text = "--------- FXAA PASS SELECT ----------";
 	ui_items = "SMAA Positives\0SMAA Negatives\0";
 > = 0;
 
@@ -219,6 +219,11 @@ uniform int debugexplainer <
 			  "pass is blending with the screen to produce its AA effect.\n\n"
 			  "FXAA lumas shows which color channel FXAA decided to use to\n"
 			  "represent the brightness of the pixel.\n\n"
+			  "Original buffer copy should contain an exact duplicate of the\n"
+			  "contents of the screen before HQAA has done anything to it.\n\n"
+			  "FXAA metrics draws a range of green to red where the selected\n"
+			  "pass ran, with green representing not much execution time used\n"
+			  "and red representing a lot of execution time used.\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_INCLUDE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
@@ -227,13 +232,20 @@ uniform int debugexplainer <
 >;
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
-	ui_spacing = 5;
+	ui_spacing = 3;
 	ui_min = 0; ui_max = 10; ui_step = 0.1;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Optional Sharpening (HQAACAS)";
 	ui_category_closed = true;
 > = 1.5;
+
+uniform bool HqaaSharpenerDebug <
+    ui_text = "Debug:\n ";
+	ui_label = "Show Sharpening Pattern";
+	ui_category = "Optional Sharpening (HQAACAS)";
+	ui_category_closed = true;
+> = false;
 
 uniform int sharpenerintro <
 	ui_type = "radio";
@@ -266,17 +278,20 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_MULTIPLIER (preset == 6 ? (FxaaIterationsCustom) : (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_GRANULARITY (preset == 6 ? (FxaaTexelSizeCustom) : (HQAA_FXAA_TEXEL_SIZE_PRESET[preset]))
-#define __FXAA_THRESHOLD_FLOOR 0.0050
-#define __SMAA_THRESHOLD_FLOOR 0.0025
+#define __FXAA_THRESHOLD_FLOOR 0.04
+#define __SMAA_THRESHOLD_FLOOR 0.02
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
 
 #define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
+#define __HQAA_GAMMA_REFERENCE float3(0.3,0.4,0.3)
 
 #define dotluma(x) ((0.3 * x.r) + (0.3 * x.g) + (0.3 * x.b) + (0.1 * x.a))
+#define dotgamma(x) ((0.3 * x.r) + (0.4 * x.g) + (0.3 * x.b))
 #define vec4add(x) (x.r + x.g + x.b + x.a)
+#define vec3add(x) (x.r + x.g + x.b)
 
 #define max3(x,y,z) max(max(x,y),z)
 #define max4(w,x,y,z) max(max(max(w,x),y),z)
@@ -293,12 +308,11 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define min7(t,u,v,w,x,y,z) min(min(min(min(min(min(t,u),v),w),x),y),z)
 #define min8(s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(s,t),u),v),w),x),y),z)
 #define min9(r,s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(min(r,s),t),u),v),w),x),y),z)
-
+/*
 #if (BUFFER_COLOR_BIT_DEPTH == 16)
-	#define HDR_BACKBUFFER_IS_LINEAR 1
 	#define __HQAA_DISABLE_SHARPENING
 #endif
-
+*/
 #ifndef HDR_BACKBUFFER_IS_LINEAR
 	#define HDR_BACKBUFFER_IS_LINEAR 0
 #endif
@@ -311,15 +325,20 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 	#define HQAA_INCLUDE_DEBUG_CODE 1
 #endif
 
-// FXAA branching costs performance on DX9 or OpenGL but saves performance on DX10+/Vulkan
-#if (__RENDERER__ < 0xa000)
-	#define __HQAA_ENABLE_FXAA_BRANCHING 0
-#elif (__RENDERER__ >= 0x10000) && (__RENDERER__ < 0x20000)
-	#define __HQAA_ENABLE_FXAA_BRANCHING 0
-#else
-	#define __HQAA_ENABLE_FXAA_BRANCHING 1
-#endif
 
+/////////////////////////////////////////////////////////// SUPPORT FUNCTIONS /////////////////////////////////////////////////////////////
+float GetNormalizedLuma(float3 input)
+{
+	float3 normal = input * __HQAA_GAMMA_REFERENCE;
+	normal *= rcp(vec3add(normal));
+	return dotgamma(normal);
+}
+float GetNormalizedLuma(float4 input)
+{
+	float4 normal = input * __HQAA_LUMA_REFERENCE;
+	normal *= rcp(vec4add(normal));
+	return dotluma(normal);
+}
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1118,55 +1137,28 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     if(!doneP) posP = mad(granularity, offNP, posP);
 	
 	uint iterationsN = 0;
-#if __HQAA_ENABLE_FXAA_BRANCHING
 	uint iterationsP = 0;
-#endif
 	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.05) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME && maxiterations > 3)
 		maxiterations = max(3, trunc(rcp(frametime - __HQAA_DESIRED_FRAMETIME + 1) * maxiterations));
 	
-#if __HQAA_ENABLE_FXAA_BRANCHING
-	[branch]
-	if (!doneN)
-#endif
-    while(iterationsN < maxiterations
-#if __HQAA_ENABLE_FXAA_BRANCHING
-          && !doneN)
-#else
-	      && (!doneN || !doneP))
-#endif
+    while (iterationsN < maxiterations && !doneN)
 	{
-#if !__HQAA_ENABLE_FXAA_BRANCHING
-        if (!doneN) {
-#endif
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posN.xy));
 		lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 		doneN = abs(lumaEndN) >= gradientScaled;
         if(!doneN) posN = mad(granularity, -offNP, posN);
-#if !__HQAA_ENABLE_FXAA_BRANCHING
-        }
-        if (!doneP) {
-		lumaEndP = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posP.xy));
-		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
-		doneP = abs(lumaEndP) >= gradientScaled;
-        if(!doneP) posP = mad(granularity, offNP, posP);
-		}
-#endif
 		iterationsN++;
     }
 	
-#if __HQAA_ENABLE_FXAA_BRANCHING
-	[branch]
-	if (!doneP)
-    while(!doneP && iterationsP < maxiterations) {
+    while(iterationsP < maxiterations && !doneP) {
 		lumaEndP = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posP.xy));
 		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
 		doneP = abs(lumaEndP) >= gradientScaled;
         if(!doneP) posP = mad(granularity, offNP, posP);
 		iterationsP++;
     }
-#endif
 	
     float dstN = posM.x - posN.x;
     float dstP = posP.x - posM.x;
@@ -1201,15 +1193,9 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float4 prerender = tex2D(referencetex, pos);
 	
 	// get normalized lumas for each state of this pixel: unmodified, post-SMAA, post-FXAA
-	float4 resultAAnormal = resultAA * __HQAA_LUMA_REFERENCE;
-	float4 prerendernormal = prerender * __HQAA_LUMA_REFERENCE;
-	float4 rgbyMnormal = rgbyM * __HQAA_LUMA_REFERENCE;
-	resultAAnormal *= rcp(vec4add(resultAAnormal));
-	prerendernormal *= rcp(vec4add(prerendernormal));
-	rgbyMnormal *= rcp(vec4add(rgbyMnormal));
-	float resultAAluma = dotluma(resultAAnormal);
-	float originalluma = dotluma(prerendernormal);
-	float stepluma = dotluma(rgbyMnormal);
+	float resultAAluma = GetNormalizedLuma(resultAA);
+	float originalluma = GetNormalizedLuma(prerender);
+	float stepluma = GetNormalizedLuma(rgbyM);
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
@@ -1221,7 +1207,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
-	if (debugmode != 4) 
+	if (debugmode != 5 && debugmode != 6)
 	{
 #endif
 	if (__HQAA_SHARPEN_ENABLE == true)
@@ -1230,10 +1216,15 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		return weightedresult;
 #if HQAA_INCLUDE_DEBUG_CODE
 	}
-	else {
+	else if (debugmode == 5) {
 		if (lumatype == 0) return float4(FxaaAdaptiveLuma(rgbyM), 0, 0, rgbyM.a);
 		else if (lumatype == 1) return float4(0, FxaaAdaptiveLuma(rgbyM), 0, rgbyM.a);
 		else return float4(0, 0, FxaaAdaptiveLuma(rgbyM), rgbyM.a);
+	}
+	else {
+		float runtime = sqrt(((iterationsN / maxiterations) + (iterationsP / maxiterations)) / 2);
+		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0, 1);
+		return FxaaMetrics;
 	}
 #endif
 }
@@ -1261,7 +1252,7 @@ texture HQAAblendTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-	Format = RGBA8;
+	Format = BUFFER_COLOR_BIT_DEPTH;
 };
 
 texture HQAAareaTex < source = "AreaTex.png"; >
@@ -1281,13 +1272,7 @@ texture HQAAsupportTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-#if (BUFFER_COLOR_BIT_DEPTH == 10)
-	Format = RGB10A2;
-#elif (BUFFER_COLOR_BIT_DEPTH == 16)
-	Format = RGBA16F;
-#else
-	Format = RGBA8;
-#endif
+	Format = BUFFER_COLOR_BIT_DEPTH;
 };
 
 
@@ -1448,7 +1433,7 @@ float3 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
 #if HQAA_INCLUDE_DEBUG_CODE
-	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 0) {
+	if (debugmode > 3 && debugFXAApass == 0) {
 		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-4;
 		if (validResult)
 			return result.rgb;
@@ -1467,6 +1452,8 @@ float3 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		return tex2D(HQAAedgesSampler, texcoord).rgb;
 	if (debugmode == 2)
 		return tex2D(HQAAblendSampler, texcoord).rgb;
+	if (debugmode == 3)
+		return tex2D(HQAAsupportSampler, texcoord).rgb;
 #endif
 	
 	float TotalSubpix = __HQAA_SUBPIX * __HQAA_BUFFER_MULTIPLIER * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY));
@@ -1476,7 +1463,7 @@ float3 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
 #if HQAA_INCLUDE_DEBUG_CODE
-	if ((debugmode == 3 || debugmode == 4) && debugFXAApass == 1) {
+	if (debugmode > 3 && debugFXAApass == 1) {
 		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-4;
 		if (validResult)
 			return result.rgb;
@@ -1490,7 +1477,14 @@ float3 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 
 float3 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-	return HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
+	float4 result = float4(HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler).rgb,tex2D(HQAAcolorLinearSampler, texcoord).a);
+#if HQAA_INCLUDE_DEBUG_CODE
+    if (HqaaSharpenerDebug) {
+		result *= __HQAA_LUMA_REFERENCE;
+		result *= rcp(vec4add(result));
+	}
+#endif
+	return result.rgb;
 }
 
 /***************************************************************************************************************************************/
