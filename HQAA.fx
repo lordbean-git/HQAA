@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.3.3
+ *                        v10.3.4
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.3.3\n"
+	          "Version: 10.3.4\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -294,6 +294,10 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define min8(s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(s,t),u),v),w),x),y),z)
 #define min9(r,s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(min(r,s),t),u),v),w),x),y),z)
 
+#if (BUFFER_COLOR_BIT_DEPTH == 16)
+	#define HDR_BACKBUFFER_IS_LINEAR 1
+	#define __HQAA_DISABLE_SHARPENING
+#endif
 
 #ifndef HDR_BACKBUFFER_IS_LINEAR
 	#define HDR_BACKBUFFER_IS_LINEAR 0
@@ -327,6 +331,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 
 float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float threshold, float subpix)
 {
+#ifndef __HQAA_DISABLE_SHARPENING
 	// calculate sharpening parameters
 	float sharpening = __HQAA_SHARPEN_AMOUNT;
 	#if HDR_BACKBUFFER_IS_LINEAR
@@ -382,6 +387,9 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 	return lerp(AAresult.rgb, outColor, sharpening);
 	#endif
 	}
+#else // __HQAA_DISABLE_SHARPENING
+	return AAresult.rgb;
+#endif // __HQAA_DISABLE_SHARPENING
 }
 
 /*****************************************************************************************************************************************/
@@ -394,6 +402,7 @@ float3 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 
 float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
+#ifndef __HQAA_DISABLE_SHARPENING
 	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
@@ -452,6 +461,9 @@ float3 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	#else
 	return lerp(e, outColor, sharpening);
 	#endif
+#else // __HQAA_DISABLE_SHARPENING
+	discard;
+#endif // __HQAA_DISABLE_SHARPENING
 }
 
 /*****************************************************************************************************************************************/
@@ -1271,6 +1283,8 @@ texture HQAAsupportTex < pooled = true; >
 	Height = BUFFER_HEIGHT;
 #if (BUFFER_COLOR_BIT_DEPTH == 10)
 	Format = RGB10A2;
+#elif (BUFFER_COLOR_BIT_DEPTH == 16)
+	Format = RGBA16F;
 #else
 	Format = RGBA8;
 #endif
