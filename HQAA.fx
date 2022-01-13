@@ -1172,20 +1172,18 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
         if(!doneP) posP = mad(granularity, offNP, posP);
 		iterationsP++;
     }
-#endif
-	
-#if !HQAA_USE_SPLIT_FXAA_LOOPS
+#else
 	bool doneNP = doneN && doneP;
     while(!doneNP && iterationsN < maxiterations) {
 		
         if(!doneN) {
-			lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+			lumaEndN = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posN.xy));
 			lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 			doneN = (abs(lumaEndN) >= gradientScaled) || !(posN.x > 0 && posN.y > 0);
 		}
 		
         if(!doneP) {
-			lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+			lumaEndP = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posP.xy));
 			lumaEndP = mad(0.5, -lumaNN, lumaEndP);
 			doneP = (abs(lumaEndP) >= gradientScaled) || !((BUFFER_HEIGHT - posP.y) > 0 && (BUFFER_WIDTH - posP.x) > 0);
 		}
@@ -1194,7 +1192,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
         if(!doneP) posP = mad(granularity, offNP, posP);
 		
         doneNP = doneN && doneP;
-		iterations++;
+		iterationsN++;
     }
 #endif
 	
