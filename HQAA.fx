@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.5
+ *                        v10.5.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.5\n"
+	          "Version: 10.5.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -338,6 +338,10 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 
 #ifndef HQAA_ENABLE_RESULT_SHARPENING
 	#define HQAA_ENABLE_RESULT_SHARPENING 1
+#endif
+
+#ifndef HQAA_USE_SPLIT_FXAA_LOOPS
+	#define HQAA_USE_SPLIT_FXAA_LOOPS 1
 #endif
 
 
@@ -1151,6 +1155,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	if (frametime > __HQAA_DESIRED_FRAMETIME && maxiterations > 3)
 		maxiterations = max(3, trunc(rcp(frametime - __HQAA_DESIRED_FRAMETIME + 1) * maxiterations));
 	
+#if HQAA_USE_SPLIT_FXAA_LOOPS
     while (iterationsN < maxiterations && !doneN)
 	{
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posN.xy));
@@ -1167,6 +1172,31 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
         if(!doneP) posP = mad(granularity, offNP, posP);
 		iterationsP++;
     }
+#endif
+	
+#if !HQAA_USE_SPLIT_FXAA_LOOPS
+	bool doneNP = doneN && doneP;
+    while(!doneNP && iterationsN < maxiterations) {
+		
+        if(!doneN) {
+			lumaEndN = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posN.xy));
+			lumaEndN = mad(0.5, -lumaNN, lumaEndN);
+			doneN = (abs(lumaEndN) >= gradientScaled) || !(posN.x > 0 && posN.y > 0);
+		}
+		
+        if(!doneP) {
+			lumaEndP = __FxaaAdaptiveLuma(__FxaaTexTop(tex, posP.xy));
+			lumaEndP = mad(0.5, -lumaNN, lumaEndP);
+			doneP = (abs(lumaEndP) >= gradientScaled) || !((BUFFER_HEIGHT - posP.y) > 0 && (BUFFER_WIDTH - posP.x) > 0);
+		}
+		
+        if(!doneN) posN = mad(granularity, -offNP, posN);
+        if(!doneP) posP = mad(granularity, offNP, posP);
+		
+        doneNP = doneN && doneP;
+		iterations++;
+    }
+#endif
 	
     float dstN = posM.x - posN.x;
     float dstP = posP.x - posM.x;
