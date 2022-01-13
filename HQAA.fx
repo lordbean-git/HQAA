@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.5.1
+ *                        v10.5.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.5.1\n"
+	          "Version: 10.5.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -985,9 +985,9 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 
 #define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t, lumatype)
 
-#define FxaaTex2D(t, p) tex2D(t, p)
+#define FxaaTex2D(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
 #define FxaaTex2DLoop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
-#define FxaaTex2DOffset(t, p, o) tex2Doffset(t, p, o)
+#define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0))
 
 #define __FXAA_MODE_NORMAL 0
 #define __FXAA_MODE_SPURIOUS_PIXELS 2
