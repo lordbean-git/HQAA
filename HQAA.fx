@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v10.5.2
+ *                        v11.0
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 10.5.2\n"
+	          "Version: 11.0\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -300,7 +300,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define __HQAA_GAMMA_REFERENCE float3(0.3,0.4,0.3)
 
 #define dotluma(x) ((0.3 * x.r) + (0.3 * x.g) + (0.3 * x.b) + (0.1 * x.a))
-#define dotgamma(x) ((0.3 * x.r) + (0.4 * x.g) + (0.3 * x.b))
+#define dotgamma(x) ((0.3333 * x.r) + (0.3334 * x.g) + (0.3333 * x.b))
 #define vec4add(x) (x.r + x.g + x.b + x.a)
 #define vec3add(x) (x.r + x.g + x.b)
 
@@ -594,7 +594,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
-	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * __HQAA_SUBPIX, 0.125);
+	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.5), 0.125);
 	
 	float strongestcolor = max3(middle.r,middle.g,middle.b);
 	float estimatedgamma = dotluma(GetNormalizedLuma(middle));
@@ -1043,7 +1043,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
 	
 	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
-	float adjustmentrange = min(baseThreshold * __HQAA_SUBPIX, 0.125);
+	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
 	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
@@ -1229,26 +1229,18 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// grab original buffer state
     float4 prerender = tex2D(referencetex, pos);
 	
-	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
-	
 	// get normalized lumas for each state of this pixel: unmodified, post-SMAA, post-FXAA
 	float4 resultAAluma = GetNormalizedLuma(resultAA);
 	float4 originalluma = GetNormalizedLuma(prerender);
-	float4 stepluma = GetNormalizedLuma(rgbyM);
+	float stepluma = dotluma(GetNormalizedLuma(rgbyM));
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
 	// using the SMAA result as the pivot to choose how much to
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
-	float4 blendfactor = lerp(originalluma, resultAAluma, stepluma);
+	float blendfactor = dotluma(GetNormalizedLuma(lerp(originalluma, resultAAluma, 1 - stepluma)));
 	weightedresult = lerp(resultAA, prerender, blendfactor);
-	}
-	else {
-		float OGluma = dotluma(rgbyM);
-		float4 blending = lerp(GetNormalizedLuma(resultAA), GetNormalizedLuma(rgbyM), OGluma);
-		weightedresult = lerp(rgbyM, resultAA, blending);
-	}
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1410,6 +1402,12 @@ void SMAANeighborhoodBlendingWrapVS(
 
 //////////////////////////////////////////////////////////// PIXEL SHADERS //////////////////////////////////////////////////////////////
 
+float4 GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float4 pixel = tex2D(HQAAcolorGammaSampler, texcoord);
+	pixel.a = dotgamma(GetNormalizedLuma(pixel.rgb));
+	return pixel;
+}
 float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1544,6 +1542,11 @@ technique HQAA <
 				 "============================================================";
 >
 {
+	pass GenerateLumaData
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateNormalizedLumaDataPS;
+	}
 	pass BufferEdgeDetection
 	{
 		VertexShader = SMAAEdgeDetectionWrapVS;
