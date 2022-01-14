@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.5.1
+ *                        v11.5.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.5.1\n"
+	          "Version: 11.5.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -245,7 +245,7 @@ uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
 	ui_label = "Target Minimum Framerate";
 	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
 	ui_text = "\n";
-> = 90;
+> = 60;
 
 uniform int optionseof <
 	ui_type = "radio";
