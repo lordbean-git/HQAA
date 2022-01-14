@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.1
+ *                        v11.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.1\n"
+	          "Version: 11.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -263,8 +263,8 @@ uniform int presetbreakdown <
 			  "|     Low|   0.250   |  .250  |    No    |    0%   |   0.2   |  2.0  |\n"
 			  "|  Medium|   0.150   |  .375  |    No    |    0%   |   0.5   |  1.0  |\n"
 			  "|    High|   0.100   |  .625  |   Auto   |    0%   |   1.0   |  0.5  |\n"
-			  "|   Ultra|   0.063   |  .875  |   Auto   |    0%   |   1.2   |  0.2  |\n"
-			  "|  GLaDOS|   0.031   |  1.00  |   Auto   |    0%   |   1.5   |  0.1  |\n"
+			  "|   Ultra|   0.050   |  .875  |   Auto   |    0%   |   1.5   |  0.2  |\n"
+			  "|  GLaDOS|   0.020   |  1.00  |   Auto   |    0%   |   2.0   |  0.1  |\n"
 			  "----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -272,13 +272,13 @@ uniform int presetbreakdown <
 
 uniform float frametime < source = "frametime"; >;
 
-static const float HQAA_THRESHOLD_PRESET[7] = {0.4,0.25,0.15,0.1,0.0625,0.03125,1};
+static const float HQAA_THRESHOLD_PRESET[7] = {0.4,0.25,0.15,0.1,0.05,0.02,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125,0.25,0.375,0.625,0.875,1.0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[7] = {false,false,false,true,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[7] = {0,0,0,0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[7] = {0,0,0,0,0,0,0};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0,0,0,0,0,0,0};
-static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.1,0.2,0.5,1.0,1.2,1.5,0};
+static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.1,0.2,0.5,1.0,1.5,2.0,0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 6 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
@@ -594,7 +594,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord,
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
-	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.5), 0.125);
+	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.875), 0.125);
 	
 	float strongestcolor = max3(middle.r,middle.g,middle.b);
 	float estimatedgamma = dotluma(GetNormalizedLuma(middle));
@@ -1043,7 +1043,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
 	
 	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
-	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
+	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.875), 0.125);
 	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
@@ -1244,7 +1244,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
 	float blendfactor = dotluma(GetNormalizedLuma(lerp(originalluma, resultAAluma, 1 - stepluma)));
-	weightedresult = lerp(resultAA, prerender, blendfactor);
+	weightedresult = lerp(resultAA, prerender, pow(blendfactor, 1 + blendfactor));
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
