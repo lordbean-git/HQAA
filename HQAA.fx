@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.2
+ *                        v11.3
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.2\n"
+	          "Version: 11.3\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -241,11 +241,11 @@ uniform int sharpenerintro <
 >;
 
 uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
-	ui_min = 30; ui_max = 120; ui_step = 1;
+	ui_min = 30; ui_max = 150; ui_step = 1;
 	ui_label = "Target Minimum Framerate";
 	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
 	ui_text = "\n";
-> = 75;
+> = 90;
 
 uniform int optionseof <
 	ui_type = "radio";
@@ -294,6 +294,8 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
+#define __HQAA_FPS_CLAMP_MULTIPLIER rcp(pow(frametime - (__HQAA_DESIRED_FRAMETIME - 1), 2))
+#define __FXAA_MINIMUM_LOOP_ITERATIONS 10
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440)
 
 #define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
@@ -1154,10 +1156,10 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	uint iterationsN = 0;
 	uint iterationsP = 0;
-	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.025) * __HQAA_FXAA_SCAN_MULTIPLIER;
+	uint maxiterations = trunc(__HQAA_DISPLAY_DENOMINATOR * 0.05) * __HQAA_FXAA_SCAN_MULTIPLIER;
 	
-	if (frametime > __HQAA_DESIRED_FRAMETIME && maxiterations > 3)
-		maxiterations = max(3, trunc(rcp(frametime - __HQAA_DESIRED_FRAMETIME + 1) * maxiterations));
+	if (frametime > __HQAA_DESIRED_FRAMETIME)
+		maxiterations = max(__FXAA_MINIMUM_LOOP_ITERATIONS, int(trunc(__HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
 	
 #if HQAA_USE_SPLIT_FXAA_LOOPS
     while (iterationsN < maxiterations && !doneN)
