@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.4
+ *                        v11.5
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.4\n"
+	          "Version: 11.5\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -296,7 +296,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1.5,1,0.5,0.25,4};
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
 #define __HQAA_FPS_CLAMP_MULTIPLIER rcp(pow(frametime - (__HQAA_DESIRED_FRAMETIME - 1), 2))
 #define __HQAA_MINIMUM_SEARCH_STEPS 20
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440)
+#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
 #define __SMAA_MAX_SEARCH_STEPS (int(trunc(__HQAA_DISPLAY_NUMERATOR * 0.25)))
 
 #define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
@@ -594,10 +594,7 @@ void SMAANeighborhoodBlendingVS(float2 texcoord,
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'colorTex' should be a non-sRGB texture.
  */
-float2 SMAALumaEdgeDetectionPS(float2 texcoord,
-                               float4 offset[3],
-                               sampler2D colorTex
-                               ) {
+float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colorTex) {
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
@@ -990,7 +987,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t, lumatype)
+#define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t, lumatype, localnormalizedalpha)
 
 #define FxaaTex2D(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
 #define FxaaTex2DLoop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
@@ -1001,22 +998,23 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 #define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
 #define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 
-float FxaaAdaptiveLumaSelect (float4 rgba, int lumatype)
+float FxaaAdaptiveLumaSelect (float4 rgba, int lumatype, float alphanormal)
 // Luma types match variable positions. 0=R 1=G 2=B
 {
 	if (lumatype == 0)
-		return mad(1 - rgba.a, rgba.r, rgba.a);
+		return mad(1 - alphanormal, rgba.r, alphanormal);
 	else if (lumatype == 2)
-		return mad(1 - rgba.a, rgba.b, rgba.a);
+		return mad(1 - alphanormal, rgba.b, alphanormal);
 	else
-		return mad(1 - rgba.a, rgba.g, rgba.a);
+		return mad(1 - alphanormal, rgba.g, alphanormal);
 }
 
 float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex,
- sampler2D referencetex, float fxaaQualitySubpix,
+ sampler2D referencetex, sampler2D alphatex, float fxaaQualitySubpix,
  float baseThreshold, float fxaaQualityEdgeThresholdMin, int pixelmode)
  {
     float4 rgbyM = FxaaTex2D(tex, pos);
+	float localnormalizedalpha = tex2D(alphatex, pos).r;
 	
 	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
@@ -1323,6 +1321,13 @@ texture HQAAsupportTex < pooled = true; >
 	Format = BUFFER_COLOR_BIT_DEPTH;
 };
 
+texture HQAAalphaTex < pooled = true; >
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	Format = R8;
+};
+
 
 //////////////////////////////////////////////////////////// SAMPLERS ///////////////////////////////////////////////////////////////////
 
@@ -1379,6 +1384,13 @@ sampler HQAAsearchSampler
 	MipFilter = Point; MinFilter = Point; MagFilter = Point;
 	SRGBTexture = false;
 };
+sampler HQAAalphaSampler
+{
+	Texture = HQAAalphaTex;
+	AddressU = Clamp; AddressV = Clamp; AddressW = Clamp;
+	MipFilter = Point; MinFilter = Point; MagFilter = Point;
+	SRGBTexture = false;
+};
 
 //////////////////////////////////////////////////////////// VERTEX SHADERS /////////////////////////////////////////////////////////////
 
@@ -1413,36 +1425,52 @@ void SMAANeighborhoodBlendingWrapVS(
 
 //////////////////////////////////////////////////////////// PIXEL SHADERS //////////////////////////////////////////////////////////////
 
-float4 GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(HQAAcolorGammaSampler, texcoord);
-	pixel.a = dotgamma(GetNormalizedLuma(pixel.rgb));
+	pixel.a = dotgamma(GetNormalizedLuma(pixel));
+	return pixel.a;
+}
+float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float4 pixel = tex2D(HQAAcolorGammaSampler, texcoord);
+	pixel.a = dotgamma(GetNormalizedLuma(pixel));
 	return pixel;
 }
 float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
-	return float4(input.g, input.b, input.r, input.a);
+	float4 output = float4(input.g, input.b, input.r, input.a);
+	output.a = dotgamma(GetNormalizedLuma(output));
+	return output;
 }
 float4 GenerateImageNegativeColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
-	return float4(1.0 - input.g, 1.0 - input.b, 1.0 - input.r, input.a);
+	float4 output = float4(1.0 - input.g, 1.0 - input.b, 1.0 - input.r, input.a);
+	output.a = dotgamma(GetNormalizedLuma(output));
+	return output;
 }
 float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
-	return float4(input.b, input.r, input.g, input.a);
+	float4 output = float4(input.b, input.r, input.g, input.a);
+	output.a = dotgamma(GetNormalizedLuma(output));
+	return output;
 }
 float4 GenerateImageNegativeColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
-	return float4(1.0 - input.b, 1.0 - input.r, 1.0 - input.g, input.a);
+	float4 output = float4(1.0 - input.b, 1.0 - input.r, 1.0 - input.g, input.a);
+	output.a = dotgamma(GetNormalizedLuma(output));
+	return output;
 }
 float4 GenerateImageNegativePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
-	return float4(1.0 - input.r, 1.0 - input.g, 1.0 - input.b, input.a);
+	float4 output = float4(1.0 - input.r, 1.0 - input.g, 1.0 - input.b, input.a);
+	output.a = dotgamma(GetNormalizedLuma(output));
+	return output;
 }
 float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
@@ -1484,11 +1512,11 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = __FXAA_THRESHOLD_FLOOR;
 	
-	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
+	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,HQAAalphaSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
 #if HQAA_INCLUDE_DEBUG_CODE
 	if (debugmode > 3 && debugFXAApass == 0) {
-		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-4;
+		bool validResult = abs(dot(result,float4(1,1,1,0)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,0))) > 1e-4;
 		if (validResult)
 			return result;
 		else
@@ -1513,11 +1541,11 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
-	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
+	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,HQAAalphaSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
 #if HQAA_INCLUDE_DEBUG_CODE
 	if (debugmode > 3 && debugFXAApass == 1) {
-		bool validResult = abs(dot(result,float4(1,1,1,1)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,1))) > 1e-4;
+		bool validResult = abs(dot(result,float4(1,1,1,0)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,0))) > 1e-4;
 		if (validResult)
 			return result;
 		else
@@ -1553,15 +1581,17 @@ technique HQAA <
 				 "============================================================";
 >
 {
-	pass GenerateLumaData
+	pass CreateBufferAlphaNormal
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = GenerateNormalizedLumaDataPS;
+		PixelShader = GenerateBufferNormalizedAlphaPS;
+		RenderTarget = HQAAsupportTex;
+		ClearRenderTargets = true;
 	}
 	pass BufferEdgeDetection
 	{
 		VertexShader = SMAAEdgeDetectionWrapVS;
-		PixelShader = HQAAPrimaryDetectionPS;
+		PixelShader = HQAASupportDetectionPS;
 		RenderTarget = HQAAedgesTex;
 		ClearRenderTargets = true;
 		StencilEnable = true;
@@ -1696,6 +1726,13 @@ technique HQAA <
 #else
 		SRGBWriteEnable = true;
 #endif
+	}
+	pass GenerateLumaData
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateNormalizedLumaDataPS;
+		RenderTarget = HQAAalphaTex;
+		ClearRenderTargets = true;
 	}
 	pass FXAAPositives
 	{
