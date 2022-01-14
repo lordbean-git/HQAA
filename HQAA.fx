@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.0
+ *                        v11.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.0\n"
+	          "Version: 11.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -294,7 +294,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {4,2,1,0.5,0.2,0.1,4};
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
+#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440)
 
 #define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
 #define __HQAA_GAMMA_REFERENCE float3(0.3,0.4,0.3)
@@ -1063,8 +1063,12 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float rangeMin = min9(lumaS, lumaE, lumaN, lumaW, lumaNW, lumaSE, lumaNE, lumaSW, lumaMa);
 	
     float range = rangeMax - rangeMin;
+	float rangeMaxScaled = rangeMax * sqrt(fxaaQualityEdgeThreshold);
+	float rangeMaxClamped = max(rangeMaxScaled, fxaaQualityEdgeThresholdMin);
 	
-    bool earlyExit = (rgbyM.r + rgbyM.g + rgbyM.b) < fxaaQualityEdgeThresholdMin;
+    bool earlyExit = pixelmode != __FXAA_MODE_SMAA_DETECTION_POSITIVES;
+	if (pixelmode != __FXAA_MODE_SMAA_DETECTION_POSITIVES)
+		earlyExit = range < rangeMaxClamped;
 		
 	if (earlyExit)
 		return rgbyM;
@@ -1470,8 +1474,8 @@ float4 SMAANeighborhoodBlendingWrapPS(
 
 float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * __HQAA_BUFFER_MULTIPLIER * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY));
-	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
+	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
+	float threshold = __FXAA_THRESHOLD_FLOOR;
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
@@ -1499,7 +1503,7 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		return tex2D(HQAAsupportSampler, texcoord);
 #endif
 	
-	float TotalSubpix = __HQAA_SUBPIX * __HQAA_BUFFER_MULTIPLIER * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY));
+	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
