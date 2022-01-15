@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.6.1
+ *                        v11.6.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.6.1\n"
+	          "Version: 11.6.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -294,7 +294,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
-#define __HQAA_FPS_CLAMP_MULTIPLIER rcp(pow(frametime - (__HQAA_DESIRED_FRAMETIME - 1), 2))
+#define __HQAA_FPS_CLAMP_MULTIPLIER crcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1))
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (int(trunc(4 / __HQAA_FXAA_SCAN_GRANULARITY)))
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
@@ -350,16 +350,37 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
 
 
 /////////////////////////////////////////////////////////// SUPPORT FUNCTIONS /////////////////////////////////////////////////////////////
+
+// conditional reciprocals (NaN avoidance)
+float crcp(float input)
+{
+	return input == 0 ? 0 : rcp(input);
+}
+float2 crcp(float2 input)
+{
+	return float2(crcp(input.r), crcp(input.g));
+}
+float3 crcp(float3 input)
+{
+	return float3(crcp(input.rg), crcp(input.b));
+}
+float4 crcp(float4 input)
+{
+	return float4(crcp(input.rg), crcp(input.ba));
+}
+
+
+
 float3 GetNormalizedLuma(float3 input)
 {
 	float3 normal = input * __HQAA_GAMMA_REFERENCE;
-	normal *= rcp(vec3add(normal));
+	normal *= crcp(vec3add(normal));
 	return normal;
 }
 float4 GetNormalizedLuma(float4 input)
 {
 	float4 normal = input * __HQAA_LUMA_REFERENCE;
-	normal *= rcp(vec4add(normal));
+	normal *= crcp(vec4add(normal));
 	return normal;
 }
 
@@ -409,14 +430,14 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 	mxRGB *= (1 / HDR_DISPLAY_NITS);
 	#endif
 
-    float3 rcpMRGB = rcp(mxRGB);
+    float3 rcpMRGB = crcp(mxRGB);
     float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);
     
     ampRGB = rsqrt(ampRGB);
     
-    float3 wRGB = -rcp(ampRGB * 8);
+    float3 wRGB = -crcp(ampRGB * 8);
 
-    float3 rcpWeightRGB = rcp(mad(4, wRGB, 1));
+    float3 rcpWeightRGB = crcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
 	#if HDR_BACKBUFFER_IS_LINEAR
@@ -488,14 +509,14 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 
 	float4 sharpeningnormal = GetNormalizedLuma(e) * sharpening;
 	
-    float3 rcpMRGB = rcp(mxRGB);
+    float3 rcpMRGB = crcp(mxRGB);
     float3 ampRGB = saturate(min(mnRGB, 2.0 - mxRGB) * rcpMRGB);    
     
     ampRGB = rsqrt(ampRGB);
     
-    float3 wRGB = -rcp(ampRGB * 8);
+    float3 wRGB = -crcp(ampRGB * 8);
 
-    float3 rcpWeightRGB = rcp(mad(4, wRGB, 1));
+    float3 rcpWeightRGB = crcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
 	#if HDR_BACKBUFFER_IS_LINEAR
@@ -617,7 +638,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	// calculate color channel weighting
 	float4 weights = float4(0.26, 0.39, 0.24, 0.11);
 	weights *= middle;
-	float scale = rcp(vec4add(weights));
+	float scale = crcp(vec4add(weights));
 	weights *= scale;
 	
 	// we're only looking to run luma detection if there's a favorable color channel read
@@ -639,7 +660,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	if (dot(edges, float2(1,1)) != 0) {
 		
 	// calculate contrast multiplier. scale has a floor value of 0.25 on a pure bright white pixel
-	float adaptationscale = scale >= 1 ? sqrt(scale) : pow(scale, 2);
+	float adaptationscale = scale >= 1 ? sqrt(scale) : (scale * scale);
 	float contrastadaptation = 1 + adaptationscale;
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
@@ -1143,7 +1164,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
     float subpixD = mad(-2, subpixC, 3);
     float lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN));
-    float subpixE = pow(subpixC, 2);
+    float subpixE = subpixC * subpixC;
     float lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP));
 	
     if(!pairN) lumaNN = lumaSS;
@@ -1222,7 +1243,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     bool goodSpanN = (lumaEndN < 0.0) != lumaMLTZero;
     float spanLength = (dstP + dstN);
     bool goodSpanP = (lumaEndP < 0.0) != lumaMLTZero;
-    float spanLengthRcp = rcp(spanLength);
+    float spanLengthRcp = crcp(spanLength);
 	
     bool directionN = dstN < dstP;
     float dst = min(dstN, dstP);
@@ -1255,7 +1276,8 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
 	float blendfactor = dotluma(GetNormalizedLuma(lerp(originalluma, resultAAluma, 1 - stepluma)));
-	weightedresult = lerp(resultAA, prerender, pow(blendfactor, 1 + blendfactor));
+	float blendsign = blendfactor < 0 ? -1 : 1;
+	weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), 1 + abs(blendfactor)) * blendsign);
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1568,7 +1590,7 @@ float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 #if HQAA_INCLUDE_DEBUG_CODE
     if (HqaaSharpenerDebug) {
 		result *= __HQAA_LUMA_REFERENCE;
-		result *= rcp(vec4add(result));
+		result *= crcp(vec4add(result));
 	}
 #endif
 	return result;
