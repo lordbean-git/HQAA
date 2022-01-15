@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.6.2
+ *                        v11.6.3
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.6.2\n"
+	          "Version: 11.6.3\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -348,6 +348,10 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
 	#define HQAA_USE_SPLIT_FXAA_LOOPS 1
 #endif
 
+#ifndef HQAA_USE_PER_COMPONENT_INTERPOLATION
+	#define HQAA_USE_PER_COMPONENT_INTERPOLATION 1
+#endif
+
 
 /////////////////////////////////////////////////////////// SUPPORT FUNCTIONS /////////////////////////////////////////////////////////////
 
@@ -396,7 +400,10 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 {
 #if HQAA_ENABLE_RESULT_SHARPENING
 	// calculate sharpening parameters
-	float sharpening = __HQAA_SHARPEN_AMOUNT * 10;
+	float sharpening = __HQAA_SHARPEN_AMOUNT; 
+#if HQAA_USE_PER_COMPONENT_INTERPOLATION
+	sharpening *= 10;
+#endif
 	#if HDR_BACKBUFFER_IS_LINEAR
 		float4 e = AAresult * (1 / HDR_DISPLAY_NITS);
 	#else
@@ -445,7 +452,11 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 	#endif
     float4 outColor = float4(saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB), e.a);
 	
+#if HQAA_USE_PER_COMPONENT_INTERPOLATION
 	float4 result = float4(lerp(AAresult, outColor, sharpeningnormal).rgb, AAresult.a);
+#else
+	float4 result = float4(lerp(AAresult, outColor, sharpening).rgb, AAresult.a);
+#endif
     
 	#if HDR_BACKBUFFER_IS_LINEAR
 	return result * HDR_DISPLAY_NITS;
@@ -470,7 +481,7 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
 #ifndef __HQAA_DISABLE_SHARPENING
 	// per-component interpolation requires a stronger lerp
-	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX)) * 10;
+	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
 		float2 edgesdetected = tex2D(edgesTex, texcoord).rg;
@@ -480,6 +491,9 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
+#if HQAA_USE_PER_COMPONENT_INTERPOLATION
+	sharpening *= 10;
+#endif
 	
 	// proceed with CAS math.
 	
@@ -524,7 +538,12 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	#endif
 	
     float4 outColor = float4(saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB), e.a);
+	
+#if HQAA_USE_PER_COMPONENT_INTERPOLATION
 	float4 result = float4(lerp(e, outColor, sharpeningnormal).rgb, e.a);
+#else
+	float4 result = float4(lerp(e, outColor, sharpening).rgb, e.a);
+#endif
     
 	#if HDR_BACKBUFFER_IS_LINEAR
 	return result * HDR_DISPLAY_NITS;
