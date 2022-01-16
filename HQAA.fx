@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.6.3
+ *                        v11.7
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.6.3\n"
+	          "Version: 11.7\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -263,8 +263,8 @@ uniform int presetbreakdown <
 			  "|     Low|   0.375   |  .250  |    No    |   20%   |  0.375  |  1.5  |\n"
 			  "|  Medium|   0.250   |  .375  |    No    |   10%   |  0.500  |  1.5  |\n"
 			  "|    High|   0.125   |  .500  |   Auto   |    0%   |  0.750  |  1.0  |\n"
-			  "|   Ultra|   0.075   |  .750  |   Auto   |    0%   |  1.000  |  1.0  |\n"
-			  "|  GLaDOS|   0.050   |  1.00  |   Auto   |    0%   |  1.500  |  0.5  |\n"
+			  "|   Ultra|   0.060   |  .750  |   Auto   |    0%   |  1.000  |  1.0  |\n"
+			  "|  GLaDOS|   0.030   |  1.00  |   Auto   |    0%   |  1.500  |  0.5  |\n"
 			  "----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -272,7 +272,7 @@ uniform int presetbreakdown <
 
 uniform float frametime < source = "frametime"; >;
 
-static const float HQAA_THRESHOLD_PRESET[7] = {0.5,0.375,0.25,0.125,0.075,0.05,1};
+static const float HQAA_THRESHOLD_PRESET[7] = {0.5,0.375,0.25,0.125,0.06,0.03,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125,0.25,0.375,0.5,0.75,1.0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[7] = {false,false,false,true,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[7] = {0,0,0,0,0,0,0};
@@ -453,16 +453,16 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
     float4 outColor = float4(saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB), e.a);
 	
 #if HQAA_USE_PER_COMPONENT_INTERPOLATION
-	float4 result = float4(lerp(AAresult, outColor, sharpeningnormal).rgb, AAresult.a);
+	float4 result = float4(lerp(e, outColor, sharpeningnormal).rgb, e.a);
 #else
-	float4 result = float4(lerp(AAresult, outColor, sharpening).rgb, AAresult.a);
+	float4 result = float4(lerp(e, outColor, sharpening).rgb, e.a);
 #endif
     
-	#if HDR_BACKBUFFER_IS_LINEAR
+#if HDR_BACKBUFFER_IS_LINEAR
 	return result * HDR_DISPLAY_NITS;
-	#else
+#else
 	return result;
-	#endif
+#endif
 	}
 #else // HQAA_ENABLE_RESULT_SHARPENING
 	return AAresult;
@@ -479,7 +479,6 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 
 float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
-#ifndef __HQAA_DISABLE_SHARPENING
 	// per-component interpolation requires a stronger lerp
 	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
@@ -533,9 +532,9 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     float3 rcpWeightRGB = crcp(mad(4, wRGB, 1));
 
     float3 window = (b + d) + (f + h);
-	#if HDR_BACKBUFFER_IS_LINEAR
+#if HDR_BACKBUFFER_IS_LINEAR
 	window *= (1 / HDR_DISPLAY_NITS);
-	#endif
+#endif
 	
     float4 outColor = float4(saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB), e.a);
 	
@@ -545,14 +544,11 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	float4 result = float4(lerp(e, outColor, sharpening).rgb, e.a);
 #endif
     
-	#if HDR_BACKBUFFER_IS_LINEAR
+#if HDR_BACKBUFFER_IS_LINEAR
 	return result * HDR_DISPLAY_NITS;
-	#else
+#else
 	return result;
-	#endif
-#else // __HQAA_DISABLE_SHARPENING
-	discard;
-#endif // __HQAA_DISABLE_SHARPENING
+#endif
 }
 
 /*****************************************************************************************************************************************/
@@ -1032,26 +1028,25 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t, lumatype, localnormalizedalpha, inverselocalnormalizedalpha)
+#define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t, lumatype)
 
-#define FxaaTex2D(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
-#define FxaaTex2DLoop(t, p) tex2Dlod(t, float4(p, 0.0, 0.0))
-#define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0))
+#define FxaaTex2D(t, p) float4(tex2Dlod(t, float4(p, 0.0, 0.0)).rgb, tex2Dlod(alphatex, float4(p, 0.0, 0.0)).r)
+#define FxaaTex2DOffset(t, p, o) float4(tex2Dlod(t, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0)).rgb, tex2Dlod(alphatex, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0)).r)
 
 #define __FXAA_MODE_NORMAL 0
 #define __FXAA_MODE_SPURIOUS_PIXELS 2
 #define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
 #define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 
-float FxaaAdaptiveLumaSelect (float4 rgba, int lumatype, float alphanormal, float inversenormal)
+float FxaaAdaptiveLumaSelect (float4 rgba, int lumatype)
 // Luma types match variable positions. 0=R 1=G 2=B
 {
 	if (lumatype == 0)
-		return mad(inversenormal, rgba.r, alphanormal);
+		return (rgba.r + rgba.a) / 2;
 	else if (lumatype == 2)
-		return mad(inversenormal, rgba.b, alphanormal);
+		return (rgba.b + rgba.a) / 2;
 	else
-		return mad(inversenormal, rgba.g, alphanormal);
+		return (rgba.g + rgba.a) / 2;
 }
 
 float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex,
@@ -1059,8 +1054,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
  float baseThreshold, float fxaaQualityEdgeThresholdMin, int pixelmode)
  {
     float4 rgbyM = FxaaTex2D(tex, pos);
-	float localnormalizedalpha = tex2D(alphatex, pos).r;
-	float inverselocalnormalizedalpha = 1 - localnormalizedalpha;
 	
 	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
@@ -1213,7 +1206,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 #if HQAA_USE_SPLIT_FXAA_LOOPS
     while (iterationsN < maxiterations && !doneN)
 	{
-		lumaEndN = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posN.xy));
+		lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
 		lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 		doneN = abs(lumaEndN) >= gradientScaled;
         if(!doneN) posN = mad(granularity, -offNP, posN);
@@ -1221,7 +1214,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     }
 	
     while(iterationsP < maxiterations && !doneP) {
-		lumaEndP = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posP.xy));
+		lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
 		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
 		doneP = abs(lumaEndP) >= gradientScaled;
         if(!doneP) posP = mad(granularity, offNP, posP);
@@ -1232,13 +1225,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     while(!doneNP && iterationsN < maxiterations) {
 		
         if(!doneN) {
-			lumaEndN = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posN.xy));
+			lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
 			lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 			doneN = (abs(lumaEndN) >= gradientScaled) || !(posN.x > 0 && posN.y > 0);
 		}
 		
         if(!doneP) {
-			lumaEndP = FxaaAdaptiveLuma(FxaaTex2DLoop(tex, posP.xy));
+			lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
 			lumaEndP = mad(0.5, -lumaNN, lumaEndP);
 			doneP = (abs(lumaEndP) >= gradientScaled) || !((BUFFER_HEIGHT - posP.y) > 0 && (BUFFER_WIDTH - posP.x) > 0);
 		}
@@ -1551,7 +1544,11 @@ float4 SMAANeighborhoodBlendingWrapPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset : TEXCOORD1) : SV_Target
 {
+#if HDR_BACKBUFFER_IS_LINEAR
 	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler);
+#else
+	return saturate(SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler));
+#endif
 }
 
 float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1564,14 +1561,15 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #if HQAA_INCLUDE_DEBUG_CODE
 	if (debugmode > 3 && debugFXAApass == 0) {
 		bool validResult = abs(dot(result,float4(1,1,1,0)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,0))) > 1e-4;
-		if (validResult)
-			return result;
-		else
+		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
-	else
 #endif
-		return result;
+#if HDR_BACKBUFFER_IS_LINEAR
+	return result;
+#else
+	return saturate(result);
+#endif
 }
 float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
@@ -1593,14 +1591,15 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #if HQAA_INCLUDE_DEBUG_CODE
 	if (debugmode > 3 && debugFXAApass == 1) {
 		bool validResult = abs(dot(result,float4(1,1,1,0)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,0))) > 1e-4;
-		if (validResult)
-			return result;
-		else
+		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
-	else
 #endif
-		return result;
+#if HDR_BACKBUFFER_IS_LINEAR
+	return result;
+#else
+	return saturate(result);
+#endif
 }
 
 float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
@@ -1612,7 +1611,11 @@ float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 		result *= crcp(vec4add(result));
 	}
 #endif
+#if HDR_BACKBUFFER_IS_LINEAR
 	return result;
+#else
+	return saturate(result);
+#endif
 }
 
 /***************************************************************************************************************************************/
