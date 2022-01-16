@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.7
+ *                        v11.7.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.7\n"
+	          "Version: 11.7.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -261,10 +261,10 @@ uniform int presetbreakdown <
 	          "|--------|-----------|--------|----------|---------|---------|-------|\n"
 	          "|  Potato|   0.500   |  .125  |    No    |   30%   |  0.250  |  2.0  |\n"
 			  "|     Low|   0.375   |  .250  |    No    |   20%   |  0.375  |  1.5  |\n"
-			  "|  Medium|   0.250   |  .375  |    No    |   10%   |  0.500  |  1.5  |\n"
+			  "|  Medium|   0.250   |  .375  |    No    |   10%   |  0.500  |  1.0  |\n"
 			  "|    High|   0.125   |  .500  |   Auto   |    0%   |  0.750  |  1.0  |\n"
-			  "|   Ultra|   0.060   |  .750  |   Auto   |    0%   |  1.000  |  1.0  |\n"
-			  "|  GLaDOS|   0.030   |  1.00  |   Auto   |    0%   |  1.500  |  0.5  |\n"
+			  "|   Ultra|   0.075   |  .750  |   Auto   |    0%   |  1.000  |  0.8  |\n"
+			  "|  GLaDOS|   0.050   |  1.00  |   Auto   |    0%   |  1.500  |  0.4  |\n"
 			  "----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -272,14 +272,14 @@ uniform int presetbreakdown <
 
 uniform float frametime < source = "frametime"; >;
 
-static const float HQAA_THRESHOLD_PRESET[7] = {0.5,0.375,0.25,0.125,0.06,0.03,1};
+static const float HQAA_THRESHOLD_PRESET[7] = {0.5,0.375,0.25,0.125,0.075,0.05,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125,0.25,0.375,0.5,0.75,1.0,0};
 static const bool HQAA_SHARPEN_ENABLE_PRESET[7] = {false,false,false,true,true,true,false};
 static const float HQAA_SHARPEN_STRENGTH_PRESET[7] = {0,0,0,0,0,0,0};
 static const int HQAA_SHARPEN_MODE_PRESET[7] = {0,0,0,0,0,0,0};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {30,20,10,0,0,0,0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25,0.375,0.5,0.75,1.0,1.5,0};
-static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,1,0.8,0.4,4};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 6 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
 #define __HQAA_SUBPIX (preset == 6 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
@@ -301,7 +301,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
 #define __SMAA_MAX_SEARCH_STEPS (int(trunc(__HQAA_DISPLAY_NUMERATOR * 0.25)))
 
 #define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
-#define __HQAA_GAMMA_REFERENCE float3(0.3,0.4,0.3)
+#define __HQAA_GAMMA_REFERENCE float3(0.3333,0.3334,0.3333)
 
 #define dotluma(x) ((0.3 * x.r) + (0.3 * x.g) + (0.3 * x.b) + (0.1 * x.a))
 #define dotgamma(x) ((0.3333 * x.r) + (0.3334 * x.g) + (0.3333 * x.b))
@@ -323,11 +323,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
 #define min7(t,u,v,w,x,y,z) min(min(min(min(min(min(t,u),v),w),x),y),z)
 #define min8(s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(s,t),u),v),w),x),y),z)
 #define min9(r,s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(min(r,s),t),u),v),w),x),y),z)
-/*
-#if (BUFFER_COLOR_BIT_DEPTH == 16)
-	#define __HQAA_DISABLE_SHARPENING
-#endif
-*/
+
 #ifndef HDR_BACKBUFFER_IS_LINEAR
 	#define HDR_BACKBUFFER_IS_LINEAR 0
 #endif
@@ -352,6 +348,10 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1.5,1,1,0.5,4};
 	#define HQAA_USE_PER_COMPONENT_INTERPOLATION 1
 #endif
 
+/*****************************************************************************************************************************************/
+/*********************************************************** UI SETUP END ****************************************************************/
+/*****************************************************************************************************************************************/
+
 
 /////////////////////////////////////////////////////////// SUPPORT FUNCTIONS /////////////////////////////////////////////////////////////
 
@@ -373,8 +373,7 @@ float4 crcp(float4 input)
 	return float4(crcp(input.rg), crcp(input.ba));
 }
 
-
-
+// pixel luma calculators
 float3 GetNormalizedLuma(float3 input)
 {
 	float3 normal = input * __HQAA_GAMMA_REFERENCE;
@@ -388,14 +387,7 @@ float4 GetNormalizedLuma(float4 input)
 	return normal;
 }
 
-/*****************************************************************************************************************************************/
-/*********************************************************** UI SETUP END ****************************************************************/
-/*****************************************************************************************************************************************/
-
-/*****************************************************************************************************************************************/
-/********************************************************* RESULT SHARPENER START ********************************************************/
-/*****************************************************************************************************************************************/
-
+// result sharpening
 float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float threshold, float subpix)
 {
 #if HQAA_ENABLE_RESULT_SHARPENING
@@ -469,17 +461,9 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
 #endif // HQAA_ENABLE_RESULT_SHARPENING
 }
 
-/*****************************************************************************************************************************************/
-/******************************************************* RESULT SHARPENER END ************************************************************/
-/*****************************************************************************************************************************************/
-
-/*****************************************************************************************************************************************/
-/******************************************************* OPTIONAL CAS START **************************************************************/
-/*****************************************************************************************************************************************/
-
+// CAS standalone function
 float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
-	// per-component interpolation requires a stronger lerp
 	float sharpenmultiplier = (1 - sqrt(__HQAA_EDGE_THRESHOLD)) * (sqrt(__HQAA_SUBPIX));
 	
 	if (__HQAA_SHARPEN_ENABLE == true) {
@@ -490,6 +474,8 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
+	
+	// per-component interpolation requires a stronger lerp
 #if HQAA_USE_PER_COMPONENT_INTERPOLATION
 	sharpening *= 10;
 #endif
@@ -550,11 +536,6 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	return result;
 #endif
 }
-
-/*****************************************************************************************************************************************/
-/********************************************************** OPTIONAL CAS END *************************************************************/
-/*****************************************************************************************************************************************/
-
 
 /*****************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
@@ -1034,7 +1015,6 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 #define FxaaTex2DOffset(t, p, o) float4(tex2Dlod(t, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0)).rgb, tex2Dlod(alphatex, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0)).r)
 
 #define __FXAA_MODE_NORMAL 0
-#define __FXAA_MODE_SPURIOUS_PIXELS 2
 #define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
 #define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 
@@ -1053,19 +1033,20 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
  sampler2D referencetex, sampler2D alphatex, float fxaaQualitySubpix,
  float baseThreshold, float fxaaQualityEdgeThresholdMin, int pixelmode)
  {
+	float4 SmaaPixel = tex2D(tex, pos);
     float4 rgbyM = FxaaTex2D(tex, pos);
 	
 	 if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
 		 bool noSMAAedges = dot(float2(1.0, 1.0), SMAAedges) < 1e-4;
 		 if (noSMAAedges)
-			 return rgbyM;
+			 return SmaaPixel;
 	 }
 	 else if (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES) {
 		 float2 SMAAedges = tex2D(edgestex, pos).rg;
 		 bool localedge = dot(float2(1.0, 1.0), SMAAedges) > 1e-4;
 		 if (localedge)
-			 return rgbyM;
+			 return SmaaPixel;
 	 }
     float2 posM = pos;
 	
@@ -1085,7 +1066,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	}
 			
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
-	
 	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
 	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
 	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
@@ -1115,7 +1095,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		earlyExit = range < rangeMaxClamped;
 		
 	if (earlyExit)
-		return rgbyM;
+		return SmaaPixel;
 	
     float lumaNS = lumaN + lumaS;
     float lumaWE = lumaW + lumaE;
@@ -1271,8 +1251,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     else posM.y = mad(lengthSign, pixelOffsetSubpix, posM.y);
 	
 	// Establish result
-	float4 resultAA = float4(tex2D(tex,posM).rgb, lumaMa);
-	float4 weightedresult = resultAA;
+	float4 resultAA = float4(tex2D(tex, posM).rgb, dotluma(SmaaPixel));
 	
 	// grab original buffer state
     float4 prerender = tex2D(referencetex, pos);
@@ -1280,7 +1259,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// get normalized lumas for each state of this pixel: unmodified, post-SMAA, post-FXAA
 	float4 resultAAluma = GetNormalizedLuma(resultAA);
 	float4 originalluma = GetNormalizedLuma(prerender);
-	float stepluma = dotluma(GetNormalizedLuma(rgbyM));
+	float stepluma = dotluma(GetNormalizedLuma(SmaaPixel));
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
@@ -1289,7 +1268,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// artifacts from both SMAA and FXAA
 	float blendfactor = dotluma(GetNormalizedLuma(lerp(originalluma, resultAAluma, 1 - stepluma)));
 	float blendsign = blendfactor < 0 ? -1 : 1;
-	weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), 1 + abs(blendfactor)) * blendsign);
+	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), 1 + abs(blendfactor)) * blendsign);
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1303,13 +1282,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 #if HQAA_INCLUDE_DEBUG_CODE
 	}
 	else if (debugmode == 5) {
-		if (lumatype == 0) return float4(FxaaAdaptiveLuma(rgbyM), 0, 0, rgbyM.a);
-		else if (lumatype == 1) return float4(0, FxaaAdaptiveLuma(rgbyM), 0, rgbyM.a);
-		else return float4(0, 0, FxaaAdaptiveLuma(rgbyM), rgbyM.a);
+		if (lumatype == 0) return float4(FxaaAdaptiveLuma(SmaaPixel), 0, 0, SmaaPixel.a);
+		else if (lumatype == 1) return float4(0, FxaaAdaptiveLuma(SmaaPixel), 0, SmaaPixel.a);
+		else return float4(0, 0, FxaaAdaptiveLuma(SmaaPixel), SmaaPixel.a);
 	}
 	else {
 		float runtime = (float(iterationsN / maxiterations) + float(iterationsP / maxiterations)) / 2.0f;
-		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0, runtime);
+		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0, 1);
 		return FxaaMetrics;
 	}
 #endif
