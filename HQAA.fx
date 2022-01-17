@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.8
+ *                        v11.9
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.8\n"
+	          "Version: 11.9\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -169,7 +169,7 @@ uniform uint debugmode <
 	ui_label = " ";
 	ui_spacing = 1;
 	ui_text = "Debug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Original Buffer Copy\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Original Buffer Copy\0Computed Alpha Normals\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -202,6 +202,8 @@ uniform int debugexplainer <
 			  "FXAA metrics draws a range of green to red where the selected\n"
 			  "pass ran, with green representing not much execution time used\n"
 			  "and red representing a lot of execution time used.\n\n"
+			  "The Alpha Normals view represents the normalized luminance\n"
+			  "data used to represent the alpha channel during edge detection.\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_INCLUDE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
@@ -299,12 +301,13 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,1,0.8,0.4,4};
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (int(trunc(4 / __HQAA_FXAA_SCAN_GRANULARITY)))
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
 #define __SMAA_MAX_SEARCH_STEPS (int(trunc(__HQAA_DISPLAY_NUMERATOR * 0.25)))
+#define __HQAA_SMALLEST_COLOR_STEP float(crcp(pow(2, BUFFER_COLOR_BIT_DEPTH)))
 
-#define __HQAA_LUMA_REFERENCE float4(0.3,0.3,0.3,0.1)
-#define __HQAA_GAMMA_REFERENCE float3(0.3333,0.3334,0.3333)
+#define __HQAA_LUMA_REF float4(0.25,0.25,0.25,0.25)
+#define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
 
-#define dotluma(x) ((0.3 * x.r) + (0.3 * x.g) + (0.3 * x.b) + (0.1 * x.a))
-#define dotgamma(x) ((0.3333 * x.r) + (0.3334 * x.g) + (0.3333 * x.b))
+#define dotluma(x) ((__HQAA_LUMA_REF.r * x.r) + (__HQAA_LUMA_REF.g * x.g) + (__HQAA_LUMA_REF.b * x.b) + (__HQAA_LUMA_REF.a * x.a))
+#define dotgamma(x) ((__HQAA_GAMMA_REF.r * x.r) + (__HQAA_GAMMA_REF.g * x.g) + (__HQAA_GAMMA_REF.b * x.b))
 #define vec4add(x) (x.r + x.g + x.b + x.a)
 #define vec3add(x) (x.r + x.g + x.b)
 
@@ -386,13 +389,13 @@ float4 crcp(float4 input)
 // pixel luma calculators
 float3 GetNormalizedLuma(float3 input)
 {
-	float3 normal = input * __HQAA_GAMMA_REFERENCE;
+	float3 normal = input * __HQAA_GAMMA_REF;
 	normal *= crcp(vec3add(normal));
 	return normal;
 }
 float4 GetNormalizedLuma(float4 input)
 {
-	float4 normal = input * __HQAA_LUMA_REFERENCE;
+	float4 normal = input * __HQAA_LUMA_REF;
 	normal *= crcp(vec4add(normal));
 	return normal;
 }
@@ -1266,23 +1269,23 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// grab original buffer state
     float4 prerender = tex2D(referencetex, pos);
 	
-	// get normalized lumas for each state of this pixel: unmodified, post-SMAA, post-FXAA
-	float4 resultAAluma = GetNormalizedLuma(resultAA);
-	float4 originalluma = GetNormalizedLuma(prerender);
-	float stepluma = dotluma(GetNormalizedLuma(rgbyM));
+	// get normalized gammas for each state of this pixel: unmodified, post-SMAA, post-FXAA
+	float3 resultgamma = GetNormalizedLuma(resultAA.rgb);
+	float3 originalgamma = GetNormalizedLuma(prerender.rgb);
+	float stepgamma = dotgamma(GetNormalizedLuma(rgbyM.rgb));
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
 	// using the SMAA result as the pivot to choose how much to
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
-	float blendfactor = dotluma(GetNormalizedLuma(lerp(originalluma, resultAAluma, 1 - stepluma)));
+	float blendfactor = dotgamma(GetNormalizedLuma(lerp(originalgamma, resultgamma, sqrt(stepgamma))));
 	float blendsign = blendfactor < 0 ? -1 : 1;
 	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), 1 + abs(blendfactor)) * blendsign);
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
-	if (debugmode != 5 && debugmode != 6)
+	if (debugmode != 6 && debugmode != 7)
 	{
 #endif
 	if (__HQAA_SHARPEN_ENABLE == true)
@@ -1291,7 +1294,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		return weightedresult;
 #if HQAA_INCLUDE_DEBUG_CODE
 	}
-	else if (debugmode == 5) {
+	else if (debugmode == 6) {
 		if (lumatype == 0) return float4(FxaaAdaptiveLuma(SmaaPixel), 0, 0, SmaaPixel.a);
 		else if (lumatype == 1) return float4(0, FxaaAdaptiveLuma(SmaaPixel), 0, SmaaPixel.a);
 		else return float4(0, 0, FxaaAdaptiveLuma(SmaaPixel), SmaaPixel.a);
@@ -1354,7 +1357,7 @@ texture HQAAalphaTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-	Format = R8;
+	Format = R32F;
 };
 
 
@@ -1533,10 +1536,16 @@ float4 SMAANeighborhoodBlendingWrapPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset : TEXCOORD1) : SV_Target
 {
+	float4 original = tex2D(HQAAcolorLinearSampler, texcoord);
+	float4 result = SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler);
+	
+	if (dot(abs(result - original), float4(1,1,1,1)) < __HQAA_SMALLEST_COLOR_STEP)
+		result = original;
+	
 #if HQAA_HDR_OUTPUT
-	return SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler);
+	return result;
 #else
-	return saturate(SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler));
+	return saturate(result);
 #endif
 }
 
@@ -1545,10 +1554,14 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = __FXAA_THRESHOLD_FLOOR;
 	
+	float4 original = tex2D(HQAAcolorGammaSampler, texcoord);
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,HQAAalphaSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
+	if (dot(abs(result - original), float4(1,1,1,1)) < __HQAA_SMALLEST_COLOR_STEP)
+		result = original;
+	
 #if HQAA_INCLUDE_DEBUG_CODE
-	if (debugmode > 3 && debugFXAApass == 0) {
+	if (debugmode > 4 && debugFXAApass == 0) {
 		bool validResult = abs(dot(result,float4(1,1,1,0)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,0))) > 1e-5;
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
@@ -1570,15 +1583,21 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		return tex2D(HQAAblendSampler, texcoord);
 	if (debugmode == 3)
 		return tex2D(HQAAsupportSampler, texcoord);
+	if (debugmode == 4)
+		return tex2D(HQAAalphaSampler, texcoord);
 #endif
 	
 	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
+	float4 original = tex2D(HQAAcolorGammaSampler, texcoord);
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord,HQAAcolorGammaSampler,HQAAedgesSampler,HQAAsupportSampler,HQAAalphaSampler,TotalSubpix,threshold,0.004,__FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
+	if (dot(abs(result - original), float4(1,1,1,1)) < __HQAA_SMALLEST_COLOR_STEP)
+		result = original;
+	
 #if HQAA_INCLUDE_DEBUG_CODE
-	if (debugmode > 3 && debugFXAApass == 1) {
+	if (debugmode > 4 && debugFXAApass == 1) {
 		bool validResult = abs(dot(result,float4(1,1,1,0)) - dot(tex2D(HQAAcolorGammaSampler,texcoord), float4(1,1,1,0))) > 1e-5;
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
@@ -1596,7 +1615,7 @@ float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 	float4 result = HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 #if HQAA_INCLUDE_DEBUG_CODE
     if (HqaaSharpenerDebug) {
-		result *= __HQAA_LUMA_REFERENCE;
+		result *= __HQAA_LUMA_REF;
 		result *= crcp(vec4add(result));
 	}
 #endif
