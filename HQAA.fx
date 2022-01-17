@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.9
+ *                        v11.9.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.9\n"
+	          "Version: 11.9.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -435,8 +435,8 @@ float4 Sharpen(float2 texcoord, sampler2D sTexColor, float4 AAresult, float thre
     float3 f = tex2Doffset(sTexColor, texcoord, int2(1, 0)).rgb;
     float3 h = tex2Doffset(sTexColor, texcoord, int2(0, 1)).rgb;
 
-	float3 mnRGB = min5(d, AAresult.rgb, f, b, h);
-	float3 mxRGB = max5(d, AAresult.rgb, f, b, h);
+	float3 mnRGB = 2 * min5(d, AAresult.rgb, f, b, h);
+	float3 mxRGB = 2 * max5(d, AAresult.rgb, f, b, h);
 	#if HQAA_HDR_OUTPUT
 	mnRGB *= (1 / HQAA_HDR_NITS);
 	mxRGB *= (1 / HQAA_HDR_NITS);
@@ -1460,8 +1460,8 @@ void SMAANeighborhoodBlendingWrapVS(
 float GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(HQAAcolorGammaSampler, texcoord);
-	pixel.a = dotgamma(GetNormalizedLuma(pixel));
-	return pixel.a;
+	float gamma = dotgamma(GetNormalizedLuma(pixel));
+	return gamma;
 }
 float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
