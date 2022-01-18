@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.9.2
+ *                        v11.10
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.9.2\n"
+	          "Version: 11.10\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -146,13 +146,13 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
 > = 20;
 
 uniform float FxaaIterationsCustom < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0; ui_max = 3; ui_step = 0.001;
+	ui_min = 0.25; ui_max = 2.5; ui_step = 0.01;
 	ui_label = "Quality Multiplier";
 	ui_tooltip = "Multiplies the maximum number of edge gradient\nscanning iterations that FXAA will perform";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
 	ui_text = "\n------------------------------- FXAA Options -----------------------------------\n ";
-> = 0.5;
+> = 1.0;
 
 uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.25; ui_max = 4.0; ui_step = 0.001;
@@ -298,9 +298,10 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,1,0.8,0.4,4};
 #define __HQAA_DESIRED_FRAMETIME float(1000 / FramerateFloor)
 #define __HQAA_FPS_CLAMP_MULTIPLIER crcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1))
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
-#define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (int(trunc(4 / __HQAA_FXAA_SCAN_GRANULARITY)))
+#define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (2 / __HQAA_FXAA_SCAN_GRANULARITY)
+#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 32
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440)
-#define __SMAA_MAX_SEARCH_STEPS (int(trunc(__HQAA_DISPLAY_NUMERATOR * 0.25)))
+#define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SMALLEST_COLOR_STEP float(crcp(pow(2, BUFFER_COLOR_BIT_DEPTH)))
 
 #define __HQAA_LUMA_REF float4(0.25,0.25,0.25,0.25)
@@ -609,10 +610,10 @@ void SMAABlendingWeightCalculationVS(float2 texcoord,
     offset[0] = cmad(__SMAA_RT_METRICS.xyxy, float4(-0.25, -0.125,  1.25, -0.125), texcoord.xyxy);
     offset[1] = cmad(__SMAA_RT_METRICS.xyxy, float4(-0.125, -0.25, -0.125,  1.25), texcoord.xyxy);
 	
-	uint searchrange = __SMAA_MAX_SEARCH_STEPS;
+	uint searchrange = trunc(__SMAA_MAX_SEARCH_STEPS);
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
-		searchrange = max(__HQAA_MINIMUM_SEARCH_STEPS_SMAA, searchrange * __HQAA_FPS_CLAMP_MULTIPLIER);
+		searchrange = max(__HQAA_MINIMUM_SEARCH_STEPS_SMAA, trunc(searchrange * __HQAA_FPS_CLAMP_MULTIPLIER));
 
     offset[2] = cmad(__SMAA_RT_METRICS.xxyy,
                     float4(-2.0, 2.0, -2.0, 2.0) * float(searchrange),
@@ -1189,50 +1190,48 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     if(!doneN) posN = cmad(granularity, -offNP, posN);
     if(!doneP) posP = cmad(granularity, offNP, posP);
 	
-	uint iterationsN = 0;
-	uint iterationsP = 0;
-	uint maxiterations = max(int(trunc(__HQAA_DISPLAY_DENOMINATOR * 0.025 * __HQAA_FXAA_SCAN_MULTIPLIER)), __HQAA_MINIMUM_SEARCH_STEPS_FXAA);
+	uint iterationsN;
+	uint iterationsP;
+	uint maxiterations = max(int(trunc(__HQAA_DEFAULT_SEARCH_STEPS_FXAA * __HQAA_FXAA_SCAN_MULTIPLIER)), __HQAA_MINIMUM_SEARCH_STEPS_FXAA);
 	
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
 		maxiterations = max(__HQAA_MINIMUM_SEARCH_STEPS_FXAA, int(trunc(__HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
 	
 #if __HQAA_USE_SPLIT_FXAA_LOOPS
-    while (iterationsN < maxiterations && !doneN)
+	[loop] while (!doneN && iterationsN < maxiterations)
 	{
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
 		lumaEndN = cmad(0.5, -lumaNN, lumaEndN);
 		doneN = abs(lumaEndN) >= gradientScaled;
-        if(!doneN) posN = cmad(granularity, -offNP, posN);
+        if (!doneN) posN = cmad(granularity, -offNP, posN);
 		iterationsN++;
     }
 	
-    while(iterationsP < maxiterations && !doneP) {
+	[loop] while (!doneP && iterationsP < maxiterations)
+	{
 		lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
 		lumaEndP = cmad(0.5, -lumaNN, lumaEndP);
 		doneP = abs(lumaEndP) >= gradientScaled;
-        if(!doneP) posP = cmad(granularity, offNP, posP);
+        if (!doneP) posP = cmad(granularity, offNP, posP);
 		iterationsP++;
     }
 #else
 	bool doneNP = doneN && doneP;
-    while(!doneNP && iterationsN < maxiterations) {
-		
+	[loop] while (!doneNP && iterationsN < maxiterations)
+	{
         if(!doneN) {
 			lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
 			lumaEndN = cmad(0.5, -lumaNN, lumaEndN);
 			doneN = (abs(lumaEndN) >= gradientScaled) || !(posN.x > 0 && posN.y > 0);
 		}
-		
         if(!doneP) {
 			lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
 			lumaEndP = cmad(0.5, -lumaNN, lumaEndP);
 			doneP = (abs(lumaEndP) >= gradientScaled) || !((BUFFER_HEIGHT - posP.y) > 0 && (BUFFER_WIDTH - posP.x) > 0);
 		}
-		
+		doneNP = doneN && doneP;
         if(!doneN) posN = cmad(granularity, -offNP, posN);
         if(!doneP) posP = cmad(granularity, offNP, posP);
-		
-        doneNP = doneN && doneP;
 		iterationsN++;
     }
 #endif
