@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.9.1
+ *                        v11.9.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.9.1\n"
+	          "Version: 11.9.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -299,7 +299,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,1,0.8,0.4,4};
 #define __HQAA_FPS_CLAMP_MULTIPLIER crcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1))
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (int(trunc(4 / __HQAA_FXAA_SCAN_GRANULARITY)))
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
+#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440)
 #define __SMAA_MAX_SEARCH_STEPS (int(trunc(__HQAA_DISPLAY_NUMERATOR * 0.25)))
 #define __HQAA_SMALLEST_COLOR_STEP float(crcp(pow(2, BUFFER_COLOR_BIT_DEPTH)))
 
@@ -1273,15 +1273,16 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float3 resultgamma = GetNormalizedLuma(resultAA.rgb);
 	float3 originalgamma = GetNormalizedLuma(prerender.rgb);
 	float stepgamma = dotgamma(GetNormalizedLuma(rgbyM.rgb));
+	stepgamma = abs(dotgamma(resultgamma) - stepgamma);
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
 	// using the SMAA result as the pivot to choose how much to
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
-	float blendfactor = dotgamma(GetNormalizedLuma(lerp(originalgamma, resultgamma, sqrt(stepgamma))));
-	float blendsign = blendfactor < 0 ? -1 : 1;
-	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), 1 + abs(blendfactor)) * blendsign);
+	float blendfactor = dotgamma(GetNormalizedLuma(lerp(resultgamma, originalgamma, stepgamma)));
+	float blendexponent = sqrt(1 + blendfactor);
+	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), abs(blendexponent)));
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1551,7 +1552,7 @@ float4 SMAANeighborhoodBlendingWrapPS(
 
 float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
+	float TotalSubpix = __HQAA_SUBPIX * sqrt(__HQAA_FXAA_SCAN_GRANULARITY) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = __FXAA_THRESHOLD_FLOOR;
 	
 	float4 original = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1587,7 +1588,7 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		return tex2D(HQAAalphaSampler, texcoord);
 #endif
 	
-	float TotalSubpix = __HQAA_SUBPIX * saturate(sqrt(__HQAA_FXAA_SCAN_GRANULARITY)) * __HQAA_BUFFER_MULTIPLIER;
+	float TotalSubpix = __HQAA_SUBPIX * sqrt(__HQAA_FXAA_SCAN_GRANULARITY) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = max(__FXAA_THRESHOLD_FLOOR,__HQAA_EDGE_THRESHOLD);
 	
 	float4 original = tex2D(HQAAcolorGammaSampler, texcoord);
