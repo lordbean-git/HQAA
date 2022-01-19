@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.10
+ *                        v11.10.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.10\n"
+	          "Version: 11.10.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -399,6 +399,13 @@ float4 GetNormalizedLuma(float4 input)
 	float4 normal = input * __HQAA_LUMA_REF;
 	normal *= crcp(vec4add(normal));
 	return normal;
+}
+
+// alphachannel-delta calculator
+float GetNewAlpha(float4 before, float4 after)
+{
+	float delta = (dotgamma(after.rgb) - dotgamma(before.rgb)) * before.a;
+	return (before.a + delta);
 }
 
 // result sharpening
@@ -1009,6 +1016,8 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
 	
+	color.a = GetNewAlpha(tex2D(colorTex, texcoord), color);
+	
 	if (__HQAA_SHARPEN_ENABLE == true)
 		return Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1);
 	else
@@ -1282,6 +1291,8 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float blendfactor = dotgamma(GetNormalizedLuma(lerp(resultgamma, originalgamma, stepgamma)));
 	float blendexponent = sqrt(1 + blendfactor);
 	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), abs(blendexponent)));
+	
+	weightedresult.a = GetNewAlpha(SmaaPixel, weightedresult);
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1763,6 +1774,13 @@ technique HQAA <
 		RenderTarget = HQAAsupportTex;
 		ClearRenderTargets = true;
 	}
+	pass GenerateLumaData
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateNormalizedLumaDataPS;
+		RenderTarget = HQAAalphaTex;
+		ClearRenderTargets = true;
+	}
 	pass SMAABlendCalculation
 	{
 		VertexShader = SMAABlendingWeightCalculationWrapVS;
@@ -1784,13 +1802,6 @@ technique HQAA <
 #else
 		SRGBWriteEnable = true;
 #endif
-	}
-	pass GenerateLumaData
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateNormalizedLumaDataPS;
-		RenderTarget = HQAAalphaTex;
-		ClearRenderTargets = true;
 	}
 	pass FXAAPositives
 	{
