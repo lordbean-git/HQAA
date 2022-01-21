@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.10.2
+ *                        v11.11
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.10.2\n"
+	          "Version: 11.11\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -241,6 +241,15 @@ uniform int sharpenerintro <
 	ui_category = "Optional Sharpening (HQAACAS)";
 	ui_category_closed = true;
 >;
+
+uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
+	ui_spacing = 3;
+	ui_min = 0; ui_max = 0.9; ui_step = 0.001;
+	ui_label = "Previous Frame Weight";
+	ui_category = "Optional Temporal Stabilizer (HQAATemporalStabilizer)";
+	ui_category_closed = true;
+	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
+> = 0.125;
 
 uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
 	ui_min = 30; ui_max = 150; ui_step = 1;
@@ -556,6 +565,14 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 #else
 	return result;
 #endif
+}
+
+// Temporal stabilizer function
+float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, float2 pos)
+{
+	float4 current = tex2D(currentframe, pos);
+	float4 previous = tex2D(lastframe, pos);
+	return lerp(current, previous, HqaaPreviousFrameWeight);
 }
 
 /*****************************************************************************************************************************************/
@@ -1364,6 +1381,13 @@ texture HQAAsupportTex < pooled = true; >
 	Format = BUFFER_COLOR_BIT_DEPTH;
 };
 
+texture HQAAstabilizerTex
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	Format = BUFFER_COLOR_BIT_DEPTH;
+};
+
 texture HQAAalphaTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
@@ -1432,6 +1456,13 @@ sampler HQAAalphaSampler
 	Texture = HQAAalphaTex;
 	AddressU = Clamp; AddressV = Clamp; AddressW = Clamp;
 	MipFilter = Point; MinFilter = Point; MagFilter = Point;
+	SRGBTexture = false;
+};
+sampler HQAAstabilizerSampler
+{
+	Texture = HQAAstabilizerTex;
+	AddressU = Clamp; AddressV = Clamp;
+	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
 
@@ -1637,6 +1668,16 @@ float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 #endif
 }
 
+float4 HQAATemporalStabilizerWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+{
+	float4 result = HQAATemporalStabilizerPS(HQAAcolorGammaSampler, HQAAstabilizerSampler, texcoord);
+#if HQAA_HDR_OUTPUT
+	return result;
+#else
+	return saturate(result);
+#endif
+}
+
 /***************************************************************************************************************************************/
 /*********************************************************** SHADER CODE END ***********************************************************/
 /***************************************************************************************************************************************/
@@ -1828,5 +1869,24 @@ technique HQAACAS <
 #else
 		SRGBWriteEnable = true;
 #endif
+	}
+}
+
+technique HQAATemporalStabilizer <
+	ui_tooltip = "HQAA Experimental Temporal Result Stabilizer\n\n"
+				 "If enabled, place this after HQAA in the list";
+>
+{
+	pass StabilizeResults
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATemporalStabilizerWrapPS;
+	}
+	pass SaveBuffer
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateImageCopyPS;
+		RenderTarget = HQAAstabilizerTex;
+		ClearRenderTargets = true;
 	}
 }
