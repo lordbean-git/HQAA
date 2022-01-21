@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v12.0
+ *                        v12.0.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 12.0\n"
+	          "Version: 12.0.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -211,19 +211,32 @@ uniform int debugexplainer <
 	ui_category_closed = true;
 >;
 
+uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
+	ui_min = 30; ui_max = 150; ui_step = 1;
+	ui_label = "Target Minimum Framerate";
+	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
+	ui_text = "\n";
+> = 60;
+
+uniform int optionseof <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n------------------------------------------------------------";
+>;
+
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
 	ui_min = 0; ui_max = 4; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
-	ui_category = "Optional Sharpening (HQAACAS)";
+	ui_category = "(HQAACAS) Optional Sharpening";
 	ui_category_closed = true;
 > = 1;
 
 uniform bool HqaaSharpenerDebug <
     ui_text = "Debug:\n ";
 	ui_label = "Show Sharpening Pattern";
-	ui_category = "Optional Sharpening (HQAACAS)";
+	ui_category = "(HQAACAS) Optional Sharpening";
 	ui_category_closed = true;
 > = false;
 
@@ -238,7 +251,7 @@ uniform int sharpenerintro <
 	          "likely to generate oversharpening artifacts at high sharpen amounts compared to\n"
 			  "traditional AMD contrast-adaptive sharpening.\n\n"
 			  "This feature is enabled or disabled in the ReShade effects list.";
-	ui_category = "Optional Sharpening (HQAACAS)";
+	ui_category = "(HQAACAS) Optional Sharpening";
 	ui_category_closed = true;
 >;
 
@@ -246,7 +259,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
 	ui_min = 0; ui_max = 1.0; ui_step = 0.001;
 	ui_label = "Previous Frame Weight";
-	ui_category = "Optional Temporal Stabilizer (HQAATemporalStabilizer)";
+	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
 > = 0.2;
@@ -254,21 +267,25 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 uniform bool ClampMaximumWeight <
 	ui_label = "Clamp Maximum Weight?";
 	ui_spacing = 2;
-	ui_category = "Optional Temporal Stabilizer (HQAATemporalStabilizer)";
+	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
 				 "single color channel between the past frame and the current frame.";
 > = false;
 
-uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
-	ui_min = 30; ui_max = 150; ui_step = 1;
-	ui_label = "Target Minimum Framerate";
-	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
-	ui_text = "\n";
-> = 60;
+uniform int stabilizerintro <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\nWhen enabled, this effect will blend the previous frame with the\n"
+	          "current frame at the specified weight to minimize overcorrection\n"
+			  "errors such as crawling text or wiggling lines.\n\n"
+			  "This feature is enabled or disabled in the ReShade effects list.";
+	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
+	ui_category_closed = true;
+>;
 
-uniform int optionseof <
+uniform int optionalseof <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n------------------------------------------------------------";
@@ -1216,7 +1233,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		maxiterations = max(__HQAA_MINIMUM_SEARCH_STEPS_FXAA, int(trunc(__HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
 	
 #if __HQAA_USE_SPLIT_FXAA_LOOPS
-	[loop] while (!doneN && iterationsN < maxiterations)
+	[loop] while (iterationsN < maxiterations && !doneN)
 	{
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
 		lumaEndN = cmad(0.5, -lumaNN, lumaEndN);
@@ -1225,7 +1242,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		iterationsN++;
     }
 	
-	[loop] while (!doneP && iterationsP < maxiterations)
+	[loop] while (iterationsP < maxiterations && !doneP)
 	{
 		lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
 		lumaEndP = cmad(0.5, -lumaNN, lumaEndP);
@@ -1235,7 +1252,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     }
 #else
 	bool doneNP = doneN && doneP;
-	[loop] while (!doneNP && iterationsN < maxiterations)
+	[loop] while (iterationsN < maxiterations && !doneNP)
 	{
         if(!doneN) {
 			lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
@@ -1371,7 +1388,7 @@ texture HQAAsupportTex < pooled = true; >
 	Format = BUFFER_COLOR_BIT_DEPTH;
 };
 
-texture HQAAstabilizerTex
+texture HQAAstabilizerTex < pooled = true; >
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
