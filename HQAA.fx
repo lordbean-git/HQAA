@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.11
+ *                        v11.11.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.11\n"
+	          "Version: 11.11.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -244,12 +244,22 @@ uniform int sharpenerintro <
 
 uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
-	ui_min = 0; ui_max = 0.9; ui_step = 0.001;
+	ui_min = 0; ui_max = 1.0; ui_step = 0.001;
 	ui_label = "Previous Frame Weight";
 	ui_category = "Optional Temporal Stabilizer (HQAATemporalStabilizer)";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.125;
+> = 0.5;
+
+uniform bool ClampMaximumWeight <
+	ui_label = "Clamp Maximum Weight?";
+	ui_spacing = 2;
+	ui_category = "Optional Temporal Stabilizer (HQAATemporalStabilizer)";
+	ui_category_closed = true;
+	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
+				 "frame will be equal to the largest change in contrast in any\n"
+				 "single color channel between the past frame and the current frame.";
+> = true;
 
 uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
 	ui_min = 30; ui_max = 150; ui_step = 1;
@@ -572,7 +582,15 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 {
 	float4 current = tex2D(currentframe, pos);
 	float4 previous = tex2D(lastframe, pos);
-	return lerp(current, previous, HqaaPreviousFrameWeight);
+	
+	// values above 0.997 can produce artifacts or halt frame advancement entirely
+	float blendweight = min(HqaaPreviousFrameWeight, 0.997);
+	
+	if (ClampMaximumWeight) {
+		float contrastdelta = max3(abs(current.r - previous.r), abs(current.g - previous.g), abs(current.b - previous.b));
+		blendweight = min(contrastdelta, blendweight);
+	}
+	return lerp(current, previous, blendweight);
 }
 
 /*****************************************************************************************************************************************/
