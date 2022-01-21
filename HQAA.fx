@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v12.0.1
+ *                        v12.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 12.0.1\n"
+	          "Version: 12.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -385,12 +385,12 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,1,0.8,0.4,4};
 #endif
 
 #if HQAA_ENABLE_COMPATIBILITY_MODE
-	#define __HQAA_USE_SPLIT_FXAA_LOOPS 0
 	#define __HQAA_USE_PER_COMPONENT_INTERPOLATION 0
+	#define __HQAA_ENABLE_ALPHA_PROCESSING 0
 	#define cmad(t, p, o) ((t * p) + o)
 #else
-	#define __HQAA_USE_SPLIT_FXAA_LOOPS 1
 	#define __HQAA_USE_PER_COMPONENT_INTERPOLATION 1
+	#define __HQAA_ENABLE_ALPHA_PROCESSING 1
 	#define cmad(t, p, o) mad(t, p, o)
 #endif
 
@@ -607,7 +607,11 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 		float contrastdelta = max3(abs(current.r - previous.r), abs(current.g - previous.g), abs(current.b - previous.b));
 		blendweight = min(contrastdelta, blendweight);
 	}
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	return lerp(current, previous, blendweight);
+#else
+	return float4(lerp(current.rgb, previous.rgb, blendweight), current.a);
+#endif
 }
 
 /*****************************************************************************************************************************************/
@@ -1062,7 +1066,9 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
 	
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	color.a = GetNewAlpha(tex2D(colorTex, texcoord), color);
+#endif
 	
 	if (__HQAA_SHARPEN_ENABLE == true)
 		return Sharpen(texcoord, colorTex, color, __SMAA_EDGE_THRESHOLD, -1);
@@ -1232,7 +1238,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
 		maxiterations = max(__HQAA_MINIMUM_SEARCH_STEPS_FXAA, int(trunc(__HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
 	
-#if __HQAA_USE_SPLIT_FXAA_LOOPS
 	[loop] while (iterationsN < maxiterations && !doneN)
 	{
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
@@ -1250,26 +1255,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
         if (!doneP) posP = cmad(granularity, offNP, posP);
 		iterationsP++;
     }
-#else
-	bool doneNP = doneN && doneP;
-	[loop] while (iterationsN < maxiterations && !doneNP)
-	{
-        if(!doneN) {
-			lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
-			lumaEndN = cmad(0.5, -lumaNN, lumaEndN);
-			doneN = (abs(lumaEndN) >= gradientScaled) || !(posN.x > 0 && posN.y > 0);
-		}
-        if(!doneP) {
-			lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
-			lumaEndP = cmad(0.5, -lumaNN, lumaEndP);
-			doneP = (abs(lumaEndP) >= gradientScaled) || !((BUFFER_HEIGHT - posP.y) > 0 && (BUFFER_WIDTH - posP.x) > 0);
-		}
-		doneNP = doneN && doneP;
-        if(!doneN) posN = cmad(granularity, -offNP, posN);
-        if(!doneP) posP = cmad(granularity, offNP, posP);
-		iterationsN++;
-    }
-#endif
 	
     float dstN = posM.x - posN.x;
     float dstP = posP.x - posM.x;
@@ -1318,7 +1303,9 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float blendexponent = crcp(sqrt(blendfactor));
 	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), abs(blendexponent)));
 	
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	weightedresult.a = GetNewAlpha(SmaaPixel, weightedresult);
+#endif
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1512,12 +1499,16 @@ float GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : 
 	float gamma = dotgamma(GetNormalizedLuma(pixel));
 	return gamma;
 }
+
+
 float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(HQAAcolorGammaSampler, texcoord);
 	pixel.a = dotgamma(GetNormalizedLuma(pixel));
 	return pixel;
 }
+
+
 float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1525,6 +1516,8 @@ float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord 
 	output.a = dotgamma(GetNormalizedLuma(output));
 	return output;
 }
+
+
 float4 GenerateImageNegativeColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1532,6 +1525,8 @@ float4 GenerateImageNegativeColorShiftLeftPS(float4 vpos : SV_Position, float2 t
 	output.a = dotgamma(GetNormalizedLuma(output));
 	return output;
 }
+
+
 float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1539,6 +1534,8 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 	output.a = dotgamma(GetNormalizedLuma(output));
 	return output;
 }
+
+
 float4 GenerateImageNegativeColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1546,6 +1543,8 @@ float4 GenerateImageNegativeColorShiftRightPS(float4 vpos : SV_Position, float2 
 	output.a = dotgamma(GetNormalizedLuma(output));
 	return output;
 }
+
+
 float4 GenerateImageNegativePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1553,10 +1552,13 @@ float4 GenerateImageNegativePS(float4 vpos : SV_Position, float2 texcoord : TEXC
 	output.a = dotgamma(GetNormalizedLuma(output));
 	return output;
 }
+
+
 float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	return tex2D(HQAAcolorGammaSampler, texcoord);
 }
+
 
 float2 HQAAPrimaryDetectionPS(
 	float4 position : SV_Position,
@@ -1565,6 +1567,8 @@ float2 HQAAPrimaryDetectionPS(
 {
 	return SMAALumaEdgeDetectionPS(texcoord, offset, HQAAcolorGammaSampler);
 }
+
+
 float2 HQAASupportDetectionPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
@@ -1572,6 +1576,8 @@ float2 HQAASupportDetectionPS(
 {
 	return SMAALumaEdgeDetectionPS(texcoord, offset, HQAAsupportSampler);
 }
+
+
 float4 SMAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
@@ -1580,10 +1586,13 @@ float4 SMAABlendingWeightCalculationWrapPS(
 {
 	return SMAABlendingWeightCalculationPS(texcoord, pixcoord, offset, HQAAedgesSampler, HQAAareaSampler, HQAAsearchSampler, 0.0);
 }
-float4 SMAANeighborhoodBlendingWrapPS(
-	float4 position : SV_Position,
-	float2 texcoord : TEXCOORD0,
-	float4 offset : TEXCOORD1) : SV_Target
+
+
+#if __HQAA_ENABLE_ALPHA_PROCESSING
+float4 SMAANeighborhoodBlendingWrapPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
+#else
+float3 SMAANeighborhoodBlendingWrapPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
+#endif
 {
 	float4 original = tex2D(HQAAcolorLinearSampler, texcoord);
 	float4 result = SMAANeighborhoodBlendingPS(texcoord, offset, HQAAcolorLinearSampler, HQAAblendSampler);
@@ -1591,14 +1600,22 @@ float4 SMAANeighborhoodBlendingWrapPS(
 	if (dot(abs(result - original), float4(1,1,1,1)) < __HQAA_SMALLEST_COLOR_STEP)
 		result = original;
 	
-#if HQAA_HDR_OUTPUT
+#if !HQAA_HDR_OUTPUT
+	result = saturate(result);
+#endif
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	return result;
 #else
-	return saturate(result);
+	return result.rgb;
 #endif
 }
 
+
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+#else
+float3 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+#endif
 {
 	float TotalSubpix = __HQAA_SUBPIX * sqrt(__HQAA_FXAA_SCAN_GRANULARITY) * __HQAA_BUFFER_MULTIPLIER;
 	float threshold = __FXAA_THRESHOLD_FLOOR;
@@ -1616,13 +1633,22 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
 #endif
-#if HQAA_HDR_OUTPUT
+#if !HQAA_HDR_OUTPUT
+	result = saturate(result);
+#endif
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	return result;
 #else
-	return saturate(result);
+	return result.rgb;
 #endif
 }
+
+
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+#else
+float3 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+#endif
 {
 	// debugs 1, 2, 3 need to output from the last pass in the technique
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1652,14 +1678,22 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
 #endif
-#if HQAA_HDR_OUTPUT
+#if !HQAA_HDR_OUTPUT
+	result = saturate(result);
+#endif
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	return result;
 #else
-	return saturate(result);
+	return result.rgb;
 #endif
 }
 
+
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+#else
+float3 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+#endif
 {
 	float4 result = HQAACASPS(texcoord, HQAAedgesSampler, HQAAcolorLinearSampler);
 #if HQAA_INCLUDE_DEBUG_CODE
@@ -1668,20 +1702,31 @@ float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) 
 		result *= crcp(vec4add(result));
 	}
 #endif
-#if HQAA_HDR_OUTPUT
+#if !HQAA_HDR_OUTPUT
+	result = saturate(result);
+#endif
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	return result;
 #else
-	return saturate(result);
+	return result.rgb;
 #endif
 }
 
+
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 float4 HQAATemporalStabilizerWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+#else
+float3 HQAATemporalStabilizerWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+#endif
 {
 	float4 result = HQAATemporalStabilizerPS(HQAAcolorGammaSampler, HQAAstabilizerSampler, texcoord);
-#if HQAA_HDR_OUTPUT
+#if !HQAA_HDR_OUTPUT
+	result = saturate(result);
+#endif
+#if __HQAA_ENABLE_ALPHA_PROCESSING
 	return result;
 #else
-	return saturate(result);
+	return result.rgb;
 #endif
 }
 
