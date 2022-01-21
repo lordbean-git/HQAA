@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v11.11.1
+ *                        v12.0
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 11.11.1\n"
+	          "Version: 12.0\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -195,8 +195,8 @@ uniform int debugexplainer <
 			  "- Yellow = Probable Diagonal Edge Here\n\n"
 			  "SMAA blending weights and FXAA results show what each related\n"
 			  "pass is blending with the screen to produce its AA effect.\n\n"
-			  "FXAA lumas shows which color channel FXAA decided to use to\n"
-			  "represent the brightness of the pixel.\n\n"
+			  "FXAA lumas shows FXAA's estimation of the brightness of pixels\n"
+			  "where the pass ran corrections.\n\n"
 			  "Original buffer copy should contain an exact duplicate of the\n"
 			  "contents of the screen before HQAA has done anything to it.\n\n"
 			  "FXAA metrics draws a range of green to red where the selected\n"
@@ -249,7 +249,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Optional Temporal Stabilizer (HQAATemporalStabilizer)";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.5;
+> = 0.2;
 
 uniform bool ClampMaximumWeight <
 	ui_label = "Clamp Maximum Weight?";
@@ -259,7 +259,7 @@ uniform bool ClampMaximumWeight <
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
 				 "single color channel between the past frame and the current frame.";
-> = true;
+> = false;
 
 uniform uint FramerateFloor < __UNIFORM_SLIDER_INT1
 	ui_min = 30; ui_max = 150; ui_step = 1;
@@ -319,7 +319,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2,1.5,1,1,0.8,0.4,4};
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (2 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 32
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160)
+#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SMALLEST_COLOR_STEP float(crcp(pow(2, BUFFER_COLOR_BIT_DEPTH)))
 
@@ -693,12 +693,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float scale = crcp(vec4add(weights));
 	weights *= scale;
 	
-	// we're only looking to run luma detection if there's a favorable color channel read
-	bool runLumaDetection = (weights.r + weights.g) > (weights.b + weights.a);
 	float2 edges = float2(0,0);
-	
-	if (runLumaDetection) {
-		
 	
     float L = dot(middle, weights);
 
@@ -729,7 +724,6 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
     float finalDelta = max(maxDelta.x, maxDelta.y);
 
 	edges.xy *= step(finalDelta, contrastadaptation * delta.xy);
-	}
 	}
     return edges;
 }
@@ -1067,7 +1061,7 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t, lumatype)
+#define FxaaAdaptiveLuma(t) FxaaAdaptiveLumaSelect(t)
 
 #define FxaaTex2D(t, p) float4(tex2Dlod(t, float4(p, 0.0, 0.0)).rgb, tex2Dlod(alphatex, float4(p, 0.0, 0.0)).r)
 #define FxaaTex2DOffset(t, p, o) float4(tex2Dlod(t, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0)).rgb, tex2Dlod(alphatex, float4(p + (o * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT)), 0, 0)).r)
@@ -1076,15 +1070,10 @@ float4 SMAANeighborhoodBlendingPS(float2 texcoord,
 #define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
 #define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 
-float FxaaAdaptiveLumaSelect (float4 rgba, int lumatype)
+float FxaaAdaptiveLumaSelect (float4 rgba)
 // Luma types match variable positions. 0=R 1=G 2=B
 {
-	if (lumatype == 0)
-		return (rgba.r + rgba.a) / 2;
-	else if (lumatype == 2)
-		return (rgba.b + rgba.a) / 2;
-	else
-		return (rgba.g + rgba.a) / 2;
+	return dotluma(rgba);
 }
 
 float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex,
@@ -1108,21 +1097,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	 }
     float2 posM = pos;
 	
-	int lumatype = 2; // assume blue is luma until determined otherwise
-	
-	float maxcolor = max3(rgbyM.r, rgbyM.g, rgbyM.b);
-	bool strongblue = rgbyM.b > (rgbyM.r + rgbyM.g);
-	
-	if (strongblue == false && rgbyM.b != maxcolor) // check if luma color needs changed
-	{
-		bool strongred = rgbyM.r > (rgbyM.g + rgbyM.b);
-		
-		if (strongred == true || rgbyM.r == maxcolor)
-			lumatype = 0;
-		else
-			lumatype = 1;
-	}
-			
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
 	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
 	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
@@ -1341,9 +1315,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 #if HQAA_INCLUDE_DEBUG_CODE
 	}
 	else if (debugmode == 6) {
-		if (lumatype == 0) return float4(FxaaAdaptiveLuma(SmaaPixel), 0, 0, SmaaPixel.a);
-		else if (lumatype == 1) return float4(0, FxaaAdaptiveLuma(SmaaPixel), 0, SmaaPixel.a);
-		else return float4(0, 0, FxaaAdaptiveLuma(SmaaPixel), SmaaPixel.a);
+		return FxaaAdaptiveLuma(rgbyM);
 	}
 	else {
 		float runtime = (float(iterationsN / maxiterations) + float(iterationsP / maxiterations)) / 2.0f;
