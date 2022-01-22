@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v12.2
+ *                        v12.2.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 12.2\n"
+	          "Version: 12.2.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -262,7 +262,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.2;
+> = 0.5;
 
 uniform bool ClampMaximumWeight <
 	ui_label = "Clamp Maximum Weight?";
@@ -272,7 +272,7 @@ uniform bool ClampMaximumWeight <
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
 				 "single color channel between the past frame and the current frame.";
-> = false;
+> = true;
 
 uniform int stabilizerintro <
 	ui_type = "radio";
@@ -336,7 +336,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.8,0.4,4};
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (2.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 32
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440.0)
+#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160.0)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(exp(BUFFER_COLOR_BIT_DEPTH))
 
@@ -675,10 +675,10 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
-	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.5), 0.125);
+	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.75), 0.125);
 	
 	float strongestcolor = max3(middle.r,middle.g,middle.b);
-	float estimatedgamma = dotluma(GetNormalizedLuma(middle));
+	float estimatedgamma = dotluma(middle);
 	float estimatedbrightness = (strongestcolor + estimatedgamma) * 0.5;
 	float thresholdOffset = cmad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
@@ -687,7 +687,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
 	// calculate color channel weighting
-	float4 weights = float4(0.26, 0.39, 0.24, 0.11);
+	float4 weights = __HQAA_LUMA_REF;
 	weights *= middle;
 	float scale = rcp(vec4add(weights));
 	weights *= scale;
@@ -705,9 +705,8 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	
 	if (dot(edges, float2(1.0, 1.0)) != 0.0) {
 		
-	// calculate contrast multiplier. scale has a floor value of 0.25 on a pure bright white pixel
-	float adaptationscale = scale >= 1.0 ? sqrt(scale) : (scale * scale);
-	float contrastadaptation = 1.0 + adaptationscale;
+	// scale will always be some number >1
+	float adaptationscale = 1.0 + pow(abs(scale), abs(rcp(scale)));
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
     float Lbottom  = dot(tex2D(colorTex, offset[1].zw), weights);
@@ -722,7 +721,7 @@ float2 SMAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
     maxDelta = max(maxDelta.xy, delta.zw);
     float finalDelta = max(maxDelta.x, maxDelta.y);
 
-	edges.xy *= step(finalDelta, contrastadaptation * delta.xy);
+	edges.xy *= step(finalDelta, adaptationscale * delta.xy);
 	}
     return edges;
 }
@@ -1100,7 +1099,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
 	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
-	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
+	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.75), 0.125);
 	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
 	float thresholdOffset = cmad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
@@ -1481,6 +1480,14 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 }
 
 
+float4 GenerateImageBlowoutPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float4 input = tex2D(HQAAcolorGammaSampler, texcoord);
+	input.a = 0.0;
+	return input;
+}
+
+
 float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	return tex2D(HQAAcolorGammaSampler, texcoord);
@@ -1688,6 +1695,29 @@ technique HQAA <
 		ClearRenderTargets = true;
 	}
 	pass NormalizedBufferEdgeDetection
+	{
+		VertexShader = SMAAEdgeDetectionWrapVS;
+		PixelShader = HQAASupportDetectionPS;
+		RenderTarget = HQAAedgesTex;
+		ClearRenderTargets = false;
+		BlendEnable = true;
+		BlendOp = MAX;
+		BlendOpAlpha = MAX;
+		StencilEnable = true;
+		StencilPass = REPLACE;
+		StencilRef = 1;
+	}
+	pass CreateBufferBlowout
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateImageBlowoutPS;
+		RenderTarget = HQAAsupportTex;
+		ClearRenderTargets = true;
+		BlendEnable = true;
+		SrcBlend = SRCCOLOR;
+		SrcBlendAlpha = ONE;
+	}
+	pass BlowoutEdgeDetection
 	{
 		VertexShader = SMAAEdgeDetectionWrapVS;
 		PixelShader = HQAASupportDetectionPS;
