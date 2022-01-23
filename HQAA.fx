@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.1
+ *                        v13.1.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.1\n"
+	          "Version: 13.1.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -1382,7 +1382,7 @@ float2 HQAASupportDetectionPS(
 }
 
 
-float4 SMAABlendingWeightCalculationWrapPS(
+float4 HQAABlendingWeightCalculationWrapPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
 	float2 pixcoord : TEXCOORD1,
@@ -1392,7 +1392,7 @@ float4 SMAABlendingWeightCalculationWrapPS(
 }
 
 
-float4 SMAANeighborhoodBlendingWrapPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
+float4 HQAANeighborhoodBlendingWrapPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
 	float4 original = tex2D(HQAApointLinearSampler, texcoord);
 	float4 result = HQAANeighborhoodBlendingPS(texcoord, offset, HQAApointLinearSampler, HQAAblendSampler);
@@ -1656,7 +1656,7 @@ technique HQAA <
 	pass SMAABlendCalculation
 	{
 		VertexShader = HQAABlendingWeightCalculationWrapVS;
-		PixelShader = SMAABlendingWeightCalculationWrapPS;
+		PixelShader = HQAABlendingWeightCalculationWrapPS;
 		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
 		StencilEnable = true;
@@ -1667,7 +1667,7 @@ technique HQAA <
 	pass SMAABlending
 	{
 		VertexShader = HQAANeighborhoodBlendingWrapVS;
-		PixelShader = SMAANeighborhoodBlendingWrapPS;
+		PixelShader = HQAANeighborhoodBlendingWrapPS;
 		StencilEnable = false;
 #if HQAA_HDR_COMPATIBLE_MODE
 		SRGBWriteEnable = false;
