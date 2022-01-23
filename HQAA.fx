@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.0
+ *                        v13.0.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.0\n"
+	          "Version: 13.0.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -1652,13 +1652,6 @@ technique HQAA <
 		RenderTarget = HQAAsupportTex;
 		ClearRenderTargets = true;
 	}
-	pass GenerateFXAALumaData
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateNormalizedLumaDataPS;
-		RenderTarget = HQAAalphaTex;
-		ClearRenderTargets = true;
-	}
 	pass SMAABlendCalculation
 	{
 		VertexShader = SMAABlendingWeightCalculationWrapVS;
@@ -1680,6 +1673,13 @@ technique HQAA <
 #else
 		SRGBWriteEnable = true;
 #endif
+	}
+	pass GenerateFXAALumaData
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateNormalizedLumaDataPS;
+		RenderTarget = HQAAalphaTex;
+		ClearRenderTargets = true;
 	}
 	pass FXAAPositives
 	{
