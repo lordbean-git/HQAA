@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.0.1
+ *                        v13.0.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.0.1\n"
+	          "Version: 13.0.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -308,7 +308,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.8,0.4,4};
 #define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 32
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160.0)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
-#define __HQAA_SMALLEST_COLOR_STEP rcp(exp(BUFFER_COLOR_BIT_DEPTH))
+#define __HQAA_SMALLEST_COLOR_STEP rcp(exp2(BUFFER_COLOR_BIT_DEPTH))
 
 #define __HQAA_LUMA_REF float4(0.3,0.3,0.3,0.1)
 #define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
