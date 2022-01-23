@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.1.1
+ *                        v13.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.1.1\n"
+	          "Version: 13.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -208,6 +208,15 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "(HQAACAS) Optional Sharpening";
 	ui_category_closed = true;
 > = 1;
+
+uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0; ui_max = 1; ui_step = 0.001;
+	ui_label = "Clamp Strength";
+	ui_tooltip = "How much to clamp sharpening strength when the pixel had AA applied to it\n"
+	             "Zero means no clamp applied, one means no sharpening applied";
+	ui_category = "(HQAACAS) Optional Sharpening";
+	ui_category_closed = true;
+> = 0.5;
 
 uniform bool HqaaSharpenerDebug <
     ui_text = "Debug:\n ";
@@ -382,7 +391,7 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	// reduce strength if there were edges detected here
 	float2 edgesdetected = tex2D(edgesTex, texcoord).rg;
 	if (dot(edgesdetected, float2(1.0, 1.0)) != 0.0)
-		sharpenmultiplier *= 0.25;
+		sharpenmultiplier *= (1.0 - HqaaSharpenerClamping);
 	
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
