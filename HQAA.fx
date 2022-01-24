@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.3
+ *                        v13.4
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.3\n"
+	          "Version: 13.4\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -294,6 +294,7 @@ uniform int presetbreakdown <
 >;
 
 uniform float frametime < source = "frametime"; >;
+uniform uint framecount < source = "framecount"; >;
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.5,0.375,0.25,0.125,0.075,0.05,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125,0.25,0.375,0.5,0.75,1.0,0};
@@ -474,7 +475,7 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 	float blendweight = min(HqaaPreviousFrameWeight, 0.9);
 	
 	if (ClampMaximumWeight) {
-		float contrastdelta = max3(abs(current.r - previous.r), abs(current.g - previous.g), abs(current.b - previous.b));
+		float contrastdelta = sqrt(dotluma(abs(current - previous)));
 		blendweight = min(contrastdelta, blendweight);
 	}
 	
@@ -933,7 +934,6 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
     }
 	
 	color.a = GetNewAlpha(tex2D(colorTex, texcoord), color);
-	color = Stepsnap(color);
 	return color;
 }
 
@@ -1131,7 +1131,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float3 resultgamma = GetNormalizedLuma(resultAA).rgb;
 	float3 originalgamma = GetNormalizedLuma(prerender).rgb;
 	float stepgamma = dotluma(SmaaPixel);
-	stepgamma = abs(dotgamma(resultgamma) - stepgamma);
+	stepgamma = abs(dotluma(resultAA) - stepgamma);
 	
 	// calculate interpolation - we use normalized estimated lumas
 	// between the FXAA result and the original game-rendered scene
@@ -1139,10 +1139,8 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
 	float blendfactor = dotgamma(lerp(resultgamma, originalgamma, stepgamma));
-	float blendexponent = rsqrt(blendfactor);
-	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), abs(blendexponent)));
+	float4 weightedresult = lerp(resultAA, prerender, blendfactor);
 	weightedresult.a = GetNewAlpha(SmaaPixel, weightedresult);
-	weightedresult = Stepsnap(weightedresult);
 
 	
 	// fart the result
@@ -1357,6 +1355,7 @@ float GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : 
 {
 	float4 pixel = tex2D(HQAAlinearmipLinearSampler, texcoord);
 	pixel.a = dotluma(pixel);
+	pixel.a = pixel.a > 1e-5 ? sqrt(pixel.a) : __HQAA_SMALLEST_COLOR_STEP;
 	return pixel.a;
 }
 
@@ -1365,6 +1364,7 @@ float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoor
 {
 	float4 pixel = tex2D(HQAAlinearmipGammaSampler, texcoord);
 	pixel.a = dotluma(pixel);
+	pixel.a = pixel.a > 1e-5 ? sqrt(pixel.a) : __HQAA_SMALLEST_COLOR_STEP;
 	return pixel;
 }
 
@@ -1374,6 +1374,7 @@ float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord 
 	float4 input = tex2D(HQAAlinearmipGammaSampler, texcoord);
 	float4 output = float4(input.g, input.b, input.r, input.a);
 	output.a = dotluma(output);
+	output.a = output.a > 1e-5 ? sqrt(output.a) : __HQAA_SMALLEST_COLOR_STEP;
 	return output;
 }
 
@@ -1383,6 +1384,15 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 	float4 input = tex2D(HQAAlinearmipGammaSampler, texcoord);
 	float4 output = float4(input.b, input.r, input.g, input.a);
 	output.a = dotluma(output);
+	output.a = output.a > 1e-5 ? sqrt(output.a) : __HQAA_SMALLEST_COLOR_STEP;
+	return output;
+}
+
+
+float4 GenerateImageBlowoutPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float4 input = tex2D(HQAAlinearmipGammaSampler, texcoord);
+	float4 output = sqrt(input);
 	return output;
 }
 
@@ -1663,6 +1673,26 @@ technique HQAA <
 		SrcBlendAlpha = SRCALPHA;
 	}
 	pass NegativeLeftShiftEdgeDetection
+	{
+		VertexShader = HQAAEdgeDetectionWrapVS;
+		PixelShader = HQAASupportDetectionPS;
+		RenderTarget = HQAAedgesTex;
+		ClearRenderTargets = false;
+		BlendEnable = true;
+		BlendOp = MAX;
+		BlendOpAlpha = MAX;
+		StencilEnable = true;
+		StencilPass = REPLACE;
+		StencilRef = 1;
+	}
+	pass CreateBufferColorBlowout
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = GenerateImageBlowoutPS;
+		RenderTarget = HQAAsupportTex;
+		ClearRenderTargets = true;
+	}
+	pass BlowoutEdgeDetection
 	{
 		VertexShader = HQAAEdgeDetectionWrapVS;
 		PixelShader = HQAASupportDetectionPS;
