@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.2
+ *                        v13.3
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.2\n"
+	          "Version: 13.3\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -317,7 +317,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.8,0.4,4};
 #define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 32
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160.0)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
-#define __HQAA_SMALLEST_COLOR_STEP rcp(exp2(BUFFER_COLOR_BIT_DEPTH))
+#define __HQAA_SMALLEST_COLOR_STEP rcp(exp2(BUFFER_COLOR_BIT_DEPTH + 1.0))
 
 #define __HQAA_LUMA_REF float4(0.3,0.3,0.3,0.1)
 #define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
@@ -381,6 +381,23 @@ float GetNewAlpha(float4 before, float4 after)
 {
 	float delta = (dotgamma(after.rgb) - dotgamma(before.rgb)) * before.a;
 	return (before.a + delta);
+}
+
+float Stepsnap(float p)
+{
+	return round(p / __HQAA_SMALLEST_COLOR_STEP) * __HQAA_SMALLEST_COLOR_STEP;
+}
+float2 Stepsnap(float2 p)
+{
+	return float2(Stepsnap(p.r), Stepsnap(p.g));
+}
+float3 Stepsnap(float3 p)
+{
+	return float3(Stepsnap(p.r), Stepsnap(p.g), Stepsnap(p.b));
+}
+float4 Stepsnap(float4 p)
+{
+	return float4(Stepsnap(p.r), Stepsnap(p.g), Stepsnap(p.b), Stepsnap(p.a));
 }
 
 // CAS standalone function
@@ -916,7 +933,7 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
     }
 	
 	color.a = GetNewAlpha(tex2D(colorTex, texcoord), color);
-	
+	color = Stepsnap(color);
 	return color;
 }
 
@@ -1104,14 +1121,16 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex, posM).rgb, lumaMa);
+	resultAA.a = GetNewAlpha(SmaaPixel, resultAA);
 	
+
 	// grab original buffer state
     float4 prerender = tex2D(referencetex, pos);
 	
 	// get normalized gammas for each state of this pixel: unmodified, post-SMAA, post-FXAA
-	float3 resultgamma = GetNormalizedLuma(resultAA.rgb);
-	float3 originalgamma = GetNormalizedLuma(prerender.rgb);
-	float stepgamma = dotgamma(GetNormalizedLuma(rgbyM.rgb));
+	float3 resultgamma = GetNormalizedLuma(resultAA).rgb;
+	float3 originalgamma = GetNormalizedLuma(prerender).rgb;
+	float stepgamma = dotluma(SmaaPixel);
 	stepgamma = abs(dotgamma(resultgamma) - stepgamma);
 	
 	// calculate interpolation - we use normalized estimated lumas
@@ -1119,11 +1138,12 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// using the SMAA result as the pivot to choose how much to
 	// blend the FXAA results. This helps to minimize overcorrection
 	// artifacts from both SMAA and FXAA
-	float blendfactor = dotgamma(GetNormalizedLuma(lerp(resultgamma, originalgamma, stepgamma)));
+	float blendfactor = dotgamma(lerp(resultgamma, originalgamma, stepgamma));
 	float blendexponent = rsqrt(blendfactor);
 	float4 weightedresult = lerp(resultAA, prerender, pow(abs(blendfactor), abs(blendexponent)));
-	
 	weightedresult.a = GetNewAlpha(SmaaPixel, weightedresult);
+	weightedresult = Stepsnap(weightedresult);
+
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
