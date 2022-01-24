@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.5
+ *                        v14.0
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.5\n"
+	          "Version: 14.0\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -145,7 +145,7 @@ uniform uint debugmode <
 	ui_label = " ";
 	ui_spacing = 1;
 	ui_text = "Debug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Original Buffer Copy\0Computed Alpha Normals\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Original Buffer Copy\0Computed Alpha Normals\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0FXAA Error Margins\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -180,6 +180,11 @@ uniform int debugexplainer <
 			  "and red representing a lot of execution time used.\n\n"
 			  "The Alpha Normals view represents the normalized luminance\n"
 			  "data used to represent the alpha channel during edge detection.\n\n"
+			  "FXAA Error Margins represents how FXAA decided to blend its\n"
+			  "result with the existing scene. Green means FXAA used its own\n"
+			  "result, yellow means the result was interpolated, red means it\n"
+			  "decided to use the SMAA result (positives pass) or the original\n"
+			  "pixel (negatives pass).\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_INCLUDE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
@@ -315,12 +320,12 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.8,0.4,4};
 #define __HQAA_FPS_CLAMP_MULTIPLIER rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1.0))
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (2.0 / __HQAA_FXAA_SCAN_GRANULARITY)
-#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 48
+#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 50
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160.0)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(exp2(BUFFER_COLOR_BIT_DEPTH + 1.0))
 
-#define __HQAA_LUMA_REF float4(0.3,0.3,0.3,0.1)
+#define __HQAA_LUMA_REF float4(0.32,0.32,0.32,0.04)
 #define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
 
 #define dotluma(x) ((__HQAA_LUMA_REF.r * x.r) + (__HQAA_LUMA_REF.g * x.g) + (__HQAA_LUMA_REF.b * x.b) + (__HQAA_LUMA_REF.a * x.a))
@@ -565,10 +570,10 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
-	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.75), 0.125);
+	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.5), 0.125);
 	
 	float strongestcolor = max3(middle.r,middle.g,middle.b);
-	float estimatedgamma = dotluma(middle);
+	float estimatedgamma = dotgamma(middle);
 	float estimatedbrightness = (strongestcolor + estimatedgamma) * 0.5;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
@@ -577,7 +582,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
 	// calculate color channel weighting
-	float4 weights = __HQAA_LUMA_REF;
+	float4 weights = float4(0.3333, 0.3334, 0.3333, 0.0);
 	weights *= middle;
 	float scale = rcp(vec4add(weights));
 	weights *= scale;
@@ -596,7 +601,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	if (dot(edges, float2(1.0, 1.0)) != 0.0) {
 		
 	// scale will always be some number >1
-	float adaptationscale = 1.0 + pow(abs(scale), abs(rcp(scale)));
+	float adaptationscale = pow(abs(scale), abs(rcp(scale)));
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
     float Lbottom  = dot(tex2D(colorTex, offset[1].zw), weights);
@@ -983,7 +988,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
 	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
-	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.75), 0.125);
+	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
 	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
@@ -1125,17 +1130,11 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// grab original buffer state
     float4 prerender = tex2D(referencetex, pos);
 	
-	// calculate some differences:
-	// original->SMAA
-	float smaadelta = abs(vec4add(SmaaPixel) - vec4add(prerender));
-	// SMAA->FXAA
-	float stepdelta = abs(vec4add(resultAA) - vec4add(SmaaPixel));
-	// original->FXAA
-	float rundelta = abs(vec4add(resultAA) - vec4add(prerender));
-	// how close are the FXAA and SMAA results?
-	float methoddelta = abs(rundelta - smaadelta);
-	// establish whether this matches the stepdelta, which gives our margin of error
-	float errormargin = abs(methoddelta - stepdelta);
+	// compute theoretical luma for this result
+	resultAA.a = GetNewAlpha(prerender, resultAA);
+	
+	// if there's a lot of luma drift the result may not be desirable
+	float errormargin = abs(resultAA.a - prerender.a);
 	
 	float4 weightedresult;
 	// margin of error determines the blending bias, pass determines the blending inputs
@@ -1147,7 +1146,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// fart the result
 #if HQAA_INCLUDE_DEBUG_CODE
-	if (debugmode != 6 && debugmode != 7)
+	if (debugmode < 6)
 	{
 #endif
 	return weightedresult;
@@ -1156,10 +1155,14 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	else if (debugmode == 6) {
 		return FxaaAdaptiveLuma(rgbyM);
 	}
-	else {
+	else if (debugmode == 7) {
 		float runtime = (float(iterationsN / maxiterations) + float(iterationsP / maxiterations)) / 2.0;
 		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0.0, 1.0);
 		return FxaaMetrics;
+	}
+	else {
+		float4 FxaaErrorLevel = float4(errormargin, 1.0 - errormargin, 0.0, 1.0);
+		return FxaaErrorLevel;
 	}
 #endif
 }
@@ -1234,6 +1237,7 @@ sampler HQAApointGammaSampler
 	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAApointLinearSampler
 {
 	Texture = ReShade::BackBufferTex;
@@ -1245,6 +1249,7 @@ sampler HQAApointLinearSampler
 	SRGBTexture = true;
 #endif
 };
+
 sampler HQAAlinearmipGammaSampler
 {
 	Texture = ReShade::BackBufferTex;
@@ -1252,6 +1257,7 @@ sampler HQAAlinearmipGammaSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAlinearmipLinearSampler
 {
 	Texture = ReShade::BackBufferTex;
@@ -1263,6 +1269,7 @@ sampler HQAAlinearmipLinearSampler
 	SRGBTexture = true;
 #endif
 };
+
 sampler HQAAsupportSampler
 {
 	Texture = HQAAsupportTex;
@@ -1270,6 +1277,7 @@ sampler HQAAsupportSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAsupportPointSampler
 {
 	Texture = HQAAsupportTex;
@@ -1277,6 +1285,7 @@ sampler HQAAsupportPointSampler
 	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAedgesSampler
 {
 	Texture = HQAAedgesTex;
@@ -1284,6 +1293,7 @@ sampler HQAAedgesSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAblendSampler
 {
 	Texture = HQAAblendTex;
@@ -1291,6 +1301,7 @@ sampler HQAAblendSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAareaSampler
 {
 	Texture = HQAAareaTex;
@@ -1298,6 +1309,7 @@ sampler HQAAareaSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAsearchSampler
 {
 	Texture = HQAAsearchTex;
@@ -1305,6 +1317,7 @@ sampler HQAAsearchSampler
 	MipFilter = Point; MinFilter = Point; MagFilter = Point;
 	SRGBTexture = false;
 };
+
 sampler HQAAalphaSampler
 {
 	Texture = HQAAalphaTex;
@@ -1312,6 +1325,7 @@ sampler HQAAalphaSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+
 sampler HQAAstabilizerSampler
 {
 	Texture = HQAAstabilizerTex;
@@ -1331,6 +1345,8 @@ void HQAAEdgeDetectionWrapVS(
 	PostProcessVS(id, position, texcoord);
 	HQAAEdgeDetectionVS(texcoord, offset);
 }
+
+
 void HQAABlendingWeightCalculationWrapVS(
 	in uint id : SV_VertexID,
 	out float4 position : SV_Position,
@@ -1341,6 +1357,8 @@ void HQAABlendingWeightCalculationWrapVS(
 	PostProcessVS(id, position, texcoord);
 	HQAABlendingWeightCalculationVS(texcoord, pixcoord, offset);
 }
+
+
 void HQAANeighborhoodBlendingWrapVS(
 	in uint id : SV_VertexID,
 	out float4 position : SV_Position,
@@ -1356,17 +1374,17 @@ void HQAANeighborhoodBlendingWrapVS(
 float GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(HQAAlinearmipLinearSampler, texcoord);
-	pixel.a = dotluma(pixel);
-	pixel.a = pixel.a > 1e-5 ? sqrt(pixel.a) : __HQAA_SMALLEST_COLOR_STEP;
+	float rgbluma = dotgamma(pixel);
+	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
 	return pixel.a;
 }
 
 
 float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float4 pixel = tex2D(HQAAlinearmipGammaSampler, texcoord);
-	pixel.a = dotluma(pixel);
-	pixel.a = pixel.a > 1e-5 ? sqrt(pixel.a) : __HQAA_SMALLEST_COLOR_STEP;
+	float4 pixel = tex2D(HQAAlinearmipLinearSampler, texcoord);
+	float rgbluma = dotgamma(pixel);
+	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
 	return pixel;
 }
 
@@ -1375,8 +1393,8 @@ float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord 
 {
 	float4 input = tex2D(HQAAlinearmipGammaSampler, texcoord);
 	float4 output = float4(input.g, input.b, input.r, input.a);
-	output.a = dotluma(output);
-	output.a = output.a > 1e-5 ? sqrt(output.a) : __HQAA_SMALLEST_COLOR_STEP;
+	input.a = dotgamma(output);
+	output.a = lerp(input.a, output.a, input.a);
 	return output;
 }
 
@@ -1385,34 +1403,15 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 {
 	float4 input = tex2D(HQAAlinearmipGammaSampler, texcoord);
 	float4 output = float4(input.b, input.r, input.g, input.a);
-	output.a = dotluma(output);
-	output.a = output.a > 1e-5 ? sqrt(output.a) : __HQAA_SMALLEST_COLOR_STEP;
+	input.a = dotgamma(output);
+	output.a = lerp(input.a, output.a, input.a);
 	return output;
 }
-
-
-float4 GenerateImageBlowoutPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float4 input = tex2D(HQAAlinearmipGammaSampler, texcoord);
-	float4 output = sqrt(input);
-	return output;
-}
-
 
 float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	return tex2D(HQAAlinearmipGammaSampler, texcoord);
 }
-
-
-float2 HQAAPrimaryDetectionPS(
-	float4 position : SV_Position,
-	float2 texcoord : TEXCOORD0,
-	float4 offset[3] : TEXCOORD1) : SV_Target
-{
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAApointGammaSampler);
-}
-
 
 float2 HQAASupportDetectionPS(
 	float4 position : SV_Position,
@@ -1548,16 +1547,6 @@ technique HQAA <
 				 "============================================================";
 >
 {
-	pass BufferEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAAPrimaryDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = true;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
 	pass CreateBufferAlphaNormal
 	{
 		VertexShader = PostProcessVS;
@@ -1570,33 +1559,7 @@ technique HQAA <
 		VertexShader = HQAAEdgeDetectionWrapVS;
 		PixelShader = HQAASupportDetectionPS;
 		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
-	pass CreateBufferAlphaNormalNegative
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateBufferNormalizedAlphaPS;
-		RenderTarget = HQAAsupportTex;
 		ClearRenderTargets = true;
-		BlendEnable = true;
-		SrcBlend = INVSRCCOLOR;
-		SrcBlendAlpha = SRCALPHA;
-	}
-	pass NegativeBufferEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAASupportDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
 		StencilEnable = true;
 		StencilPass = REPLACE;
 		StencilRef = 1;
@@ -1621,29 +1584,6 @@ technique HQAA <
 		StencilPass = REPLACE;
 		StencilRef = 1;
 	}
-	pass CreateBufferColorShiftRightNegative
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateImageColorShiftRightPS;
-		RenderTarget = HQAAsupportTex;
-		ClearRenderTargets = true;
-		BlendEnable = true;
-		SrcBlend = INVSRCCOLOR;
-		SrcBlendAlpha = SRCALPHA;
-	}
-	pass NegativeRightShiftEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAASupportDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
 	pass CreateBufferColorShiftLeft
 	{
 		VertexShader = PostProcessVS;
@@ -1652,49 +1592,6 @@ technique HQAA <
 		ClearRenderTargets = true;
 	}
 	pass LeftShiftEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAASupportDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
-	pass CreateBufferColorShiftLeftNegative
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateImageColorShiftLeftPS;
-		RenderTarget = HQAAsupportTex;
-		ClearRenderTargets = true;
-		BlendEnable = true;
-		SrcBlend = INVSRCCOLOR;
-		SrcBlendAlpha = SRCALPHA;
-	}
-	pass NegativeLeftShiftEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAASupportDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
-	pass CreateBufferColorBlowout
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateImageBlowoutPS;
-		RenderTarget = HQAAsupportTex;
-		ClearRenderTargets = true;
-	}
-	pass BlowoutEdgeDetection
 	{
 		VertexShader = HQAAEdgeDetectionWrapVS;
 		PixelShader = HQAASupportDetectionPS;
