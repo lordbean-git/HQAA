@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v13.4
+ *                        v13.5
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 13.4\n"
+	          "Version: 13.5\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -315,7 +315,7 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.8,0.4,4};
 #define __HQAA_FPS_CLAMP_MULTIPLIER rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1.0))
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (2.0 / __HQAA_FXAA_SCAN_GRANULARITY)
-#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 32
+#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 48
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160.0)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(exp2(BUFFER_COLOR_BIT_DEPTH + 1.0))
@@ -430,7 +430,7 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	float3 mnRGB2 = min5(mnRGB, a, c, g, i);
     mnRGB += mnRGB2;
 
-	float3 mxRGB = max5(d,e.rgb,f,b,h);
+	float3 mxRGB = max5(d, e.rgb, f, b, h);
 	float3 mxRGB2 = max5(mxRGB,a,c,g,i);
     mxRGB += mxRGB2;
 	
@@ -1121,25 +1121,27 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex, posM).rgb, lumaMa);
-	resultAA.a = GetNewAlpha(SmaaPixel, resultAA);
 	
-
 	// grab original buffer state
     float4 prerender = tex2D(referencetex, pos);
 	
-	// get normalized gammas for each state of this pixel: unmodified, post-SMAA, post-FXAA
-	float3 resultgamma = GetNormalizedLuma(resultAA).rgb;
-	float3 originalgamma = GetNormalizedLuma(prerender).rgb;
-	float stepgamma = dotluma(SmaaPixel);
-	stepgamma = abs(dotluma(resultAA) - stepgamma);
+	// calculate some differences:
+	// original->SMAA
+	float smaadelta = abs(vec4add(SmaaPixel) - vec4add(prerender));
+	// SMAA->FXAA
+	float stepdelta = abs(vec4add(resultAA) - vec4add(SmaaPixel));
+	// original->FXAA
+	float rundelta = abs(vec4add(resultAA) - vec4add(prerender));
+	// how close are the FXAA and SMAA results?
+	float methoddelta = abs(rundelta - smaadelta);
+	// establish whether this matches the stepdelta, which gives our margin of error
+	float errormargin = abs(methoddelta - stepdelta);
 	
-	// calculate interpolation - we use normalized estimated lumas
-	// between the FXAA result and the original game-rendered scene
-	// using the SMAA result as the pivot to choose how much to
-	// blend the FXAA results. This helps to minimize overcorrection
-	// artifacts from both SMAA and FXAA
-	float blendfactor = dotgamma(lerp(resultgamma, originalgamma, stepgamma));
-	float4 weightedresult = lerp(resultAA, prerender, blendfactor);
+	float4 weightedresult;
+	// margin of error determines the blending bias, pass determines the blending inputs
+	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) weightedresult = lerp(resultAA, SmaaPixel, errormargin);
+	else weightedresult = lerp(resultAA, prerender, errormargin);
+	
 	weightedresult.a = GetNewAlpha(SmaaPixel, weightedresult);
 
 	
