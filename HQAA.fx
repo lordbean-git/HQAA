@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v14.1
+ *                        v14.2
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 14.1\n"
+	          "Version: 14.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -272,6 +272,27 @@ uniform int stabilizerintro <
 			  "errors such as crawling text or wiggling lines.\n\n"
 			  "This feature is enabled or disabled in the ReShade effects list.";
 	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
+	ui_category_closed = true;
+>;
+
+uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
+	ui_min = -1.00; ui_max = 0.75; ui_step = 0.001;
+	ui_spacing = 3;
+	ui_label = "Brightness Gain";
+	ui_category = "(HQAABrightnessGain) Optional Brightness Booster";
+	ui_category_closed = true;
+> = 0.0;
+
+uniform int gainintro <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\nWhen enabled, allows to raise or lower overall image brightness\n"
+			  "as a quick fix for dark games and/or monitors, or to increase\n"
+			  "perceived contrast level.\n\n"
+			  "This technique may produce odd or reversed results when used in\n"
+			  "non-standard color spaces (eg. HDR or scRGB).\n\n"
+			  "This feature is enabled or disabled in the ReShade effects list.";
+	ui_category = "(HQAABrightnessGain) Optional Brightness Booster";
 	ui_category_closed = true;
 >;
 
@@ -485,6 +506,17 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 	}
 	
 	return lerp(current, previous, blendweight);
+}
+
+// color channel experiment
+float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
+{
+	float4 dot = tex2D(tex, pos);
+	float gain = 1.0 - HqaaGainStrength;
+	dot.rgb = rcp(dot.rgb);
+	dot.rgb = pow(abs(dot.rgb), gain);
+	dot.rgb = rcp(dot.rgb);
+	return dot;
 }
 
 /*****************************************************************************************************************************************/
@@ -1531,6 +1563,15 @@ float4 HQAATemporalStabilizerWrapPS(float4 vpos : SV_Position, float2 texcoord :
 	return result;
 }
 
+float4 HQAAColorChannelCompressionWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+{
+	float4 result = HQAAColorChannelCompressionPS(HQAAlinearmipGammaSampler, texcoord);
+#if !HQAA_HDR_COMPATIBLE_MODE
+	result = saturate(result);
+#endif
+	return result;
+}
+
 /***************************************************************************************************************************************/
 /*********************************************************** SHADER CODE END ***********************************************************/
 /***************************************************************************************************************************************/
@@ -1681,5 +1722,14 @@ technique HQAATemporalStabilizer <
 		PixelShader = GenerateImageCopyPS;
 		RenderTarget = HQAAstabilizerTex;
 		ClearRenderTargets = true;
+	}
+}
+
+technique HQAABrightnessGain
+{
+	pass
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAColorChannelCompressionWrapPS;
 	}
 }
