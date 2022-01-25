@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v14.0
+ *                        v14.1
  *
  *                     by lordbean
  *
@@ -81,7 +81,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 14.0\n"
+	          "Version: 14.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -570,11 +570,9 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
-	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.5), 0.125);
+	float adjustmentrange = min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.75), 0.125);
 	
-	float strongestcolor = max3(middle.r,middle.g,middle.b);
-	float estimatedgamma = dotgamma(middle);
-	float estimatedbrightness = (strongestcolor + estimatedgamma) * 0.5;
+	float estimatedbrightness = (dotgamma(middle) + max3(middle.r, middle.g, middle.b)) * 0.5;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
@@ -600,8 +598,14 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	
 	if (dot(edges, float2(1.0, 1.0)) != 0.0) {
 		
-	// scale will always be some number >1
-	float adaptationscale = pow(abs(scale), abs(rcp(scale)));
+	// scale will always be some number >=1 with gamma 2.0 colors
+	// the min comparison clamps the max possible multiplier for a dark pixel
+	// the maximum possible value of the calculation in brackets should not exceed 7.0 as
+	// SMAA was designed with a contrast adaptation ceiling of 8.0 in mind
+	// the addition of the flat 1.0 outside brackets is a sanity measure that ensures
+	// the value will contain a usable number in the event that the backbuffer color
+	// format differs significantly from gamma 2.0 (eg HDR1000, scRGB)
+	float adaptationscale = 1.0 + (min(3.0, log(scale)));
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
     float Lbottom  = dot(tex2D(colorTex, offset[1].zw), weights);
@@ -987,13 +991,8 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float2 posM = pos;
 	
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
-	float gammaM = dotluma(GetNormalizedLuma(rgbyM));
-	float adjustmentrange = min(baseThreshold * (__HQAA_SUBPIX * 0.5), 0.125);
-	float estimatedbrightness = (lumaMa + gammaM) * 0.5;
-	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
-	float fxaaQualityEdgeThreshold = baseThreshold + thresholdOffset;
-	
+	float fxaaQualityEdgeThreshold = baseThreshold;
 	
     float lumaS = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 0, 1)));
     float lumaE = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 1, 0)));
@@ -1011,9 +1010,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float rangeMaxScaled = rangeMax * sqrt(fxaaQualityEdgeThreshold);
 	float rangeMaxClamped = max(rangeMaxScaled, fxaaQualityEdgeThresholdMin);
 	
-    bool earlyExit = pixelmode != __FXAA_MODE_SMAA_DETECTION_POSITIVES;
-	if (earlyExit)
-		earlyExit = range < rangeMaxClamped;
+	bool earlyExit = range < rangeMaxClamped;
 		
 	if (earlyExit)
 		return SmaaPixel;
@@ -1134,12 +1131,12 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	resultAA.a = GetNewAlpha(prerender, resultAA);
 	
 	// if there's a lot of luma drift the result may not be desirable
-	float errormargin = abs(resultAA.a - prerender.a);
+	float smaadrift = abs(SmaaPixel.a - prerender.a);
+	float fxaadrift = abs(resultAA.a - prerender.a);
+	float errormargin = abs(fxaadrift - smaadrift);
 	
-	float4 weightedresult;
-	// margin of error determines the blending bias, pass determines the blending inputs
-	if (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES) weightedresult = lerp(resultAA, SmaaPixel, errormargin);
-	else weightedresult = lerp(resultAA, prerender, errormargin);
+	
+	float4 weightedresult = lerp(resultAA, pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES ? prerender : SmaaPixel, errormargin);
 	
 	weightedresult.a = GetNewAlpha(SmaaPixel, weightedresult);
 
