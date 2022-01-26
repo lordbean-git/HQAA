@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v14.2
+ *                        v14.3
  *
  *                     by lordbean
  *
@@ -77,11 +77,15 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 #include "ReShadeUI.fxh"
 
+#ifndef HQAA_ENABLE_OPTIONAL_TECHNIQUES
+	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 1
+#endif
+
 uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 14.2\n"
+	          "Version: 14.3\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -205,6 +209,8 @@ uniform int optionseof <
 	ui_text = "\n------------------------------------------------------------";
 >;
 
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
 	ui_min = 0; ui_max = 4; ui_step = 0.01;
@@ -301,6 +307,8 @@ uniform int optionalseof <
 	ui_label = " ";
 	ui_text = "\n------------------------------------------------------------";
 >;
+
+#endif
 
 uniform int presetbreakdown <
 	ui_type = "radio";
@@ -410,23 +418,7 @@ float GetNewAlpha(float4 before, float4 after)
 	return (before.a + delta);
 }
 
-float Stepsnap(float p)
-{
-	return round(p / __HQAA_SMALLEST_COLOR_STEP) * __HQAA_SMALLEST_COLOR_STEP;
-}
-float2 Stepsnap(float2 p)
-{
-	return float2(Stepsnap(p.r), Stepsnap(p.g));
-}
-float3 Stepsnap(float3 p)
-{
-	return float3(Stepsnap(p.r), Stepsnap(p.g), Stepsnap(p.b));
-}
-float4 Stepsnap(float4 p)
-{
-	return float4(Stepsnap(p.r), Stepsnap(p.g), Stepsnap(p.b), Stepsnap(p.a));
-}
-
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 // CAS standalone function
 float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
@@ -518,6 +510,7 @@ float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 	dot.rgb = rcp(dot.rgb);
 	return dot;
 }
+#endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /*****************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
@@ -1242,12 +1235,14 @@ texture HQAAsupportTex
 	Format = BUFFER_COLOR_BIT_DEPTH;
 };
 
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 texture HQAAstabilizerTex
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
 	Format = BUFFER_COLOR_BIT_DEPTH;
 };
+#endif
 
 texture HQAAalphaTex
 {
@@ -1355,6 +1350,7 @@ sampler HQAAalphaSampler
 	SRGBTexture = false;
 };
 
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 sampler HQAAstabilizerSampler
 {
 	Texture = HQAAstabilizerTex;
@@ -1362,6 +1358,7 @@ sampler HQAAstabilizerSampler
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+#endif
 
 //////////////////////////////////////////////////////////// VERTEX SHADERS /////////////////////////////////////////////////////////////
 
@@ -1538,6 +1535,7 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 }
 
 
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	float4 result = HQAACASPS(texcoord, HQAAedgesSampler, HQAAlinearmipLinearSampler);
@@ -1571,6 +1569,7 @@ float4 HQAAColorChannelCompressionWrapPS(float4 vpos : SV_Position, float2 texco
 #endif
 	return result;
 }
+#endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
 /*********************************************************** SHADER CODE END ***********************************************************/
@@ -1690,6 +1689,7 @@ technique HQAA <
 	}
 }
 
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 technique HQAACAS <
 	ui_tooltip = "HQAA Optional Contrast-Adaptive Sharpening Pass";
 >
@@ -1733,3 +1733,4 @@ technique HQAABrightnessGain
 		PixelShader = HQAAColorChannelCompressionWrapPS;
 	}
 }
+#endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
