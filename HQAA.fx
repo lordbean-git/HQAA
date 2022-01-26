@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v14.3
+ *                        v14.4
  *
  *                     by lordbean
  *
@@ -85,7 +85,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 14.3\n"
+	          "Version: 14.4\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -349,8 +349,8 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.8,0.4,4};
 #define __HQAA_FPS_CLAMP_MULTIPLIER rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1.0))
 #define __HQAA_MINIMUM_SEARCH_STEPS_SMAA 20
 #define __HQAA_MINIMUM_SEARCH_STEPS_FXAA (2.0 / __HQAA_FXAA_SCAN_GRANULARITY)
-#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA 50
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 2160.0)
+#define __HQAA_DEFAULT_SEARCH_STEPS_FXAA (8.0 / __HQAA_FXAA_SCAN_GRANULARITY)
+#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440.0)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(exp2(BUFFER_COLOR_BIT_DEPTH + 1.0))
 
@@ -1254,26 +1254,6 @@ texture HQAAalphaTex
 
 //////////////////////////////////////////////////////////// SAMPLERS ///////////////////////////////////////////////////////////////////
 
-sampler HQAApointGammaSampler
-{
-	Texture = ReShade::BackBufferTex;
-	AddressU = Clamp; AddressV = Clamp;
-	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
-	SRGBTexture = false;
-};
-
-sampler HQAApointLinearSampler
-{
-	Texture = ReShade::BackBufferTex;
-	AddressU = Clamp; AddressV = Clamp;
-	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
-#if HQAA_HDR_COMPATIBLE_MODE
-	SRGBTexture = false;
-#else
-	SRGBTexture = true;
-#endif
-};
-
 sampler HQAAlinearmipGammaSampler
 {
 	Texture = ReShade::BackBufferTex;
@@ -1299,14 +1279,6 @@ sampler HQAAsupportSampler
 	Texture = HQAAsupportTex;
 	AddressU = Clamp; AddressV = Clamp;
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
-	SRGBTexture = false;
-};
-
-sampler HQAAsupportPointSampler
-{
-	Texture = HQAAsupportTex;
-	AddressU = Clamp; AddressV = Clamp;
-	MipFilter = Point; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
 
@@ -1444,7 +1416,7 @@ float2 HQAASupportDetectionPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsupportPointSampler);
+	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsupportSampler);
 }
 
 
@@ -1460,8 +1432,8 @@ float4 HQAABlendingWeightCalculationWrapPS(
 
 float4 HQAANeighborhoodBlendingWrapPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
-	float4 original = tex2D(HQAApointLinearSampler, texcoord);
-	float4 result = HQAANeighborhoodBlendingPS(texcoord, offset, HQAApointLinearSampler, HQAAblendSampler);
+	float4 original = tex2D(HQAAlinearmipLinearSampler, texcoord);
+	float4 result = HQAANeighborhoodBlendingPS(texcoord, offset, HQAAlinearmipLinearSampler, HQAAblendSampler);
 	
 	if (dot(abs(result - original), float4(1.0, 1.0, 1.0, 1.0)) < __HQAA_SMALLEST_COLOR_STEP)
 		result = original;
