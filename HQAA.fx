@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.2.2
+ *                        v15.3
  *
  *                     by lordbean
  *
@@ -113,7 +113,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 15.2.2\n"
+	          "Version: 15.3\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -178,7 +178,7 @@ uniform uint debugmode <
 	ui_label = " ";
 	ui_spacing = 1;
 	ui_text = "Debug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Computed Alpha Normals\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Computed Gamma Normals\0Computed Linear Normals\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -209,7 +209,7 @@ uniform int debugexplainer <
 			  "FXAA metrics draws a range of green to red where the selected\n"
 			  "pass ran, with green representing not much execution time used\n"
 			  "and red representing a lot of execution time used.\n\n"
-			  "The Alpha Normals view represents the normalized luminance\n"
+			  "The Gamma and Linear Normals views represent the normalized luminance\n"
 			  "data used to represent the alpha channel during edge detection.\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_COMPILE_DEBUG_CODE to 0.\n"
@@ -633,13 +633,13 @@ void HQAANeighborhoodBlendingVS(float2 texcoord,
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'colorTex' should be a non-sRGB texture.
  */
-float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colorTex) {
+float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colorTex, float linearnormal) {
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
 	float adjustmentrange = __SMAA_THRESHOLD_ADJUSTMENT_RANGE;
 	
-	float estimatedbrightness = (dotgamma(middle) + max3(middle.r, middle.g, middle.b)) * 0.5;
+	float estimatedbrightness = lerp(dotgamma(middle), middle.a, linearnormal);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
@@ -1033,7 +1033,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float4 SmaaPixel = tex2D(tex, pos);
     float4 rgbyM = FxaaTex2D(tex, pos);
 	
-	float2 edgedata = tex2D(edgestex, pos).rg;
+	float4 edgedata = tex2D(edgestex, pos);
 	bool SMAAedge = (edgedata.r + edgedata.g) > 0.0;
 	
 	if ( SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES)) return SmaaPixel;
@@ -1042,7 +1042,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	// calculate the threshold
 	float adjustmentrange = __FXAA_THRESHOLD_ADJUSTMENT_RANGE;
 	
-	float estimatedbrightness = (dotgamma(rgbyM) + max3(rgbyM.r, rgbyM.g, rgbyM.b)) * 0.5;
+	float estimatedbrightness = lerp(dotgamma(rgbyM), edgedata.a, edgedata.b);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
     float2 posM = pos;
@@ -1175,13 +1175,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// fart the result
 #if HQAA_COMPILE_DEBUG_CODE
-	if (debugmode < 5)
+	if (debugmode < 6)
 	{
 #endif
 	return resultAA;
 #if HQAA_COMPILE_DEBUG_CODE
 	}
-	else if (debugmode == 5) {
+	else if (debugmode == 6) {
 		return float4(lumaMa, lumaMa, lumaMa, lumaMa);
 	}
 	else {
@@ -1350,10 +1350,13 @@ void HQAANeighborhoodBlendingWrapVS(
 
 float4 GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float4 pixel = tex2D(HQAAsamplerBufferGamma, texcoord);
-	float rgbluma = dotgamma(pixel);
-	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
-	return float4(0.0, 0.0, 0.0, pixel.a);
+	float4 gammapixel = tex2D(HQAAsamplerBufferGamma, texcoord);
+	float4 linearpixel = tex2D(HQAAsamplerBufferSRGB, texcoord);
+	float rgbluma = dotgamma(gammapixel);
+	gammapixel.a = lerp(rgbluma, gammapixel.a, rgbluma);
+	rgbluma = dotgamma(linearpixel);
+	linearpixel.a = lerp(rgbluma, linearpixel.a, rgbluma);
+	return float4(0.0, 0.0, linearpixel.a, gammapixel.a);
 }
 
 
@@ -1395,7 +1398,7 @@ float2 HQAAEdgeDetectionPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerSMweights);
+	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerSMweights, tex2D(HQAAsamplerBufferSRGB, texcoord).a);
 }
 
 float2 HQAABufferDetectionPS(
@@ -1403,7 +1406,7 @@ float2 HQAABufferDetectionPS(
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerBufferGamma);
+	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerBufferGamma, tex2D(HQAAsamplerBufferSRGB, texcoord).a);
 }
 
 
@@ -1433,7 +1436,7 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord, HQAAsamplerBufferGamma, HQAAsamplerAlphaEdges, __FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
 #if HQAA_COMPILE_DEBUG_CODE
-	if (debugmode > 3 && debugFXAApass == 0) {
+	if (debugmode > 4 && debugFXAApass == 0) {
 		bool validResult = dot(abs(result - tex2D(HQAAsamplerBufferGamma, texcoord)), float4(1.0, 1.0, 1.0, 1.0)) > 1e-5;
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
@@ -1457,13 +1460,15 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		return tex2D(HQAAsamplerSMweights, texcoord);
 	if (debugmode == 3)
 		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, 1.0);
+	if (debugmode == 4)
+		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, 1.0);
 	}
 #endif
 		
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord, HQAAsamplerBufferGamma, HQAAsamplerAlphaEdges, __FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
 #if HQAA_COMPILE_DEBUG_CODE
-	if (debugmode > 3 && debugFXAApass == 1) {
+	if (debugmode > 4 && debugFXAApass == 1) {
 		bool validResult = dot(abs(result - tex2D(HQAAsamplerBufferGamma, texcoord)), float4(1.0, 1.0, 1.0, 1.0)) > 1e-5;
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
@@ -1627,10 +1632,11 @@ technique HQAA <
 		RenderTarget = HQAAedgesTex;
 		ClearRenderTargets = false;
 		BlendEnable = true;
-		SrcBlend = ZERO;
+		SrcBlend = ONE;
 		SrcBlendAlpha = ONE;
 		DestBlend = ONE;
 		DestBlendAlpha = ZERO;
+		BlendOp = MAX;
 	}
 	pass FXAAPositives
 	{
