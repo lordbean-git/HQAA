@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.3
+ *                        v15.4
  *
  *                     by lordbean
  *
@@ -113,7 +113,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 15.3\n"
+	          "Version: 15.4\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -1047,7 +1047,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
     float2 posM = pos;
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
-	float fxaaQualitySubpix = __HQAA_SUBPIX * sqrt(__HQAA_FXAA_SCAN_GRANULARITY) * __HQAA_BUFFER_MULTIPLIER;
 	float fxaaQualityEdgeThreshold = __FXAA_EDGE_THRESHOLD + thresholdOffset;
 	
     float lumaS = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 0, 1)));
@@ -1066,10 +1065,8 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	bool earlyExit = (pixelmode != __FXAA_MODE_SMAA_DETECTION_POSITIVES) * (range < fxaaQualityEdgeThreshold);
 	
-	[branch]
 	if (earlyExit)
 		return SmaaPixel;
-	else {
 	
     float edgeHorz = abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)));
     float edgeVert = abs(mad(-2.0, lumaS, lumaSW + lumaSE)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaW + lumaE)), abs(mad(-2.0, lumaN, lumaNW + lumaNE)));
@@ -1077,16 +1074,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float lengthSign = BUFFER_RCP_WIDTH;
     bool horzSpan = edgeHorz >= edgeVert;
 	
-    float subpixOut = mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW); // A
-    subpixOut = saturate(abs(mad((1.0/12.0), subpixOut, -lumaMa)) * rcp(range)); // BC
-    subpixOut = mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut); // DEF
-	subpixOut = (subpixOut * subpixOut) * fxaaQualitySubpix; // GH
 	
     if(!horzSpan) {
 		lumaN = lumaW;
 		lumaS = lumaE;
 	}
     else lengthSign = BUFFER_RCP_HEIGHT;
+	
 	
     float gradientN = lumaN - lumaMa;
     float gradientS = lumaS - lumaMa;
@@ -1161,13 +1155,20 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
     bool goodSpan = (dstN < dstP) ? ((lumaEndN < 0.0) != lumaMLTZero) : ((lumaEndP < 0.0) != lumaMLTZero);
     float pixelOffset = mad(-rcp(dstP + dstN), min(dstN, dstP), 0.5);
-	
-    float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
+	float subpixOut;
+    if (goodSpan) subpixOut = pixelOffset;
+	else {
+		float fxaaQualitySubpix = __HQAA_SUBPIX * sqrt(__HQAA_FXAA_SCAN_GRANULARITY) * __HQAA_BUFFER_MULTIPLIER;
+		subpixOut = mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW); // A
+		subpixOut = saturate(abs(mad((1.0/12.0), subpixOut, -lumaMa)) * rcp(range)); // BC
+		subpixOut = mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut); // DEF
+		subpixOut = (subpixOut * subpixOut) * fxaaQualitySubpix; // GH
+		subpixOut *= pixelOffset;
+    }
 
-    float pixelOffsetSubpix = max(pixelOffsetGood, subpixOut);
 	
-    if(!horzSpan) posM.x = mad(lengthSign, pixelOffsetSubpix, posM.x);
-    else posM.y = mad(lengthSign, pixelOffsetSubpix, posM.y);
+    if(!horzSpan) posM.x = mad(lengthSign, subpixOut, posM.x);
+    else posM.y = mad(lengthSign, subpixOut, posM.y);
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex, posM).rgb, lumaMa);
@@ -1190,7 +1191,6 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		return FxaaMetrics;
 	}
 #endif
-	}
 }
 
 /***************************************************************************************************************************************/
