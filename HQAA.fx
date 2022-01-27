@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.2
+ *                        v15.2.1
  *
  *                     by lordbean
  *
@@ -113,7 +113,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 15.2\n"
+	          "Version: 15.2.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -170,6 +170,7 @@ uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 0.5;
 
+#if HQAA_COMPILE_DEBUG_CODE
 uniform uint debugmode <
 	ui_type = "radio";
 	ui_category = "Debug";
@@ -216,6 +217,7 @@ uniform int debugexplainer <
 	ui_category = "Debug";
 	ui_category_closed = true;
 >;
+#endif
 
 #if HQAA_ENABLE_FPS_TARGET
 uniform float FramerateFloor < __UNIFORM_SLIDER_INT1
@@ -264,12 +266,14 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 0.5;
 
+#if HQAA_COMPILE_DEBUG_CODE
 uniform bool HqaaSharpenerDebug <
     ui_text = "Debug:\n ";
 	ui_label = "Show Sharpening Pattern";
 	ui_category = "(HQAACAS) Optional Sharpening";
 	ui_category_closed = true;
 > = false;
+#endif
 
 uniform int sharpenerintro <
 	ui_type = "radio";
