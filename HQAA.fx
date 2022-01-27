@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.1
+ *                        v15.2
  *
  *                     by lordbean
  *
@@ -77,15 +77,43 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 #include "ReShadeUI.fxh"
 
+#ifndef HQAA_ENABLE_HDR_OUTPUT
+	#define HQAA_ENABLE_HDR_OUTPUT 0
+#endif
+
+#ifndef HQAA_COMPILE_DEBUG_CODE
+	#define HQAA_COMPILE_DEBUG_CODE 1
+#endif
+
 #ifndef HQAA_ENABLE_OPTIONAL_TECHNIQUES
 	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 1
 #endif
+
+#ifndef HQAA_ENABLE_FPS_TARGET
+#define HQAA_ENABLE_FPS_TARGET 1
+#endif
+
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
+#ifndef HQAA_OPTIONAL_CAS
+#define HQAA_OPTIONAL_CAS 1
+#endif
+
+#ifndef HQAA_OPTIONAL_TEMPORAL_STABILIZER
+#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 1
+#endif
+
+#ifndef HQAA_OPTIONAL_BRIGHTNESS_GAIN
+#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 1
+#endif
+
+#endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 15.1\n"
+	          "Version: 15.2\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -183,18 +211,31 @@ uniform int debugexplainer <
 			  "The Alpha Normals view represents the normalized luminance\n"
 			  "data used to represent the alpha channel during edge detection.\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
-			  "by setting HQAA_INCLUDE_DEBUG_CODE to 0.\n"
+			  "by setting HQAA_COMPILE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
 	ui_category = "Debug";
 	ui_category_closed = true;
 >;
 
+#if HQAA_ENABLE_FPS_TARGET
 uniform float FramerateFloor < __UNIFORM_SLIDER_INT1
 	ui_min = 30; ui_max = 150; ui_step = 1;
 	ui_label = "Target Minimum Framerate";
 	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
-	ui_text = "\n";
+	ui_spacing = 3;
 > = 60;
+#endif
+
+#if HQAA_ENABLE_HDR_OUTPUT
+uniform float HdrNits < 
+	ui_type = "combo";
+	ui_min = 200.0; ui_max = 1000.0; ui_step = 200.0;
+	ui_label = "HDR Nits";
+	ui_spacing = 3;
+	ui_tooltip = "Most DisplayHDR certified monitors calculate colors based on 1000 nits\n"
+				 "even when the certification is for a lower value (like DisplayHDR400).";
+> = 1000.0;
+#endif
 
 uniform int optionseof <
 	ui_type = "radio";
@@ -203,6 +244,7 @@ uniform int optionseof <
 >;
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_CAS
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
@@ -238,11 +280,12 @@ uniform int sharpenerintro <
 			  "applied to areas that were processed to remove aliasing.\n\n"
 			  "HQAA's implementation of CAS uses per-component interpolation and is far less\n"
 	          "likely to generate oversharpening artifacts at high sharpen amounts compared to\n"
-			  "traditional AMD contrast-adaptive sharpening.\n\n"
-			  "This feature is enabled or disabled in the ReShade effects list.";
+			  "traditional AMD contrast-adaptive sharpening.";
 	ui_category = "(HQAACAS) Optional Sharpening";
 	ui_category_closed = true;
 >;
+#endif // HQAA_OPTIONAL_CAS
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 
 uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
@@ -268,11 +311,12 @@ uniform int stabilizerintro <
 	ui_label = " ";
 	ui_text = "\nWhen enabled, this effect will blend the previous frame with the\n"
 	          "current frame at the specified weight to minimize overcorrection\n"
-			  "errors such as crawling text or wiggling lines.\n\n"
-			  "This feature is enabled or disabled in the ReShade effects list.";
+			  "errors such as crawling text or wiggling lines.";
 	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
 	ui_category_closed = true;
 >;
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = -1.00; ui_max = 0.75; ui_step = 0.001;
@@ -289,11 +333,11 @@ uniform int gainintro <
 			  "as a quick fix for dark games and/or monitors, or to increase\n"
 			  "perceived contrast level.\n\n"
 			  "This technique may produce odd or reversed results when used in\n"
-			  "non-standard color spaces (eg. HDR or scRGB).\n\n"
-			  "This feature is enabled or disabled in the ReShade effects list.";
+			  "non-standard color spaces (eg. HDR or scRGB).";
 	ui_category = "(HQAABrightnessGain) Optional Brightness Booster";
 	ui_category_closed = true;
 >;
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 uniform int optionalseof <
 	ui_type = "radio";
@@ -338,11 +382,14 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.5,0.2,4};
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440.0)
-#define __HQAA_DESIRED_FRAMETIME float(1000.0 / FramerateFloor)
-#define __HQAA_FPS_CLAMP_MULTIPLIER rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1.0))
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_LUMA_REF float4(0.25,0.25,0.25,0.25)
 #define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
+
+#if HQAA_ENABLE_FPS_TARGET
+#define __HQAA_DESIRED_FRAMETIME float(1000.0 / FramerateFloor)
+#define __HQAA_FPS_CLAMP_MULTIPLIER rcp(frametime - (__HQAA_DESIRED_FRAMETIME - 1.0))
+#endif
 
 #define __FXAA_THRESHOLD_FLOOR __HQAA_SMALLEST_COLOR_STEP
 #define __FXAA_MINIMUM_SEARCH_STEPS (1.0 / __HQAA_FXAA_SCAN_GRANULARITY)
@@ -377,18 +424,6 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.5,0.2,4};
 #define min8(s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(s,t),u),v),w),x),y),z)
 #define min9(r,s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(min(r,s),t),u),v),w),x),y),z)
 
-#ifndef HQAA_HDR_COMPATIBLE_MODE
-	#define HQAA_HDR_COMPATIBLE_MODE 0
-#endif
-
-#ifndef HQAA_HDR_NITS
-	#define HQAA_HDR_NITS 1000.0
-#endif
-
-#ifndef HQAA_INCLUDE_DEBUG_CODE
-	#define HQAA_INCLUDE_DEBUG_CODE 1
-#endif
-
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
 /*****************************************************************************************************************************************/
@@ -418,6 +453,7 @@ float GetNewAlpha(float4 before, float4 after)
 }
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_CAS
 // CAS standalone function
 float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
@@ -451,10 +487,10 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 	float3 mxRGB2 = max5(mxRGB,a,c,g,i);
     mxRGB += mxRGB2;
 	
-	#if HQAA_HDR_COMPATIBLE_MODE
-	mnRGB *= (1.0 / HQAA_HDR_NITS);
-	mxRGB *= (1.0 / HQAA_HDR_NITS);
-	e *= (1.0 / HQAA_HDR_NITS);
+	#if HQAA_ENABLE_HDR_OUTPUT
+	mnRGB *= (1.0 / HdrNits);
+	mxRGB *= (1.0 / HdrNits);
+	e *= (1.0 / HdrNits);
 	#endif
 
     float3 rcpMRGB = rcp(mxRGB);
@@ -467,21 +503,23 @@ float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
     float3 rcpWeightRGB = rcp(mad(4.0, wRGB, 1.0));
 
     float3 window = (b + d) + (f + h);
-#if HQAA_HDR_COMPATIBLE_MODE
-	window *= (1.0 / HQAA_HDR_NITS);
+#if HQAA_ENABLE_HDR_OUTPUT
+	window *= (1.0 / HdrNits);
 #endif
 	
     float4 outColor = float4(saturate(mad(window, wRGB, e.rgb) * rcpWeightRGB), e.a);
 	
 	float4 result = float4(lerp(e, outColor, sharpening).rgb, e.a);
     
-#if HQAA_HDR_COMPATIBLE_MODE
-	return result * HQAA_HDR_NITS;
+#if HQAA_ENABLE_HDR_OUTPUT
+	return result * HdrNits;
 #else
 	return result;
 #endif
 }
+#endif //HQAA_OPTIONAL_CAS
 
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 // Temporal stabilizer function
 float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, float2 pos)
 {
@@ -498,7 +536,9 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 	
 	return lerp(current, previous, blendweight);
 }
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 // color channel experiment
 float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 {
@@ -509,6 +549,7 @@ float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 	dot.rgb = rcp(dot.rgb);
 	return dot;
 }
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /*****************************************************************************************************************************************/
@@ -571,8 +612,10 @@ void HQAABlendingWeightCalculationVS(float2 texcoord,
 	
 	float searchrange = trunc(__SMAA_MAX_SEARCH_STEPS);
 	
+	#if HQAA_ENABLE_FPS_TARGET
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
 		searchrange = trunc(max(__SMAA_MINIMUM_SEARCH_STEPS, searchrange * __HQAA_FPS_CLAMP_MULTIPLIER));
+	#endif
 
     offset[2] = mad(__SMAA_RT_METRICS.xxyy,
                     float4(-2.0, 2.0, -2.0, 2.0) * searchrange,
@@ -1084,8 +1127,10 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	uint maxiterations = int(trunc(max(__FXAA_DEFAULT_SEARCH_STEPS * __HQAA_FXAA_SCAN_MULTIPLIER, __FXAA_MINIMUM_SEARCH_STEPS)));
 	
+	#if HQAA_ENABLE_FPS_TARGET
 	if (frametime > __HQAA_DESIRED_FRAMETIME)
 		maxiterations = int(trunc(max(__FXAA_MINIMUM_SEARCH_STEPS, __HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
+	#endif
 	
 	[fastopt] while (iterationsN < maxiterations && !doneN)
 	{
@@ -1128,12 +1173,12 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	resultAA.a = GetNewAlpha(SmaaPixel, resultAA);
 	
 	// fart the result
-#if HQAA_INCLUDE_DEBUG_CODE
+#if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode < 5)
 	{
 #endif
 	return resultAA;
-#if HQAA_INCLUDE_DEBUG_CODE
+#if HQAA_COMPILE_DEBUG_CODE
 	}
 	else if (debugmode == 5) {
 		return float4(lumaMa, lumaMa, lumaMa, lumaMa);
@@ -1189,12 +1234,14 @@ texture HQAAsearchTex < source = "SearchTex.png"; >
 };
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 texture HQAAstabilizerTex
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
 	Format = BUFFER_COLOR_BIT_DEPTH;
 };
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif
 
 //////////////////////////////////////////////////////////// SAMPLERS ///////////////////////////////////////////////////////////////////
@@ -1212,7 +1259,7 @@ sampler HQAAsamplerBufferSRGB
 	Texture = ReShade::BackBufferTex;
 	AddressU = Clamp; AddressV = Clamp;
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
-#if HQAA_HDR_COMPATIBLE_MODE
+#if HQAA_ENABLE_HDR_OUTPUT
 	SRGBTexture = false;
 #else
 	SRGBTexture = true;
@@ -1252,6 +1299,7 @@ sampler HQAAsamplerSMsearch
 };
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 sampler HQAAsamplerLastFrame
 {
 	Texture = HQAAstabilizerTex;
@@ -1259,6 +1307,7 @@ sampler HQAAsamplerLastFrame
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
 	SRGBTexture = false;
 };
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif
 
 //////////////////////////////////////////////////////////// VERTEX SHADERS /////////////////////////////////////////////////////////////
@@ -1371,7 +1420,7 @@ float4 HQAANeighborhoodBlendingWrapPS(float4 position : SV_Position, float2 texc
 {
 	float4 result = HQAANeighborhoodBlendingPS(texcoord, offset, HQAAsamplerBufferSRGB, HQAAsamplerSMweights);
 	
-#if !HQAA_HDR_COMPATIBLE_MODE
+#if !HQAA_ENABLE_HDR_OUTPUT
 	result = saturate(result);
 #endif
 	return result;
@@ -1382,14 +1431,14 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 {
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord, HQAAsamplerBufferGamma, HQAAsamplerAlphaEdges, __FXAA_MODE_SMAA_DETECTION_POSITIVES);
 	
-#if HQAA_INCLUDE_DEBUG_CODE
+#if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode > 3 && debugFXAApass == 0) {
 		bool validResult = dot(abs(result - tex2D(HQAAsamplerBufferGamma, texcoord)), float4(1.0, 1.0, 1.0, 1.0)) > 1e-5;
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
 #endif
-#if !HQAA_HDR_COMPATIBLE_MODE
+#if !HQAA_ENABLE_HDR_OUTPUT
 	result = saturate(result);
 #endif
 	return result;
@@ -1399,7 +1448,7 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	// debugs 1, 2, 3, 4 need to output from the last pass in the technique
-#if HQAA_INCLUDE_DEBUG_CODE
+#if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode != 0) {
 	if (debugmode == 1)
 		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).rg, 0.0, 1.0);
@@ -1412,14 +1461,14 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord, HQAAsamplerBufferGamma, HQAAsamplerAlphaEdges, __FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
-#if HQAA_INCLUDE_DEBUG_CODE
+#if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode > 3 && debugFXAApass == 1) {
 		bool validResult = dot(abs(result - tex2D(HQAAsamplerBufferGamma, texcoord)), float4(1.0, 1.0, 1.0, 1.0)) > 1e-5;
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
 #endif
-#if !HQAA_HDR_COMPATIBLE_MODE
+#if !HQAA_ENABLE_HDR_OUTPUT
 	result = saturate(result);
 #endif
 	return result;
@@ -1427,36 +1476,42 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
+#if HQAA_OPTIONAL_CAS
 float4 HQAACASOptionalPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	float4 result = HQAACASPS(texcoord, HQAAsamplerAlphaEdges, HQAAsamplerBufferSRGB);
-#if HQAA_INCLUDE_DEBUG_CODE
+#if HQAA_COMPILE_DEBUG_CODE
     if (HqaaSharpenerDebug) result = abs(result - tex2D(HQAAsamplerBufferSRGB, texcoord));
 #endif
-#if !HQAA_HDR_COMPATIBLE_MODE
+#if !HQAA_ENABLE_HDR_OUTPUT
 	result = saturate(result);
 #endif
 	return result;
 }
+#endif //HQAA_OPTIONAL_CAS
 
-
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 float4 HQAATemporalStabilizerWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	float4 result = HQAATemporalStabilizerPS(HQAAsamplerBufferGamma, HQAAsamplerLastFrame, texcoord);
-#if !HQAA_HDR_COMPATIBLE_MODE
+#if !HQAA_ENABLE_HDR_OUTPUT
 	result = saturate(result);
 #endif
 	return result;
 }
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 float4 HQAAColorChannelCompressionWrapPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
 	float4 result = HQAAColorChannelCompressionPS(HQAAsamplerBufferGamma, texcoord);
-#if !HQAA_HDR_COMPATIBLE_MODE
+#if !HQAA_ENABLE_HDR_OUTPUT
 	result = saturate(result);
 #endif
 	return result;
 }
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
@@ -1558,7 +1613,7 @@ technique HQAA <
 		VertexShader = HQAANeighborhoodBlendingWrapVS;
 		PixelShader = HQAANeighborhoodBlendingWrapPS;
 		StencilEnable = false;
-#if HQAA_HDR_COMPATIBLE_MODE
+#if HQAA_ENABLE_HDR_OUTPUT
 		SRGBWriteEnable = false;
 #else
 		SRGBWriteEnable = true;
@@ -1586,30 +1641,22 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = FXAADetectionNegativesPS;
 	}
-}
-
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
-technique HQAACAS <
-	ui_tooltip = "HQAA Optional Contrast-Adaptive Sharpening Pass";
->
-{
+
+#if HQAA_OPTIONAL_CAS
 	pass CAS
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAACASOptionalPS;
-#if HQAA_HDR_COMPATIBLE_MODE
+#if HQAA_ENABLE_HDR_OUTPUT
 		SRGBWriteEnable = false;
 #else
 		SRGBWriteEnable = true;
 #endif
 	}
-}
+#endif //HQAA_OPTIONAL_CAS
 
-technique HQAATemporalStabilizer <
-	ui_tooltip = "HQAA Experimental Temporal Result Stabilizer\n\n"
-				 "If enabled, place this after HQAA in the list";
->
-{
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 	pass StabilizeResults
 	{
 		VertexShader = PostProcessVS;
@@ -1622,14 +1669,14 @@ technique HQAATemporalStabilizer <
 		RenderTarget = HQAAstabilizerTex;
 		ClearRenderTargets = true;
 	}
-}
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 
-technique HQAABrightnessGain
-{
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 	pass
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAColorChannelCompressionWrapPS;
 	}
-}
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
+}
