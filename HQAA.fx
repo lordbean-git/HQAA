@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.4
+ *                        v15.4.1
  *
  *                     by lordbean
  *
@@ -113,7 +113,7 @@ uniform int HQAAintroduction <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 15.4\n"
+	          "Version: 15.4.1\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
 >;
@@ -545,10 +545,12 @@ float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 {
 	float4 dot = tex2D(tex, pos);
 	float gain = 1.0 - HqaaGainStrength;
-	dot.rgb = rcp(dot.rgb);
-	dot.rgb = pow(abs(dot.rgb), gain);
-	dot.rgb = rcp(dot.rgb);
-	return dot;
+	float4 outdot;
+	outdot.rgb = rcp(dot.rgb);
+	outdot.rgb = pow(abs(outdot.rgb), gain);
+	outdot.rgb = rcp(outdot.rgb);
+	outdot.a = GetNewAlpha(dot, outdot);
+	return outdot;
 }
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
