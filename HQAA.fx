@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.4.1
+ *                        v15.5
  *
  *                     by lordbean
  *
@@ -111,11 +111,17 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = " ";
-	ui_text = "\nHybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-	          "Version: 15.4.1\n"
+	ui_label = "Version: 15.5";
+	ui_text = "\n----------------------------------------------------------------------\n\n"
+			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
+>;
+
+uniform int introeof <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n----------------------------------------------------------------------";
 >;
 
 uniform int preset <
@@ -169,6 +175,23 @@ uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Custom Preset";
 	ui_category_closed = true;
 > = 0.5;
+
+uniform int presetbreakdown <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n"
+	          "|--Preset|-Threshold---Subpix---Corners---Quality---Texel-|\n"
+	          "|--------|-----------|--------|---------|---------|-------|\n"
+	          "|  Potato|   0.250   |  .125  |    0%   |  0.250  |  2.0  |\n"
+			  "|     Low|   0.200   |  .250  |    0%   |  0.375  |  1.5  |\n"
+			  "|  Medium|   0.150   |  .500  |    5%   |  0.750  |  1.0  |\n"
+			  "|    High|   0.100   |  .750  |   10%   |  1.000  |  1.0  |\n"
+			  "|   Ultra|   0.075   |  1.00  |   15%   |  1.500  |  0.5  |\n"
+			  "|  GLaDOS|   0.050   |  1.00  |   20%   |  2.500  |  0.2  |\n"
+			  "-----------------------------------------------------------";
+	ui_category = "Click me to see what settings each preset uses!";
+	ui_category_closed = true;
+>;
 
 #if HQAA_COMPILE_DEBUG_CODE
 uniform uint debugmode <
@@ -242,7 +265,7 @@ uniform float HdrNits <
 uniform int optionseof <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n------------------------------------------------------------";
+	ui_text = "\n----------------------------------------------------------------------";
 >;
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -343,34 +366,17 @@ uniform int gainintro <
 uniform int optionalseof <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n------------------------------------------------------------";
+	ui_text = "\n----------------------------------------------------------------------";
 >;
 
 #endif
-
-uniform int presetbreakdown <
-	ui_type = "radio";
-	ui_label = " ";
-	ui_text = "\n"
-	          "|--Preset|-Threshold---Subpix---Corners---Quality---Texel-|\n"
-	          "|--------|-----------|--------|---------|---------|-------|\n"
-	          "|  Potato|   0.250   |  .125  |    0%   |  0.250  |  2.0  |\n"
-			  "|     Low|   0.200   |  .250  |    0%   |  0.375  |  1.5  |\n"
-			  "|  Medium|   0.150   |  .500  |   10%   |  0.750  |  1.0  |\n"
-			  "|    High|   0.100   |  .750  |   15%   |  1.000  |  1.0  |\n"
-			  "|   Ultra|   0.075   |  1.00  |   20%   |  1.500  |  0.5  |\n"
-			  "|  GLaDOS|   0.050   |  1.00  |   25%   |  2.500  |  0.2  |\n"
-			  "-----------------------------------------------------------";
-	ui_category = "Click me to see what settings each preset uses!";
-	ui_category_closed = true;
->;
 
 uniform float frametime < source = "frametime"; >;
 uniform uint framecount < source = "framecount"; >;
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.25,0.2,0.15,0.1,0.075,0.05,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125,0.25,0.5,0.75,1.0,1.0,0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0,0.0,10.0,15.0,20.0,25.0,0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0,0.0,5.0,10.0,15.0,20.0,0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25,0.375,0.75,1.0,1.5,2.5,0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.5,0.2,4};
 
@@ -396,11 +402,11 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.5,0.2,4};
 #define __FXAA_MINIMUM_SEARCH_STEPS (1.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __FXAA_DEFAULT_SEARCH_STEPS (10.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __FXAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __FXAA_THRESHOLD_FLOOR)
-#define __FXAA_THRESHOLD_ADJUSTMENT_RANGE min((__FXAA_EDGE_THRESHOLD - __FXAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.5), 0.125)
+#define __FXAA_THRESHOLD_ADJUSTMENT_RANGE min((__FXAA_EDGE_THRESHOLD - __FXAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.375), 0.0625)
 
 #define __SMAA_THRESHOLD_FLOOR (__HQAA_SMALLEST_COLOR_STEP * 0.25)
 #define __SMAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __SMAA_THRESHOLD_FLOOR)
-#define __SMAA_THRESHOLD_ADJUSTMENT_RANGE min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.875), 0.25)
+#define __SMAA_THRESHOLD_ADJUSTMENT_RANGE min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.625), 0.125)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __SMAA_MINIMUM_SEARCH_STEPS 20
 
@@ -668,13 +674,11 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	if (dot(edges, float2(1.0, 1.0)) != 0.0) {
 		
 	// scale will always be some number >=1 with gamma 2.0 colors
-	// the min comparison clamps the max possible multiplier for a dark pixel
-	// the maximum possible value of the calculation in brackets should not exceed 7.0 as
-	// SMAA was designed with a contrast adaptation ceiling of 8.0 in mind
-	// the addition of the flat 1.0 outside brackets is a sanity measure that ensures
-	// the value will contain a usable number in the event that the backbuffer color
-	// format differs significantly from gamma 2.0 (eg HDR1000, scRGB)
-	float adaptationscale = 1.0 + (0.1 * min(70.0, log(scale)));
+	// bright dots approach 1.0, dark dots approach 255
+	// this gives a log10 range of 0 (bright) to ~2.4 (dark)
+	// this calculation may fail to produce a good result in HDR or scRGB
+	// so it is clamped to keep the value inside SMAA expected range
+	float adaptationscale = clamp(1.0 + log10(scale), 1.0, 8.0);
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
     float Lbottom  = dot(tex2D(colorTex, offset[1].zw), weights);
@@ -1160,7 +1164,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float subpixOut;
     if (goodSpan) subpixOut = pixelOffset;
 	else {
-		float fxaaQualitySubpix = __HQAA_SUBPIX * sqrt(__HQAA_FXAA_SCAN_GRANULARITY) * __HQAA_BUFFER_MULTIPLIER;
+		float fxaaQualitySubpix = __HQAA_SUBPIX * __HQAA_FXAA_SCAN_GRANULARITY * __HQAA_BUFFER_MULTIPLIER;
 		subpixOut = mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW); // A
 		subpixOut = saturate(abs(mad((1.0/12.0), subpixOut, -lumaMa)) * rcp(range)); // BC
 		subpixOut = mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut); // DEF
