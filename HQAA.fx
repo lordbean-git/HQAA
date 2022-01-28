@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.5
+ *                        v15.6
  *
  *                     by lordbean
  *
@@ -111,7 +111,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 15.5";
+	ui_label = "Version: 15.6";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -184,10 +184,10 @@ uniform int presetbreakdown <
 	          "|--------|-----------|--------|---------|---------|-------|\n"
 	          "|  Potato|   0.250   |  .125  |    0%   |  0.250  |  2.0  |\n"
 			  "|     Low|   0.200   |  .250  |    0%   |  0.375  |  1.5  |\n"
-			  "|  Medium|   0.150   |  .500  |    5%   |  0.750  |  1.0  |\n"
-			  "|    High|   0.100   |  .750  |   10%   |  1.000  |  1.0  |\n"
-			  "|   Ultra|   0.075   |  1.00  |   15%   |  1.500  |  0.5  |\n"
-			  "|  GLaDOS|   0.050   |  1.00  |   20%   |  2.500  |  0.2  |\n"
+			  "|  Medium|   0.150   |  .500  |    0%   |  0.750  |  1.0  |\n"
+			  "|    High|   0.100   |  .750  |    0%   |  1.000  |  1.0  |\n"
+			  "|   Ultra|   0.075   |  1.00  |    0%   |  1.500  |  0.5  |\n"
+			  "|  GLaDOS|   0.050   |  1.00  |    0%   |  2.500  |  0.2  |\n"
 			  "-----------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -376,7 +376,7 @@ uniform uint framecount < source = "framecount"; >;
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.25,0.2,0.15,0.1,0.075,0.05,1};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125,0.25,0.5,0.75,1.0,1.0,0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0,0.0,5.0,10.0,15.0,20.0,0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25,0.375,0.75,1.0,1.5,2.5,0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.5,0.2,4};
 
@@ -715,7 +715,7 @@ float4 HQAADecodeDiagBilinearAccess(float4 e) {
 float2 HQAASearchDiag1(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out float2 e) {
     float4 coord = float4(texcoord, -1.0, 1.0);
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
-    while (coord.z < float(__SMAA_MAX_SEARCH_STEPS_DIAG - 1) &&
+    [loop] while (coord.z < float(__SMAA_MAX_SEARCH_STEPS_DIAG - 1) &&
            coord.w > 0.9) {
         coord.xyz = mad(t, float3(dir, 1.0), coord.xyz);
         e = __SMAASampleLevelZero(HQAAedgesTex, coord.xy).rg;
@@ -728,7 +728,7 @@ float2 HQAASearchDiag2(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out 
     float4 coord = float4(texcoord, -1.0, 1.0);
     coord.x += 0.25 * __SMAA_RT_METRICS.x;
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
-    while (coord.z < float(__SMAA_MAX_SEARCH_STEPS_DIAG - 1) &&
+    [loop] while (coord.z < float(__SMAA_MAX_SEARCH_STEPS_DIAG - 1) &&
            coord.w > 0.9) {
         coord.xyz = mad(t, float3(dir, 1.0), coord.xyz);
 
@@ -769,7 +769,6 @@ float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, f
         d.xz = float2(0.0, 0.0);
     d.yw = HQAASearchDiag1(HQAAedgesTex, texcoord, float2(1.0, -1.0), end);
 
-    __SMAA_BRANCH
     if (d.x + d.y > 2.0) {
         float4 coords = mad(float4(-d.x + 0.25, d.x, d.y, -d.y - 0.25), __SMAA_RT_METRICS.xyxy, texcoord.xyxy);
         float4 c;
@@ -791,7 +790,6 @@ float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, f
     } else
         d.yw = float2(0.0, 0.0);
 
-    __SMAA_BRANCH
     if (d.x + d.y > 2.0) {
         float4 coords = mad(float4(-d.x, -d.x, d.y, d.y), __SMAA_RT_METRICS.xyxy, texcoord.xyxy);
         float4 c;
@@ -832,7 +830,7 @@ float HQAASearchLength(sampler2D HQAAsearchTex, float2 e, float offset) {
  */
 float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
-    while (texcoord.x > end && e.g > 0.0 && e.r == 0.0) 
+    [loop] while (texcoord.x > end && e.g > 0.0 && e.r == 0.0) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -844,7 +842,7 @@ float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
 
 float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
-    while (texcoord.x < end && e.g > 0.0 && e.r == 0.0) 
+    [loop] while (texcoord.x < end && e.g > 0.0 && e.r == 0.0) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -855,7 +853,7 @@ float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 t
 
 float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
-    while (texcoord.y > end && e.r > 0.0 && e.g == 0.0) 
+    [loop] while (texcoord.y > end && e.r > 0.0 && e.g == 0.0) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -866,7 +864,7 @@ float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texc
 
 float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
-    while (texcoord.y < end && e.r > 0.0 && e.g == 0.0) 
+    [loop] while (texcoord.y < end && e.r > 0.0 && e.g == 0.0) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
@@ -927,7 +925,6 @@ float4 HQAABlendingWeightCalculationPS(float2 texcoord,
 
     float2 e = tex2D(HQAAedgesTex, texcoord).rg;
 
-    __SMAA_BRANCH
     if (e.g > 0.0) 
 	{
 
@@ -956,7 +953,6 @@ float4 HQAABlendingWeightCalculationPS(float2 texcoord,
 
     }
 
-    __SMAA_BRANCH
     if (e.r > 0.0) {
         float2 d;
 
@@ -997,7 +993,6 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
 	
 	float4 color = float4(0.0, 0.0, 0.0, 0.0);
 
-    __SMAA_BRANCH
     if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
         color = __SMAASampleLevelZero(colorTex, texcoord);
     } else {
@@ -1069,9 +1064,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
     float range = rangeMax - rangeMin;
 	
-	bool earlyExit = (pixelmode != __FXAA_MODE_SMAA_DETECTION_POSITIVES) * (range < fxaaQualityEdgeThreshold);
-	
-	if (earlyExit)
+	if (range < fxaaQualityEdgeThreshold)
 		return SmaaPixel;
 	
     float edgeHorz = abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)));
@@ -1133,7 +1126,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		maxiterations = int(trunc(max(__FXAA_MINIMUM_SEARCH_STEPS, __HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
 	#endif
 	
-	[fastopt] while (iterationsN < maxiterations && !doneN)
+	[loop] while (iterationsN < maxiterations && !doneN)
 	{
 		lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
 		lumaEndN = mad(0.5, -lumaNN, lumaEndN);
@@ -1142,7 +1135,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		iterationsN++;
     }
 	
-	[fastopt] while (iterationsP < maxiterations && !doneP)
+	[loop] while (iterationsP < maxiterations && !doneP)
 	{
 		lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
 		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
@@ -1565,6 +1558,7 @@ technique HQAA <
 		BlendEnable = true;
 		BlendOp = MAX;
 		BlendOpAlpha = MAX;
+		DestBlend = ONE;
 		StencilEnable = true;
 		StencilPass = REPLACE;
 		StencilRef = 1;
@@ -1585,6 +1579,7 @@ technique HQAA <
 		BlendEnable = true;
 		BlendOp = MAX;
 		BlendOpAlpha = MAX;
+		DestBlend = ONE;
 		StencilEnable = true;
 		StencilPass = REPLACE;
 		StencilRef = 1;
@@ -1605,6 +1600,7 @@ technique HQAA <
 		BlendEnable = true;
 		BlendOp = MAX;
 		BlendOpAlpha = MAX;
+		DestBlend = ONE;
 		StencilEnable = true;
 		StencilPass = REPLACE;
 		StencilRef = 1;
