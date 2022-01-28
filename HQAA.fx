@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v15.6
+ *                        v15.6.1
  *
  *                     by lordbean
  *
@@ -111,7 +111,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 15.6";
+	ui_label = "Version: 15.6.1";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -402,11 +402,11 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0,1.5,1.0,1.0,0.5,0.2,4};
 #define __FXAA_MINIMUM_SEARCH_STEPS (1.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __FXAA_DEFAULT_SEARCH_STEPS (10.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __FXAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __FXAA_THRESHOLD_FLOOR)
-#define __FXAA_THRESHOLD_ADJUSTMENT_RANGE min((__FXAA_EDGE_THRESHOLD - __FXAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.375), 0.0625)
+#define __FXAA_THRESHOLD_ADJUSTMENT_RANGE min(__FXAA_EDGE_THRESHOLD * (__HQAA_SUBPIX * 0.5), 0.05)
 
 #define __SMAA_THRESHOLD_FLOOR (__HQAA_SMALLEST_COLOR_STEP * 0.25)
 #define __SMAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __SMAA_THRESHOLD_FLOOR)
-#define __SMAA_THRESHOLD_ADJUSTMENT_RANGE min((__SMAA_EDGE_THRESHOLD - __SMAA_THRESHOLD_FLOOR) * (__HQAA_SUBPIX * 0.625), 0.125)
+#define __SMAA_THRESHOLD_ADJUSTMENT_RANGE min(__SMAA_EDGE_THRESHOLD * (__HQAA_SUBPIX * 0.9), 0.1)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __SMAA_MINIMUM_SEARCH_STEPS 20
 
