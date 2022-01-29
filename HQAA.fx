@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.3
+ *                        v16.3.1
  *
  *                     by lordbean
  *
@@ -93,6 +93,10 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #define HQAA_ENABLE_FPS_TARGET 1
 #endif
 
+#ifndef HQAA_SCREENSHOT_MODE
+#define HQAA_SCREENSHOT_MODE 0
+#endif
+
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_OPTIONAL_CAS
@@ -100,18 +104,18 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif
 
 #ifndef HQAA_OPTIONAL_TEMPORAL_STABILIZER
-#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 1
+#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 0
 #endif
 
 #ifndef HQAA_OPTIONAL_BRIGHTNESS_GAIN
-#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 1
+#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 0
 #endif
 
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.3";
+	ui_label = "Version: 16.3.1";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -673,6 +677,10 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
+#if HQAA_SCREENSHOT_MODE
+	threshold = float2(0.0, 0.0);
+#endif
+	
 	// calculate color channel weighting
 	float4 weights = float4(0.3, 0.3, 0.3, 0.1);
 	weights *= middle;
@@ -1081,6 +1089,10 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float fxaaQualityEdgeThreshold = __FXAA_EDGE_THRESHOLD + thresholdOffset;
+#endif
+
+#if HQAA_SCREENSHOT_MODE
+	fxaaQualityEdgeThreshold = 0.0;
 #endif
 	
     float2 posM = pos;
