@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.0
+ *                        v16.0.1
  *
  *                     by lordbean
  *
@@ -111,7 +111,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.0";
+	ui_label = "Version: 16.0.1";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -201,7 +201,7 @@ uniform uint debugmode <
 	ui_label = " ";
 	ui_spacing = 1;
 	ui_text = "Debug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Computed Gamma Normals\0Computed Hysterisis Values\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0FXAA Hysterisis\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Computed Gamma Normals\0Computed Hysteresis Values\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0FXAA Hysteresis\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -234,13 +234,15 @@ uniform int debugexplainer <
 			  "and red representing a lot of execution time used.\n\n"
 			  "The Gamma Normals view represents the normalized luminance\n"
 			  "data used to represent the alpha channel during edge detection.\n\n"
-			  "Hysterisis values are the calculated pixel lumas taken before\n"
+			  "Hysteresis values are the calculated pixel lumas taken before\n"
 			  "any anti-aliasing is applied and used by FXAA to adjust its\n"
 			  "output to reduce aggressiveness of artifacts.\n\n"
-			  "FXAA Hysterisis shows the calculated luma difference between\n"
+			  "FXAA Hysteresis shows the calculated luma difference between\n"
 			  "the original pixel and the FXAA result. This is then used as a\n"
 			  "weight to shift the appearance of the final result closer to the\n"
-			  "original pixel if necessary.\n\n"
+			  "original pixel if necessary. Green means the result was mostly\n"
+			  "unmodified, red means the result was weighted toward the look\n"
+			  "of the original pixel.\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_COMPILE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
@@ -1182,6 +1184,10 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	float resultluma = dotluma(resultAA);
 	float finaldelta = resultluma - edgedata.b;
+#if HQAA_ENABLE_HDR_OUTPUT
+	finaldelta *= rcp(HdrNits);
+#endif
+
 	float4 weightedresult = pow(abs(resultAA), abs(1.0 + finaldelta));
 	
 	// fart the result
