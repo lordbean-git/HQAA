@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.3.1
+ *                        v16.4
  *
  *                     by lordbean
  *
@@ -115,7 +115,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.3.1";
+	ui_label = "Version: 16.4";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1224,11 +1224,10 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	resultAA.a = GetNewAlpha(SmaaPixel, resultAA);
 	
 	float resultluma = dotluma(resultAA);
-	float finaldelta = resultluma - edgedata.b;
+	float finaldelta = (resultluma - edgedata.b) * edgedata.a;
 #if HQAA_ENABLE_HDR_OUTPUT
 	finaldelta *= rcp(HdrNits);
 #endif
-	finaldelta *= (1.0 - (__HQAA_SUBPIX / 4.0));
 
 	float4 weightedresult = pow(abs(resultAA), abs(1.0 + finaldelta));
 	
