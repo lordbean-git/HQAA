@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.2
+ *                        v16.3
  *
  *                     by lordbean
  *
@@ -111,7 +111,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.2";
+	ui_label = "Version: 16.3";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -182,12 +182,12 @@ uniform int presetbreakdown <
 	ui_text = "\n"
 	          "|--Preset|-Threshold---Subpix---Corners---Quality---Texel-|\n"
 	          "|--------|-----------|--------|---------|---------|-------|\n"
-	          "|  Potato|   0.250   |  .125  |    0%   |  0.250  |  2.0  |\n"
-			  "|     Low|   0.200   |  .250  |   10%   |  0.375  |  1.5  |\n"
-			  "|  Medium|   0.150   |  .500  |   15%   |  0.750  |  1.0  |\n"
-			  "|    High|   0.100   |  .750  |   20%   |  1.000  |  1.0  |\n"
-			  "|   Ultra|   0.075   |  1.00  |   25%   |  1.500  |  0.5  |\n"
-			  "|  GLaDOS|   0.050   |  1.00  |   50%   |  2.000  |  0.2  |\n"
+	          "|  Potato|   0.250   |  .125  |    0%   |  0.250  |  2.5  |\n"
+			  "|     Low|   0.200   |  .250  |   10%   |  0.375  |  2.0  |\n"
+			  "|  Medium|   0.150   |  .500  |   15%   |  0.750  |  1.5  |\n"
+			  "|    High|   0.100   |  .750  |   25%   |  1.000  |  1.0  |\n"
+			  "|   Ultra|   0.075   |  1.00  |   50%   |  1.500  |  1.0  |\n"
+			  "|  GLaDOS|   0.050   |  1.00  |   99%   |  2.500  |  0.5  |\n"
 			  "-----------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -385,9 +385,9 @@ uniform uint framecount < source = "framecount"; >;
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.25, 0.2, 0.15, 0.1, 0.075, 0.05, 1.0};
 static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0, 10.0, 15.0, 20.0, 25.0, 50.0, 0.0};
-static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25, 0.375, 0.75, 1.0, 1.5, 2.0, 0.0};
-static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0, 1.5, 1.0, 1.0, 0.5, 0.2, 4.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0, 10.0, 15.0, 25.0, 50.0, 99.0, 0.0};
+static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25, 0.375, 0.75, 1.0, 1.5, 2.5, 0.0};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.5, 2.0, 1.5, 1.0, 1.0, 0.5, 4.0};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 6 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
 #define __HQAA_SUBPIX (preset == 6 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
@@ -397,7 +397,6 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0, 1.5, 1.0, 1.0, 0.5, 0.
 
 #define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
-#define __HQAA_BUFFER_MULTIPLIER saturate(__HQAA_DISPLAY_DENOMINATOR / 1440.0)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_LUMA_REF float4(0.25,0.25,0.25,0.25)
 #define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
@@ -408,8 +407,8 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0, 1.5, 1.0, 1.0, 0.5, 0.
 #endif
 
 #define __FXAA_THRESHOLD_FLOOR __HQAA_SMALLEST_COLOR_STEP
-#define __FXAA_MINIMUM_SEARCH_STEPS (1.0 / __HQAA_FXAA_SCAN_GRANULARITY)
-#define __FXAA_DEFAULT_SEARCH_STEPS (10.0 / __HQAA_FXAA_SCAN_GRANULARITY)
+#define __FXAA_MINIMUM_SEARCH_STEPS (4.0 / __HQAA_FXAA_SCAN_GRANULARITY)
+#define __FXAA_DEFAULT_SEARCH_STEPS (16.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __FXAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __FXAA_THRESHOLD_FLOOR)
 #define __FXAA_THRESHOLD_ADJUSTMENT_RANGE min(__FXAA_EDGE_THRESHOLD * (__HQAA_SUBPIX * 0.5), 0.05)
 
@@ -545,6 +544,7 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 	// values above 0.9 can produce artifacts or halt frame advancement entirely
 	float blendweight = min(HqaaPreviousFrameWeight, 0.9);
 	
+	[branch]
 	if (ClampMaximumWeight) {
 		float contrastdelta = sqrt(dotluma(abs(current - previous)));
 		blendweight = min(contrastdelta, blendweight);
@@ -656,7 +656,7 @@ void HQAANeighborhoodBlendingVS(float2 texcoord,
  * IMPORTANT NOTICE: luma edge detection requires gamma-corrected colors, and
  * thus 'colorTex' should be a non-sRGB texture.
  */
-float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colorTex, float linearnormal) {
+float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colorTex) {
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
@@ -665,7 +665,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 #else
 	float adjustmentrange = __SMAA_THRESHOLD_ADJUSTMENT_RANGE;
 	
-	float estimatedbrightness = lerp(dotgamma(middle), middle.a, linearnormal);
+	float estimatedbrightness = (dotgamma(middle) + middle.a) / 2.0;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
@@ -674,7 +674,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
 	// calculate color channel weighting
-	float4 weights = float4(0.3333, 0.3334, 0.3333, 0.0);
+	float4 weights = float4(0.3, 0.3, 0.3, 0.1);
 	weights *= middle;
 	float scale = rcp(vec4add(weights));
 	weights *= scale;
@@ -690,6 +690,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
     delta.xy = abs(L - float2(Lleft, Ltop));
     edges = step(threshold, delta.xy);
 	
+	[branch]
 	if (dot(edges, float2(1.0, 1.0)) != 0.0) {
 		
 	// scale will always be some number >=1 with gamma 2.0 colors
@@ -780,16 +781,17 @@ float2 HQAAAreaDiag(sampler2D HQAAareaTex, float2 dist, float2 e, float offset) 
  */
 float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, float2 texcoord, float2 e, float4 subsampleIndices) {
     float2 weights = float2(0.0, 0.0);
-
-    float4 d;
     float2 end;
+    float4 d;
+    d.ywxz = float4(HQAASearchDiag1(HQAAedgesTex, texcoord, float2(1.0, -1.0), end), 0.0, 0.0);
+    
+    [branch]
     if (e.r > 0.0) {
         d.xz = HQAASearchDiag1(HQAAedgesTex, texcoord, float2(-1.0,  1.0), end);
         d.x += float(end.y > 0.9);
-    } else
-        d.xz = float2(0.0, 0.0);
-    d.yw = HQAASearchDiag1(HQAAedgesTex, texcoord, float2(1.0, -1.0), end);
+    }
 
+	[branch]
     if (d.x + d.y > 2.0) {
         float4 coords = mad(float4(-d.x + 0.25, d.x, d.y, -d.y - 0.25), __SMAA_RT_METRICS.xyxy, texcoord.xyxy);
         float4 c;
@@ -805,12 +807,15 @@ float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, f
     }
 
     d.xz = HQAASearchDiag2(HQAAedgesTex, texcoord, float2(-1.0, -1.0), end);
+    d.yw = float2(0.0, 0.0);
+    
+    [branch]
     if (__SMAASampleLevelZeroOffset(HQAAedgesTex, texcoord, int2(1, 0)).r > 0.0) {
         d.yw = HQAASearchDiag2(HQAAedgesTex, texcoord, float2(1.0, 1.0), end);
         d.y += float(end.y > 0.9);
-    } else
-        d.yw = float2(0.0, 0.0);
+    }
 
+	[branch]
     if (d.x + d.y > 2.0) {
         float4 coords = mad(float4(-d.x, -d.x, d.y, d.y), __SMAA_RT_METRICS.xyxy, texcoord.xyxy);
         float4 c;
@@ -945,7 +950,8 @@ float4 HQAABlendingWeightCalculationPS(float2 texcoord,
     float4 weights = float4(0.0, 0.0, 0.0, 0.0);
 
     float2 e = tex2D(HQAAedgesTex, texcoord).rg;
-
+	
+	[branch]
     if (e.g > 0.0) 
 	{
 
@@ -974,6 +980,7 @@ float4 HQAABlendingWeightCalculationPS(float2 texcoord,
 
     }
 
+	[branch]
     if (e.r > 0.0) {
         float2 d;
 
@@ -1012,11 +1019,11 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
     m.y = tex2D(HQAAblendTex, offset.zw).g;
     m.wz = tex2D(HQAAblendTex, texcoord).xz;
 	
-	float4 color = float4(0.0, 0.0, 0.0, 0.0);
-
-    if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) < 1e-5) {
-        color = __SMAASampleLevelZero(colorTex, texcoord);
-    } else {
+	float4 color = __SMAASampleLevelZero(colorTex, texcoord);
+	
+	[branch]
+    if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) > 1e-5) 
+	{
         bool horiz = max(m.x, m.z) > max(m.y, m.w);
 
         float4 blendingOffset = float4(0.0, m.y, 0.0, m.w);
@@ -1030,6 +1037,7 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
         color = blendingWeight.x * __SMAASampleLevelZero(colorTex, blendingCoord.xy);
         color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
+    
 	return color;
 }
 
@@ -1175,6 +1183,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float dstN = posM.x - posN.x;
     float dstP = posP.x - posM.x;
 	
+	[branch]
     if(!horzSpan) {
 		dstN = posM.y - posN.y;
 		dstP = posP.y - posM.y;
@@ -1182,10 +1191,11 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
     bool goodSpan = (dstN < dstP) ? ((lumaEndN < 0.0) != lumaMLTZero) : ((lumaEndP < 0.0) != lumaMLTZero);
     float pixelOffset = mad(-rcp(dstP + dstN), min(dstN, dstP), 0.5);
-	float subpixOut;
-    if (goodSpan) subpixOut = pixelOffset;
-	else {
-		float fxaaQualitySubpix = __HQAA_SUBPIX * __HQAA_FXAA_SCAN_GRANULARITY * __HQAA_BUFFER_MULTIPLIER;
+	float subpixOut = pixelOffset;
+	
+	[branch]
+	if (!goodSpan) {
+		float fxaaQualitySubpix = __HQAA_SUBPIX * __HQAA_FXAA_SCAN_GRANULARITY;
 		subpixOut = mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW); // A
 		subpixOut = saturate(abs(mad((1.0/12.0), subpixOut, -lumaMa)) * rcp(range)); // BC
 		subpixOut = mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut); // DEF
@@ -1206,7 +1216,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 #if HQAA_ENABLE_HDR_OUTPUT
 	finaldelta *= rcp(HdrNits);
 #endif
-	finaldelta *= (1.0 - (__HQAA_SUBPIX / 2.0));
+	finaldelta *= (1.0 - (__HQAA_SUBPIX / 4.0));
 
 	float4 weightedresult = pow(abs(resultAA), abs(1.0 + finaldelta));
 	
@@ -1459,31 +1469,26 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 	return output;
 }
 
+
 float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	return tex2D(HQAAsamplerBufferGamma, texcoord);
 }
 
-float4 GenerateFXAAHysterisisCheckPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+
+float4 GenerateFXAAHysteresisCheckPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float preluma = dotluma(tex2D(HQAAsamplerBufferGamma, texcoord));
 	return float4(0.0, 0.0, preluma, 0.0);
 }
+
 
 float2 HQAAEdgeDetectionPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerSMweights, tex2D(HQAAsamplerBufferSRGB, texcoord).a);
-}
-
-float2 HQAABufferDetectionPS(
-	float4 position : SV_Position,
-	float2 texcoord : TEXCOORD0,
-	float4 offset[3] : TEXCOORD1) : SV_Target
-{
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerBufferGamma, tex2D(HQAAsamplerBufferSRGB, texcoord).a);
+	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerSMweights);
 }
 
 
@@ -1528,7 +1533,6 @@ float4 FXAADetectionPositivesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 
 float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	// debugs 1, 2, 3, 4 need to output from the last pass in the technique
 #if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode != 0) {
 	if (debugmode == 1)
@@ -1549,7 +1553,7 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif
 	}
 #endif
-		
+
 	float4 result = FxaaAdaptiveLumaPixelShader(texcoord, HQAAsamplerBufferGamma, HQAAsamplerAlphaEdges, __FXAA_MODE_SMAA_DETECTION_NEGATIVES);
 	
 #if HQAA_COMPILE_DEBUG_CODE
@@ -1618,16 +1622,6 @@ technique HQAA <
 				 "============================================================";
 >
 {
-	pass BufferDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAABufferDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = true;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
 	pass CreateBufferAlphaNormal
 	{
 		VertexShader = PostProcessVS;
@@ -1640,11 +1634,7 @@ technique HQAA <
 		VertexShader = HQAAEdgeDetectionWrapVS;
 		PixelShader = HQAAEdgeDetectionPS;
 		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		DestBlend = ONE;
+		ClearRenderTargets = true;
 		StencilEnable = true;
 		StencilPass = REPLACE;
 		StencilRef = 1;
@@ -1691,10 +1681,10 @@ technique HQAA <
 		StencilPass = REPLACE;
 		StencilRef = 1;
 	}
-	pass GenerateFXAAHysterisisData
+	pass GenerateFXAAHysteresisData
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = GenerateFXAAHysterisisCheckPS;
+		PixelShader = GenerateFXAAHysteresisCheckPS;
 		RenderTarget = HQAAedgesTex;
 		ClearRenderTargets = false;
 		BlendEnable = true;
