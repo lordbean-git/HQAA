@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.0.1
+ *                        v16.1
  *
  *                     by lordbean
  *
@@ -111,7 +111,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.0.1";
+	ui_label = "Version: 16.1";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1229,14 +1229,20 @@ texture HQAAedgesTex
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-	Format = BUFFER_COLOR_BIT_DEPTH;
+	Format = RGBA8;
 };
 
 texture HQAAblendTex
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-	Format = BUFFER_COLOR_BIT_DEPTH;
+#if HQAA_ENABLE_HDR_OUTPUT
+	Format = RGBA16F;
+#elif (BUFFER_COLOR_BIT_DEPTH == 10)
+	Format = RGB10A2;
+#else
+	Format = RGBA8;
+#endif
 };
 
 texture HQAAareaTex < source = "AreaTex.png"; >
@@ -1259,7 +1265,13 @@ texture HQAAstabilizerTex
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
-	Format = BUFFER_COLOR_BIT_DEPTH;
+#if HQAA_ENABLE_HDR_OUTPUT
+	Format = RGBA16F;
+#elif (BUFFER_COLOR_BIT_DEPTH == 10)
+	Format = RGB10A2;
+#else
+	Format = RGBA8;
+#endif
 };
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif
