@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.1
+ *                        v16.2
  *
  *                     by lordbean
  *
@@ -111,7 +111,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.1";
+	ui_label = "Version: 16.2";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -559,12 +559,18 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 {
 	float4 dot = tex2D(tex, pos);
+#if HQAA_ENABLE_HDR_OUTPUT
+	dot *= rcp(HdrNits);
+#endif
 	float gain = 1.0 - HqaaGainStrength;
 	float4 outdot;
 	outdot.rgb = rcp(dot.rgb);
 	outdot.rgb = pow(abs(outdot.rgb), gain);
 	outdot.rgb = rcp(outdot.rgb);
 	outdot.a = GetNewAlpha(dot, outdot);
+#if HQAA_ENABLE_HDR_OUTPUT
+	outdot *= HdrNits;
+#endif
 	return outdot;
 }
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
@@ -654,12 +660,16 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 	float4 middle = tex2D(colorTex, texcoord);
 	
 	// calculate the threshold
+#if HQAA_ENABLE_HDR_OUTPUT
+	float weightedthreshold = __SMAA_EDGE_THRESHOLD * log2(HdrNits);
+#else
 	float adjustmentrange = __SMAA_THRESHOLD_ADJUSTMENT_RANGE;
 	
 	float estimatedbrightness = lerp(dotgamma(middle), middle.a, linearnormal);
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD + thresholdOffset;
+#endif
 	
 	float2 threshold = float2(weightedthreshold, weightedthreshold);
 	
@@ -691,12 +701,14 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 
     float Lright = dot(tex2D(colorTex, offset[1].xy), weights);
     float Lbottom  = dot(tex2D(colorTex, offset[1].zw), weights);
+
     delta.zw = abs(L - float2(Lright, Lbottom));
 
     float2 maxDelta = max(delta.xy, delta.zw);
 
     float Lleftleft = dot(tex2D(colorTex, offset[2].xy), weights);
     float Ltoptop = dot(tex2D(colorTex, offset[2].zw), weights);
+	
     delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
 
     maxDelta = max(maxDelta.xy, delta.zw);
@@ -1044,20 +1056,27 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float4 rgbyM = FxaaTex2D(tex, pos);
 	
 	float4 edgedata = tex2D(edgestex, pos);
+	
 	bool SMAAedge = (edgedata.r + edgedata.g) > 0.0;
 	
 	if ( SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES)) return SmaaPixel;
 	if (!SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)) return SmaaPixel;
 	
 	// calculate the threshold
+	
+#if HQAA_ENABLE_HDR_OUTPUT
+	float fxaaQualityEdgeThreshold = __FXAA_EDGE_THRESHOLD * log2(HdrNits);
+#else
 	float adjustmentrange = __FXAA_THRESHOLD_ADJUSTMENT_RANGE;
 	
 	float estimatedbrightness = (dotgamma(rgbyM) + edgedata.a) / 2.0;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
 	
+	float fxaaQualityEdgeThreshold = __FXAA_EDGE_THRESHOLD + thresholdOffset;
+#endif
+	
     float2 posM = pos;
 	float lumaMa = FxaaAdaptiveLuma(rgbyM);
-	float fxaaQualityEdgeThreshold = __FXAA_EDGE_THRESHOLD + thresholdOffset;
 	
     float lumaS = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 0, 1)));
     float lumaE = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 1, 0)));
@@ -1187,6 +1206,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 #if HQAA_ENABLE_HDR_OUTPUT
 	finaldelta *= rcp(HdrNits);
 #endif
+	finaldelta *= (1.0 - (__HQAA_SUBPIX / 2.0));
 
 	float4 weightedresult = pow(abs(resultAA), abs(1.0 + finaldelta));
 	
@@ -1204,10 +1224,17 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	else if (debugmode == 7) {
 		float runtime = (float(iterationsN / maxiterations) + float(iterationsP / maxiterations)) / 2.0;
 		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0.0, 1.0);
+#if HQAA_ENABLE_HDR_OUTPUT
+		FxaaMetrics.a = 0.0;
+#endif
 		return FxaaMetrics;
 	}
 	else {
+#if HQAA_ENABLE_HDR_OUTPUT
+		return float4(abs(finaldelta), (1.0 - abs(finaldelta)), 0.0, 0.0);
+#else
 		return float4(abs(finaldelta), 1.0 - abs(finaldelta), 0.0, 1.0);
+#endif
 	}
 #endif
 }
@@ -1382,19 +1409,24 @@ void HQAANeighborhoodBlendingWrapVS(
 float4 GenerateNormalizedLumaDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 gammapixel = tex2D(HQAAsamplerBufferGamma, texcoord);
-	float4 linearpixel = tex2D(HQAAsamplerBufferSRGB, texcoord);
+#if HQAA_ENABLE_HDR_OUTPUT
+	float rgbluma = dotluma(gammapixel);
+#else
 	float rgbluma = dotgamma(gammapixel);
+#endif
 	gammapixel.a = lerp(rgbluma, gammapixel.a, rgbluma);
-	rgbluma = dotgamma(linearpixel);
-	linearpixel.a = lerp(rgbluma, linearpixel.a, rgbluma);
-	return float4(0.0, 0.0, linearpixel.a, gammapixel.a);
+	return float4(0.0, 0.0, 0.0, gammapixel.a);
 }
 
 
 float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(HQAAsamplerBufferGamma, texcoord);
+#if HQAA_ENABLE_HDR_OUTPUT
+	float rgbluma = dotluma(pixel);
+#else
 	float rgbluma = dotgamma(pixel);
+#endif
 	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
 	return pixel;
 }
@@ -1404,7 +1436,11 @@ float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord 
 {
 	float4 input = tex2D(HQAAsamplerBufferGamma, texcoord);
 	float4 output = float4(input.g, input.b, input.r, input.a);
+#if HQAA_ENABLE_HDR_OUTPUT
+	input.a = dotluma(output);
+#else
 	input.a = dotgamma(output);
+#endif
 	output.a = lerp(input.a, output.a, input.a);
 	return output;
 }
@@ -1414,7 +1450,11 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 {
 	float4 input = tex2D(HQAAsamplerBufferGamma, texcoord);
 	float4 output = float4(input.b, input.r, input.g, input.a);
+#if HQAA_ENABLE_HDR_OUTPUT
+	input.a = dotluma(output);
+#else
 	input.a = dotgamma(output);
+#endif
 	output.a = lerp(input.a, output.a, input.a);
 	return output;
 }
@@ -1496,9 +1536,17 @@ float4 FXAADetectionNegativesPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (debugmode == 2)
 		return tex2D(HQAAsamplerSMweights, texcoord);
 	if (debugmode == 3)
+#if HQAA_ENABLE_HDR_OUTPUT
+		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, tex2D(HQAAsamplerAlphaEdges, texcoord).a);
+#else
 		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, 1.0);
+#endif
 	if (debugmode == 4)
+#if HQAA_ENABLE_HDR_OUTPUT
+		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, tex2D(HQAAsamplerAlphaEdges, texcoord).b);
+#else
 		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, 1.0);
+#endif
 	}
 #endif
 		
