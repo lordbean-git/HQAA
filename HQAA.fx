@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.0.1
+ *                        v17.1
  *
  *                     by lordbean
  *
@@ -115,7 +115,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.0.1";
+	ui_label = "Version: 17.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1338,9 +1338,7 @@ sampler HQAAsamplerBufferSRGB
 	Texture = ReShade::BackBufferTex;
 	AddressU = Clamp; AddressV = Clamp;
 	MipFilter = Linear; MinFilter = Linear; MagFilter = Linear;
-#if HQAA_ENABLE_HDR_OUTPUT
-	SRGBTexture = false;
-#else
+#if !HQAA_ENABLE_HDR_OUTPUT
 	SRGBTexture = true;
 #endif
 };
@@ -1440,37 +1438,8 @@ float4 GenerateBufferNormalizedAlphaPS(float4 vpos : SV_Position, float2 texcoor
 }
 
 
-float4 GenerateImageColorShiftLeftPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float2 GenerateFXAAHysteresisData(float4 gammapixel)
 {
-	float4 input = tex2D(HQAAsamplerBufferGamma, texcoord);
-	float4 output = float4(input.g, input.b, input.r, input.a);
-#if HQAA_ENABLE_HDR_OUTPUT
-	input.a = dotluma(output);
-#else
-	input.a = dotgamma(output);
-#endif
-	output.a = lerp(input.a, output.a, input.a);
-	return output;
-}
-
-
-float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float4 input = tex2D(HQAAsamplerBufferGamma, texcoord);
-	float4 output = float4(input.b, input.r, input.g, input.a);
-#if HQAA_ENABLE_HDR_OUTPUT
-	input.a = dotluma(output);
-#else
-	input.a = dotgamma(output);
-#endif
-	output.a = lerp(input.a, output.a, input.a);
-	return output;
-}
-
-
-float4 GenerateFXAAHysteresisDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float4 gammapixel = tex2D(HQAAsamplerBufferGamma, texcoord);
 	float preluma = dotluma(gammapixel);
 #if HQAA_ENABLE_HDR_OUTPUT
 	float rgbluma = preluma;
@@ -1478,16 +1447,23 @@ float4 GenerateFXAAHysteresisDataPS(float4 vpos : SV_Position, float2 texcoord :
 	float rgbluma = dotgamma(gammapixel);
 #endif
 	rgbluma = lerp(rgbluma, gammapixel.a, rgbluma);
-	return float4(0.0, 0.0, preluma, rgbluma);
+	return float2(preluma, rgbluma);
 }
 
 
-float2 HQAAEdgeDetectionPS(
+float4 HQAAEdgeDetectionPS(
 	float4 position : SV_Position,
 	float2 texcoord : TEXCOORD0,
 	float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	return HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerSMweights);
+	float2 edges = HQAALumaEdgeDetectionPS(texcoord, offset, HQAAsamplerSMweights);
+	float2 hysteresisdata = GenerateFXAAHysteresisData(tex2D(HQAAsamplerBufferGamma, texcoord));
+	
+	// replaces the stencil buffer check - packing extra data into the texture
+	// makes it incompatible with traditional SMAA stencil use
+	edges = float2(edges.r > 0.0 ? 1.0 : 0.0, edges.g > 0.0 ? 1.0 : 0.0);
+	
+	return float4(edges, hysteresisdata);
 }
 
 
@@ -1633,71 +1609,12 @@ technique HQAA <
 		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
 	}
-	pass NormalizedBufferEdgeDetection
+	pass EdgeDetection
 	{
 		VertexShader = HQAAEdgeDetectionWrapVS;
 		PixelShader = HQAAEdgeDetectionPS;
 		RenderTarget = HQAAedgesTex;
 		ClearRenderTargets = true;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
-	pass CreateBufferColorShiftRight
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateImageColorShiftRightPS;
-		RenderTarget = HQAAblendTex;
-		ClearRenderTargets = true;
-	}
-	pass RightShiftEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAAEdgeDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		DestBlend = ONE;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
-	pass CreateBufferColorShiftLeft
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateImageColorShiftLeftPS;
-		RenderTarget = HQAAblendTex;
-		ClearRenderTargets = true;
-	}
-	pass LeftShiftEdgeDetection
-	{
-		VertexShader = HQAAEdgeDetectionWrapVS;
-		PixelShader = HQAAEdgeDetectionPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		BlendOp = MAX;
-		BlendOpAlpha = MAX;
-		DestBlend = ONE;
-		StencilEnable = true;
-		StencilPass = REPLACE;
-		StencilRef = 1;
-	}
-	pass GenerateFXAAHysteresisData
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = GenerateFXAAHysteresisDataPS;
-		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = false;
-		BlendEnable = true;
-		SrcBlend = ONE;
-		SrcBlendAlpha = ONE;
-		DestBlend = ONE;
-		DestBlendAlpha = ZERO;
-		BlendOp = ADD;
-		BlendOpAlpha = ADD;
 	}
 	pass SMAABlendCalculation
 	{
@@ -1705,19 +1622,12 @@ technique HQAA <
 		PixelShader = HQAABlendingWeightCalculationWrapPS;
 		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
-		StencilEnable = true;
-		StencilPass = KEEP;
-		StencilFunc = EQUAL;
-		StencilRef = 1;
 	}
 	pass SMAABlending
 	{
 		VertexShader = HQAANeighborhoodBlendingWrapVS;
 		PixelShader = HQAANeighborhoodBlendingWrapPS;
-		StencilEnable = false;
-#if HQAA_ENABLE_HDR_OUTPUT
-		SRGBWriteEnable = false;
-#else
+#if !HQAA_ENABLE_HDR_OUTPUT
 		SRGBWriteEnable = true;
 #endif
 	}
@@ -1738,9 +1648,7 @@ technique HQAA <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAACASOptionalPS;
-#if HQAA_ENABLE_HDR_OUTPUT
-		SRGBWriteEnable = false;
-#else
+#if !HQAA_ENABLE_HDR_OUTPUT
 		SRGBWriteEnable = true;
 #endif
 	}
