@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.0
+ *                        v17.0.1
  *
  *                     by lordbean
  *
@@ -115,8 +115,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.0";
-	ui_text = "\n----------------------------------------------------------------------\n\n"
+	ui_label = "Version: 17.0.1";
+	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
 	ui_tooltip = "No 3090s were harmed in the making of this shader.";
@@ -125,7 +125,9 @@ uniform int HQAAintroduction <
 uniform int introeof <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n----------------------------------------------------------------------";
+	ui_text = "-------------------------------------------------------------------------\n"
+			  "See HQAA's Preprocessor definitions section for optional feature toggles.\n"
+			  "-------------------------------------------------------------------------\n";
 >;
 
 uniform int preset <
@@ -273,7 +275,7 @@ uniform int debugexplainer <
 uniform int extradivider <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n----------------------------------------------------------------------";
+	ui_text = "\n-------------------------------------------------------------------------";
 >;
 #endif
 
@@ -298,7 +300,7 @@ uniform float HdrNits <
 uniform int optionseof <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n----------------------------------------------------------------------";
+	ui_text = "\n-------------------------------------------------------------------------";
 >;
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -399,7 +401,7 @@ uniform int gainintro <
 uniform int optionalseof <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n----------------------------------------------------------------------";
+	ui_text = "\n-------------------------------------------------------------------------";
 >;
 
 #endif
