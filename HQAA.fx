@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v16.5
+ *                        v17.0
  *
  *                     by lordbean
  *
@@ -81,6 +81,10 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_ENABLE_HDR_OUTPUT 0
 #endif
 
+#ifndef HQAA_ENABLE_FPS_TARGET
+	#define HQAA_ENABLE_FPS_TARGET 1
+#endif
+
 #ifndef HQAA_COMPILE_DEBUG_CODE
 	#define HQAA_COMPILE_DEBUG_CODE 1
 #endif
@@ -89,33 +93,29 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 1
 #endif
 
-#ifndef HQAA_ENABLE_FPS_TARGET
-#define HQAA_ENABLE_FPS_TARGET 1
-#endif
-
-#ifndef HQAA_SCREENSHOT_MODE
-#define HQAA_SCREENSHOT_MODE 0
-#endif
-
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_OPTIONAL_CAS
-#define HQAA_OPTIONAL_CAS 1
+	#define HQAA_OPTIONAL_CAS 1
 #endif
 
 #ifndef HQAA_OPTIONAL_TEMPORAL_STABILIZER
-#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 0
+	#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 1
 #endif
 
 #ifndef HQAA_OPTIONAL_BRIGHTNESS_GAIN
-#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 0
+	#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 1
 #endif
 
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
+#ifndef HQAA_SCREENSHOT_MODE
+	#define HQAA_SCREENSHOT_MODE 0
+#endif
+
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 16.5";
+	ui_label = "Version: 17.0";
 	ui_text = "\n----------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -140,19 +140,22 @@ uniform int preset <
 uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_label = "Edge Detection Threshold";
-	ui_tooltip = "Local contrast required to run shader";
+	ui_tooltip = "Local contrast (luma difference) required to be considered an edge";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
 	ui_text = "\n------------------------------ Global Options ----------------------------------\n ";
 > = 0.1;
 
-uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
-	ui_min = 0.0; ui_max = 1.0;
-	ui_label = "Subpixel Effects Strength";
-	ui_tooltip = "Lower = sharper image, Higher = more AA effect";
+uniform float DynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_label = "Dynamic Threshold Reduction Range";
+	ui_tooltip = "Maximum dynamic reduction of edge threshold (as percentage of base threshold)\n"
+				 "permitted when detecting low-brightness edges.\n"
+				 "Lower = faster, might miss low-contrast edges\n"
+				 "Higher = slower, catches more edges in dark scenes";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 0.5;
+> = 50;
 
 uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -180,19 +183,30 @@ uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 0.5;
 
+uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_label = "Subpixel Effect Strength";
+	ui_tooltip = "Percentage of blending FXAA will apply to long slopes.\n"
+				 "Lower = sharper image, Higher = more AA effect";
+    ui_category = "Custom Preset";
+	ui_category_closed = true;
+> = 50;
+
 uniform int presetbreakdown <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n"
-	          "|--Preset|-Threshold---Subpix---Corners---Quality---Texel-|\n"
-	          "|--------|-----------|--------|---------|---------|-------|\n"
-	          "|  Potato|   0.250   |  .125  |    0%   |  0.250  |  2.5  |\n"
-			  "|     Low|   0.200   |  .250  |   10%   |  0.375  |  2.0  |\n"
-			  "|  Medium|   0.150   |  .500  |   15%   |  0.750  |  1.5  |\n"
-			  "|    High|   0.100   |  .750  |   25%   |  1.000  |  1.0  |\n"
-			  "|   Ultra|   0.075   |  1.00  |   50%   |  1.250  |  1.0  |\n"
-			  "|  GLaDOS|   0.050   |  1.00  |   99%   |  2.500  |  0.5  |\n"
-			  "-----------------------------------------------------------";
+			  "------------------------------------------------------------------\n"
+			  "|        |       Global      |  SMAA  |           FXAA           |\n"
+	          "|--Preset|-Threshold---Range-|-Corner-|-Quality---Texel---Subpix-|\n"
+	          "|--------|-----------|-------|--------|---------|-------|--------|\n"
+	          "|  Potato|   0.250   | 25.0% |    0%  |  0.250  |  2.5  |  12.5% |\n"
+			  "|     Low|   0.200   | 37.5% |   10%  |  0.375  |  2.0  |  25.0% |\n"
+			  "|  Medium|   0.150   | 50.0% |   15%  |  0.750  |  1.5  |  50.0% |\n"
+			  "|    High|   0.100   | 62.5% |   25%  |  1.000  |  1.0  |  75.0% |\n"
+			  "|   Ultra|   0.075   | 75.0% |   50%  |  1.250  |  1.0  | 100.0% |\n"
+			  "|  GLaDOS|   0.050   | 87.5% |  100%  |  2.500  |  0.5  | 100.0% |\n"
+			  "------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
@@ -205,7 +219,7 @@ uniform uint debugmode <
 	ui_label = " ";
 	ui_spacing = 1;
 	ui_text = "Debug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Computed Gamma Normals\0Computed Hysteresis Values\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0FXAA Hysteresis\0";
+	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0Computed Gamma Normals\0Computed Hysteresis Values\0FXAA Results:\0FXAA Lumas:\0FXAA Metrics:\0FXAA Hysteresis:\0";
 > = 0;
 
 uniform uint debugFXAApass <
@@ -250,8 +264,16 @@ uniform int debugexplainer <
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_COMPILE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
-	ui_category = "Debug";
+	ui_category = "DEBUG README";
 	ui_category_closed = true;
+>;
+#endif
+
+#if (HQAA_ENABLE_FPS_TARGET || HQAA_ENABLE_HDR_OUTPUT)
+uniform int extradivider <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n----------------------------------------------------------------------";
 >;
 #endif
 
@@ -260,7 +282,6 @@ uniform float FramerateFloor < __UNIFORM_SLIDER_INT1
 	ui_min = 30; ui_max = 150; ui_step = 1;
 	ui_label = "Target Minimum Framerate";
 	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
-	ui_spacing = 3;
 > = 60;
 #endif
 
@@ -269,7 +290,6 @@ uniform float HdrNits <
 	ui_type = "combo";
 	ui_min = 200.0; ui_max = 1000.0; ui_step = 200.0;
 	ui_label = "HDR Nits";
-	ui_spacing = 3;
 	ui_tooltip = "Most DisplayHDR certified monitors calculate colors based on 1000 nits\n"
 				 "even when the certification is for a lower value (like DisplayHDR400).";
 > = 1000.0;
@@ -289,7 +309,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 4; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
-	ui_category = "(HQAACAS) Optional Sharpening";
+	ui_category = "Sharpening";
 	ui_category_closed = true;
 > = 1;
 
@@ -298,7 +318,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Clamp Strength";
 	ui_tooltip = "How much to clamp sharpening strength when the pixel had AA applied to it\n"
 	             "Zero means no clamp applied, one means no sharpening applied";
-	ui_category = "(HQAACAS) Optional Sharpening";
+	ui_category = "Sharpening";
 	ui_category_closed = true;
 > = 0.5;
 
@@ -306,7 +326,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 uniform bool HqaaSharpenerDebug <
     ui_text = "Debug:\n ";
 	ui_label = "Show Sharpening Pattern";
-	ui_category = "(HQAACAS) Optional Sharpening";
+	ui_category = "Sharpening";
 	ui_category_closed = true;
 > = false;
 #endif
@@ -318,7 +338,7 @@ uniform int sharpenerintro <
 	          "The advantage to using the technique built into HQAA is that it uses edge\n"
 			  "data generated by the anti-aliasing technique to adjust the amount of sharpening\n"
 			  "applied to areas that were processed to remove aliasing.";
-	ui_category = "(HQAACAS) Optional Sharpening";
+	ui_category = "Sharpening";
 	ui_category_closed = true;
 >;
 #endif // HQAA_OPTIONAL_CAS
@@ -328,15 +348,15 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
 	ui_min = 0; ui_max = 1.0; ui_step = 0.001;
 	ui_label = "Previous Frame Weight";
-	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
+	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.5;
+> = 0.25;
 
 uniform bool ClampMaximumWeight <
 	ui_label = "Clamp Maximum Weight?";
 	ui_spacing = 2;
-	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
+	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
@@ -349,7 +369,7 @@ uniform int stabilizerintro <
 	ui_text = "\nWhen enabled, this effect will blend the previous frame with the\n"
 	          "current frame at the specified weight to minimize overcorrection\n"
 			  "errors such as crawling text or wiggling lines.";
-	ui_category = "(HQAATemporalStabilizer) Optional Temporal Stabilizer";
+	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 >;
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
@@ -359,7 +379,7 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = -1.00; ui_max = 0.75; ui_step = 0.001;
 	ui_spacing = 3;
 	ui_label = "Brightness Gain";
-	ui_category = "(HQAABrightnessGain) Optional Brightness Booster";
+	ui_category = "Brightness Booster";
 	ui_category_closed = true;
 > = 0.0;
 
@@ -370,8 +390,8 @@ uniform int gainintro <
 			  "as a quick fix for dark games and/or monitors, or to increase\n"
 			  "perceived contrast level.\n\n"
 			  "This technique may produce odd or reversed results when used in\n"
-			  "non-standard color spaces (eg. HDR or scRGB).";
-	ui_category = "(HQAABrightnessGain) Optional Brightness Booster";
+			  "non-standard color spaces (eg. scRGB).";
+	ui_category = "Brightness Booster";
 	ui_category_closed = true;
 >;
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
@@ -388,18 +408,19 @@ uniform float frametime < source = "frametime"; >;
 uniform uint framecount < source = "framecount"; >;
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.25, 0.2, 0.15, 0.1, 0.075, 0.05, 1.0};
-static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0, 10.0, 15.0, 25.0, 50.0, 99.0, 0.0};
+static const float HQAA_DYNAMIC_RANGE_PRESET[7] = {0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0, 0.1, 0.15, 0.25, 0.5, 1.0, 0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25, 0.375, 0.75, 1.0, 1.25, 2.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.5, 2.0, 1.5, 1.0, 1.0, 0.5, 4.0};
+static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.0};
 
 #define __HQAA_EDGE_THRESHOLD (preset == 6 ? (EdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[preset]))
-#define __HQAA_SUBPIX (preset == 6 ? (SubpixCustom) : (HQAA_SUBPIX_PRESET[preset]))
-#define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
+#define __HQAA_DYNAMIC_RANGE (preset == 6 ? (DynamicThresholdCustom / 100.0) : HQAA_DYNAMIC_RANGE_PRESET[preset])
+#define __HQAA_SMAA_CORNERING (preset == 6 ? (SmaaCorneringCustom / 100.0) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_MULTIPLIER (preset == 6 ? (FxaaIterationsCustom) : (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[preset]))
 #define __HQAA_FXAA_SCAN_GRANULARITY (preset == 6 ? (FxaaTexelSizeCustom) : (HQAA_FXAA_TEXEL_SIZE_PRESET[preset]))
+#define __HQAA_SUBPIX (preset == 6 ? (SubpixCustom / 100.0) : (HQAA_SUBPIX_PRESET[preset]))
 
-#define __HQAA_DISPLAY_DENOMINATOR min(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_LUMA_REF float4(0.25,0.25,0.25,0.25)
@@ -411,14 +432,12 @@ static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.5, 2.0, 1.5, 1.0, 1.0, 0.
 #endif
 
 #define __FXAA_THRESHOLD_FLOOR (__HQAA_SMALLEST_COLOR_STEP * 0.5)
+#define __FXAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __FXAA_THRESHOLD_FLOOR)
 #define __FXAA_MINIMUM_SEARCH_STEPS (2.0 / __HQAA_FXAA_SCAN_GRANULARITY)
 #define __FXAA_DEFAULT_SEARCH_STEPS (8.0 / __HQAA_FXAA_SCAN_GRANULARITY)
-#define __FXAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __FXAA_THRESHOLD_FLOOR)
-#define __FXAA_THRESHOLD_ADJUSTMENT_RANGE min(__FXAA_EDGE_THRESHOLD * (__HQAA_SUBPIX * 0.75), 0.1)
 
 #define __SMAA_THRESHOLD_FLOOR (__HQAA_SMALLEST_COLOR_STEP * 0.25)
 #define __SMAA_EDGE_THRESHOLD max(__HQAA_EDGE_THRESHOLD, __SMAA_THRESHOLD_FLOOR)
-#define __SMAA_THRESHOLD_ADJUSTMENT_RANGE min(__SMAA_EDGE_THRESHOLD * (__HQAA_SUBPIX * 0.875), 0.2)
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __SMAA_MINIMUM_SEARCH_STEPS 20
 
@@ -476,15 +495,13 @@ float GetNewAlpha(float4 before, float4 after)
 // CAS standalone function
 float4 HQAACASPS(float2 texcoord, sampler2D edgesTex, sampler2D sTexColor)
 {
-	float sharpenmultiplier = (1.0 - __HQAA_EDGE_THRESHOLD) * __HQAA_SUBPIX;
+	// set sharpening amount
+	float sharpening = HqaaSharpenerStrength;
 	
 	// reduce strength if there were edges detected here
-	float2 edgesdetected = tex2D(edgesTex, texcoord).rg;
-	if (dot(edgesdetected, float2(1.0, 1.0)) != 0.0)
-		sharpenmultiplier *= (1.0 - HqaaSharpenerClamping);
+	if (dot(tex2D(edgesTex, texcoord).rg, float2(1.0, 1.0)) != 0.0)
+		sharpening *= (1.0 - HqaaSharpenerClamping);
 	
-	// set sharpening amount
-	float sharpening = HqaaSharpenerStrength * sharpenmultiplier;
 	
 	// proceed with CAS math.
 	
@@ -548,7 +565,6 @@ float4 HQAATemporalStabilizerPS(sampler2D currentframe, sampler2D lastframe, flo
 	// values above 0.9 can produce artifacts or halt frame advancement entirely
 	float blendweight = min(HqaaPreviousFrameWeight, 0.9);
 	
-	[branch]
 	if (ClampMaximumWeight) {
 		float contrastdelta = sqrt(dotluma(abs(current - previous)));
 		blendweight = min(contrastdelta, blendweight);
@@ -584,20 +600,6 @@ float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
 /*****************************************************************************************************************************************/
 
-// DX11 optimization
-#if (__RENDERER__ == 0xb000 || __RENDERER__ == 0xb100)
-	#define SMAAGather(tex, coord) tex2Dgather(tex, coord, 0)
-#endif
-
-// Configurable
-#define __SMAA_CORNER_ROUNDING (__HQAA_SMAA_CORNERING)
-#define __SMAA_MAX_SEARCH_STEPS_DIAG 20
-#define __SMAA_BRANCH [branch]
-#define __SMAA_FLATTEN [flatten]
-#define __SMAA_INCLUDE_VS 1
-#define __SMAA_INCLUDE_PS 1
-
-// Constants
 #define __SMAA_RT_METRICS float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __SMAASampleLevelZero(tex, coord) tex2Dlod(tex, float4(coord, coord))
 #define __SMAASampleLevelZeroOffset(tex, coord, offset) tex2Dlodoffset(tex, float4(coord, coord), offset)
@@ -607,14 +609,13 @@ float4 HQAAColorChannelCompressionPS(sampler2D tex, float2 pos)
 #define __SMAA_AREATEX_SUBTEX_SIZE (1.0/ 7.0)
 #define __SMAA_SEARCHTEX_SIZE float2(66.0, 33.0)
 #define __SMAA_SEARCHTEX_PACKED_SIZE float2(64.0, 16.0)
-#define __SMAA_CORNER_ROUNDING_NORM float((__SMAA_CORNER_ROUNDING) / 100.0)
 
 /**
  * Conditional move:
  */
 void HQAAMovc(bool2 cond, inout float2 variable, float2 value) {
-    __SMAA_FLATTEN if (cond.x) variable.x = value.x;
-    __SMAA_FLATTEN if (cond.y) variable.y = value.y;
+    [flatten] if (cond.x) variable.x = value.x;
+    [flatten] if (cond.y) variable.y = value.y;
 }
 
 void HQAAMovc(bool4 cond, inout float4 variable, float4 value) {
@@ -667,7 +668,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
 #if HQAA_ENABLE_HDR_OUTPUT
 	float weightedthreshold = __SMAA_EDGE_THRESHOLD * log2(HdrNits);
 #else
-	float adjustmentrange = __SMAA_THRESHOLD_ADJUSTMENT_RANGE;
+	float adjustmentrange = __HQAA_DYNAMIC_RANGE * __SMAA_EDGE_THRESHOLD;
 	
 	float estimatedbrightness = (dotgamma(middle) + middle.a) / 2.0;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
@@ -745,7 +746,7 @@ float4 HQAADecodeDiagBilinearAccess(float4 e) {
 float2 HQAASearchDiag1(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out float2 e) {
     float4 coord = float4(texcoord, -1.0, 1.0);
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
-    [loop] while (coord.z < float(__SMAA_MAX_SEARCH_STEPS_DIAG - 1) &&
+    [loop] while (coord.z < 19.0 &&
            coord.w > 0.9) {
         coord.xyz = mad(t, float3(dir, 1.0), coord.xyz);
         e = __SMAASampleLevelZero(HQAAedgesTex, coord.xy).rg;
@@ -758,7 +759,7 @@ float2 HQAASearchDiag2(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out 
     float4 coord = float4(texcoord, -1.0, 1.0);
     coord.x += 0.25 * __SMAA_RT_METRICS.x;
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
-    [loop] while (coord.z < float(__SMAA_MAX_SEARCH_STEPS_DIAG - 1) &&
+    [loop] while (coord.z < 19.0 &&
            coord.w > 0.9) {
         coord.xyz = mad(t, float3(dir, 1.0), coord.xyz);
 
@@ -923,7 +924,7 @@ float2 HQAAArea(sampler2D HQAAareaTex, float2 dist, float e1, float e2, float of
 
 void HQAADetectHorizontalCornerPattern(sampler2D HQAAedgesTex, inout float2 weights, float4 texcoord, float2 d) {
     float2 leftRight = step(d.xy, d.yx);
-    float2 rounding = (1.0 - __SMAA_CORNER_ROUNDING_NORM) * leftRight;
+    float2 rounding = (1.0 - __HQAA_SMAA_CORNERING) * leftRight;
 
     float2 factor = float2(1.0, 1.0);
     factor.x -= rounding.x * __SMAASampleLevelZeroOffset(HQAAedgesTex, texcoord.xy, int2(0,  1)).r;
@@ -936,7 +937,7 @@ void HQAADetectHorizontalCornerPattern(sampler2D HQAAedgesTex, inout float2 weig
 
 void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weights, float4 texcoord, float2 d) {
     float2 leftRight = step(d.xy, d.yx);
-    float2 rounding = (1.0 - __SMAA_CORNER_ROUNDING_NORM) * leftRight;
+    float2 rounding = (1.0 - __HQAA_SMAA_CORNERING) * leftRight;
 
     float2 factor = float2(1.0, 1.0);
     factor.x -= rounding.x * __SMAASampleLevelZeroOffset(HQAAedgesTex, texcoord.xy, int2( 1, 0)).g;
@@ -1057,32 +1058,29 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
 
-#define FxaaAdaptiveLuma(t) dotgamma(t)
-
 #define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
 #define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + o * __SMAA_RT_METRICS.xy, p + o * __SMAA_RT_METRICS.xy))
 
-#define __FXAA_MODE_NORMAL int(0)
-#define __FXAA_MODE_SMAA_DETECTION_POSITIVES int(3)
-#define __FXAA_MODE_SMAA_DETECTION_NEGATIVES int(4)
+#define __FXAA_MODE_NORMAL 0
+#define __FXAA_MODE_SMAA_DETECTION_POSITIVES 3
+#define __FXAA_MODE_SMAA_DETECTION_NEGATIVES 4
 
 float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex, int pixelmode)
  {
-	float4 SmaaPixel = tex2D(tex, pos);
     float4 rgbyM = FxaaTex2D(tex, pos);
 	float4 edgedata = tex2D(edgestex, pos);
 	
-	bool SMAAedge = (edgedata.r + edgedata.g) > 0.0;
+	bool SMAAedge = (edgedata.r + edgedata.g) > 1e-5;
 	
-	if ( SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES)) return SmaaPixel;
-	if (!SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)) return SmaaPixel;
+	if ( SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_NEGATIVES)) return rgbyM;
+	if (!SMAAedge && (pixelmode == __FXAA_MODE_SMAA_DETECTION_POSITIVES)) return rgbyM;
 	
 	// calculate the threshold
 	
 #if HQAA_ENABLE_HDR_OUTPUT
 	float fxaaQualityEdgeThreshold = __FXAA_EDGE_THRESHOLD * log2(HdrNits);
 #else
-	float adjustmentrange = __FXAA_THRESHOLD_ADJUSTMENT_RANGE;
+	float adjustmentrange = __HQAA_DYNAMIC_RANGE * __FXAA_EDGE_THRESHOLD;
 	
 	float estimatedbrightness = (dotgamma(rgbyM) + rgbyM.a) / 2.0;
 	float thresholdOffset = mad(estimatedbrightness, adjustmentrange, -adjustmentrange);
@@ -1095,16 +1093,16 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 #endif
 	
     float2 posM = pos;
-	float lumaMa = FxaaAdaptiveLuma(rgbyM);
+	float lumaMa = dotgamma(rgbyM);
 	
-    float lumaS = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 0, 1)));
-    float lumaE = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 1, 0)));
-    float lumaN = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 0,-1)));
-    float lumaW = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2(-1, 0)));
-    float lumaNW = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2(-1,-1)));
-    float lumaSE = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 1, 1)));
-    float lumaNE = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2( 1,-1)));
-    float lumaSW = FxaaAdaptiveLuma(FxaaTex2DOffset(tex, posM, int2(-1, 1)));
+    float lumaS = dotgamma(FxaaTex2DOffset(tex, posM, int2( 0, 1)));
+    float lumaE = dotgamma(FxaaTex2DOffset(tex, posM, int2( 1, 0)));
+    float lumaN = dotgamma(FxaaTex2DOffset(tex, posM, int2( 0,-1)));
+    float lumaW = dotgamma(FxaaTex2DOffset(tex, posM, int2(-1, 0)));
+    float lumaNW = dotgamma(FxaaTex2DOffset(tex, posM, int2(-1,-1)));
+    float lumaSE = dotgamma(FxaaTex2DOffset(tex, posM, int2( 1, 1)));
+    float lumaNE = dotgamma(FxaaTex2DOffset(tex, posM, int2( 1,-1)));
+    float lumaSW = dotgamma(FxaaTex2DOffset(tex, posM, int2(-1, 1)));
 	
     float rangeMax = max9(lumaS, lumaE, lumaN, lumaW, lumaNW, lumaSE, lumaNE, lumaSW, lumaMa);
     float rangeMin = min9(lumaS, lumaE, lumaN, lumaW, lumaNW, lumaSE, lumaNE, lumaSW, lumaMa);
@@ -1112,7 +1110,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float range = rangeMax - rangeMin;
 	
 	if (range < fxaaQualityEdgeThreshold)
-		return SmaaPixel;
+		return rgbyM;
 	
     float edgeHorz = abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)));
     float edgeVert = abs(mad(-2.0, lumaS, lumaSW + lumaSE)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaW + lumaE)), abs(mad(-2.0, lumaN, lumaNW + lumaNE)));
@@ -1146,8 +1144,8 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     float2 posN = posB - offNP;
     float2 posP = posB + offNP;
     
-    float lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN));
-    float lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP));
+    float lumaEndN = dotgamma(FxaaTex2D(tex, posN));
+    float lumaEndP = dotgamma(FxaaTex2D(tex, posP));
 	
     float gradientScaled = max(abs(gradientN), abs(gradientS)) * 1.0/4.0;
     bool lumaMLTZero = mad(0.5, -lumaNN, lumaMa) < 0.0;
@@ -1175,7 +1173,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	[loop] while (iterationsN < maxiterations && !doneN)
 	{
-		lumaEndN = FxaaAdaptiveLuma(FxaaTex2D(tex, posN.xy));
+		lumaEndN = dotgamma(FxaaTex2D(tex, posN.xy));
 		lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 		doneN = abs(lumaEndN) >= gradientScaled;
         if (!doneN) posN = mad(granularity, -offNP, posN);
@@ -1184,7 +1182,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	[loop] while (iterationsP < maxiterations && !doneP)
 	{
-		lumaEndP = FxaaAdaptiveLuma(FxaaTex2D(tex, posP.xy));
+		lumaEndP = dotgamma(FxaaTex2D(tex, posP.xy));
 		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
 		doneP = abs(lumaEndP) >= gradientScaled;
         if (!doneP) posP = mad(granularity, offNP, posP);
@@ -1220,7 +1218,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	
 	// Establish result
 	float4 resultAA = float4(tex2D(tex, posM).rgb, lumaMa);
-	resultAA.a = GetNewAlpha(SmaaPixel, resultAA);
+	resultAA.a = GetNewAlpha(rgbyM, resultAA);
 	
 	float resultluma = dotluma(resultAA);
 	float finaldelta = (resultluma - edgedata.b) * edgedata.a;
@@ -1468,12 +1466,6 @@ float4 GenerateImageColorShiftRightPS(float4 vpos : SV_Position, float2 texcoord
 }
 
 
-float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	return tex2D(HQAAsamplerBufferGamma, texcoord);
-}
-
-
 float4 GenerateFXAAHysteresisDataPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 gammapixel = tex2D(HQAAsamplerBufferGamma, texcoord);
@@ -1599,6 +1591,11 @@ float4 HQAATemporalStabilizerWrapPS(float4 vpos : SV_Position, float2 texcoord :
 	result = saturate(result);
 #endif
 	return result;
+}
+
+float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return tex2D(HQAAsamplerBufferGamma, texcoord);
 }
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 
