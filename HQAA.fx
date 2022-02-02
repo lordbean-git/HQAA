@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2
+ *                        v17.2.1
  *
  *                     by lordbean
  *
@@ -115,7 +115,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2";
+	ui_label = "Version: 17.2.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1110,30 +1110,32 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
     if(!horzSpan) posM.x = mad(lengthSign, subpixOut, posM.x);
     else posM.y = mad(lengthSign, subpixOut, posM.y);
 	
-	// Establish result
+	// Establish result and compute hysteresis
 	float4 resultAA = float4(tex2D(tex, posM).rgb, lumaMa);
 	resultAA.a = GetNewAlpha(rgbyM, resultAA);
-	
 	float resultluma = dotluma(resultAA);
-	float finaldelta = (resultluma - edgedata.b) * edgedata.a;
+	float finaldelta = (resultluma - edgedata.b) * abs(resultluma - edgedata.a);
 #if HQAA_ENABLE_HDR_OUTPUT
 	finaldelta *= rcp(HdrNits);
 #endif
-
 	float4 weightedresult = pow(abs(resultAA), abs(1.0 + finaldelta));
 	
-	// fart the result
+	
+	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode < 6)
 	{
 #endif
+	// normal output
 	return weightedresult;
 #if HQAA_COMPILE_DEBUG_CODE
 	}
 	else if (debugmode == 6) {
+		// luminance output
 		return float4(lumaMa, lumaMa, lumaMa, lumaMa);
 	}
 	else if (debugmode == 7) {
+		// metrics output
 		float runtime = (float(iterationsN / maxiterations) + float(iterationsP / maxiterations)) / 2.0;
 		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0.0, 1.0);
 #if HQAA_ENABLE_HDR_OUTPUT
@@ -1142,10 +1144,12 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		return FxaaMetrics;
 	}
 	else {
+		// hysteresis result output
+		float4 FxaaHysteresisDebug = float4(abs(finaldelta), saturate(0.25 - abs(finaldelta)), 0.0, 1.0);
 #if HQAA_ENABLE_HDR_OUTPUT
-		return float4(abs(finaldelta), (1.0 - abs(finaldelta)), 0.0, 0.0);
+		FxaaHysteresisDebug.a = 0.0
 #else
-		return float4(abs(finaldelta), 1.0 - abs(finaldelta), 0.0, 1.0);
+		return FxaaHysteresisDebug;
 #endif
 	}
 #endif
