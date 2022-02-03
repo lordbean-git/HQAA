@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.1
+ *                        v17.2.2
  *
  *                     by lordbean
  *
@@ -115,7 +115,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.1";
+	ui_label = "Version: 17.2.2";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -445,6 +445,9 @@ static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.
 #define min7(t,u,v,w,x,y,z) min(min(min(min(min(min(t,u),v),w),x),y),z)
 #define min8(s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(s,t),u),v),w),x),y),z)
 #define min9(r,s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(min(r,s),t),u),v),w),x),y),z)
+
+#define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
+#define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + o * __SMAA_RT_METRICS.xy, p + o * __SMAA_RT_METRICS.xy))
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -931,7 +934,8 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
     m.y = tex2D(HQAAblendTex, offset.zw).g;
     m.wz = tex2D(HQAAblendTex, texcoord).xz;
 	
-	float4 color = __SMAASampleLevelZero(colorTex, texcoord);
+	float4 resultAA = __SMAASampleLevelZero(colorTex, texcoord);
+	float2 posM = texcoord;
 	
 	[branch]
     if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) > 1e-5) 
@@ -946,11 +950,11 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
 
         float4 blendingCoord = mad(blendingOffset, float4(__SMAA_RT_METRICS.xy, -__SMAA_RT_METRICS.xy), texcoord.xyxy);
 
-        color = blendingWeight.x * __SMAASampleLevelZero(colorTex, blendingCoord.xy);
-        color += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
+        resultAA = blendingWeight.x * __SMAASampleLevelZero(colorTex, blendingCoord.xy);
+        resultAA += blendingWeight.y * __SMAASampleLevelZero(colorTex, blendingCoord.zw);
     }
     
-	return color;
+	return resultAA;
 }
 
 /***************************************************************************************************************************************/
@@ -960,9 +964,6 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
 /***************************************************************************************************************************************/
 /*********************************************************** FXAA CODE BLOCK START *****************************************************/
 /***************************************************************************************************************************************/
-
-#define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
-#define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + o * __SMAA_RT_METRICS.xy, p + o * __SMAA_RT_METRICS.xy))
 
 float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex)
  {
@@ -1114,12 +1115,13 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	float4 resultAA = float4(tex2D(tex, posM).rgb, lumaMa);
 	resultAA.a = GetNewAlpha(rgbyM, resultAA);
 	float resultluma = dotluma(resultAA);
-	float finaldelta = (resultluma - edgedata.b) * abs(resultluma - edgedata.a);
+	float hysteresis = (resultluma - edgedata.b) * (abs(resultluma - edgedata.a) / resultluma);
 #if HQAA_ENABLE_HDR_OUTPUT
-	finaldelta *= rcp(HdrNits);
+	hysteresis *= rcp(HdrNits);
 #endif
-	float4 weightedresult = pow(abs(resultAA), abs(1.0 + finaldelta));
 	
+	// perform result weighting using computed hysteresis
+	float4 weightedresult = pow(abs(resultAA), abs(1.0 + hysteresis));
 	
 	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
@@ -1145,12 +1147,11 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	}
 	else {
 		// hysteresis result output
-		float4 FxaaHysteresisDebug = float4(abs(finaldelta), saturate(0.25 - abs(finaldelta)), 0.0, 1.0);
+		float4 FxaaHysteresisDebug = float4(abs(hysteresis), saturate(0.25 - abs(hysteresis)), 0.0, 1.0);
 #if HQAA_ENABLE_HDR_OUTPUT
-		FxaaHysteresisDebug.a = 0.0
-#else
-		return FxaaHysteresisDebug;
+		FxaaHysteresisDebug.a = 0.0;
 #endif
+		return FxaaHysteresisDebug;
 	}
 #endif
 }
@@ -1346,13 +1347,13 @@ float4 FXAAHysteresisDetectionPS(float4 vpos : SV_Position, float2 texcoord : TE
 		return tex2D(HQAAsamplerSMweights, texcoord);
 	if (debugmode == 3)
 #if HQAA_ENABLE_HDR_OUTPUT
-		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, tex2D(HQAAsamplerAlphaEdges, texcoord).a);
+		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, 0.0);
 #else
 		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, 1.0);
 #endif
 	if (debugmode == 4)
 #if HQAA_ENABLE_HDR_OUTPUT
-		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, tex2D(HQAAsamplerAlphaEdges, texcoord).b);
+		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, 0.0);
 #else
 		return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, 1.0);
 #endif
