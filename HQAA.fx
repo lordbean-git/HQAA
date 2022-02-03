@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.2
+ *                        v17.2.3
  *
  *                     by lordbean
  *
@@ -60,6 +60,18 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
  * binary distributions of the Software.
  **/
  
+ /**
+ * Deband shader by haasn
+ * https://github.com/haasn/gentoo-conf/blob/xor/home/nand/.mpv/shaders/deband-pre.glsl
+ *
+ * Copyright (c) 2015 Niklas Haas
+ *
+ * Modified and optimized for ReShade by JPulowski
+ * https://reshade.me/forum/shader-presentation/768-deband
+ *
+ * Do not distribute without giving credit to the original author(s).
+ **/
+
  /*------------------------------------------------------------------------------
  * THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -69,7 +81,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *-------------------------------------------------------------------------------*/
-
+ 
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP START **************************************************************/
@@ -107,6 +119,10 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 1
 #endif
 
+#ifndef HQAA_OPTIONAL_DEBAND
+	#define HQAA_OPTIONAL_DEBAND 1
+#endif
+
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_SCREENSHOT_MODE
@@ -115,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.2";
+	ui_label = "Version: 17.2.3";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -380,12 +396,37 @@ uniform int gainintro <
 >;
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
+#if HQAA_OPTIONAL_DEBAND
+
+uniform uint HqaaDebandPreset < 
+	ui_type = "combo";
+	ui_items = "Low\0Medium\0High\0";
+	ui_spacing = 3;
+	ui_label = "Debanding Strength";
+	ui_category = "Debanding";
+	ui_category_closed = true;
+> = 1;
+
+uniform int debandintro <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\nWhen enabled, performs a fast debanding pass very similar to\n"
+			  "Deband.fx to reduce color banding in the scene.";
+	ui_category = "Debanding";
+	ui_category_closed = true;
+>;
+
+uniform int drandom < source = "random"; min = 0; max = 32767; >;
+static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.002353, 0.007059, 0.013333};
+static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.007451, 0.015686, 0.026667};
+static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.004706, 0.007843, 0.012941};
+#endif
+
 uniform int optionalseof <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n-------------------------------------------------------------------------";
 >;
-
 #endif
 
 uniform float frametime < source = "frametime"; >;
@@ -501,6 +542,57 @@ float4 NormalizeAlpha(float4 pixel)
 	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
 	return pixel;
 }
+
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_DEBAND
+float rand(float x)
+{
+    return frac(x / 41.0);
+}
+
+float permute(float x)
+{
+    return ((34.0 * x + 1.0) * x) % 289.0;
+}
+
+void analyze_pixels(float3 ori, sampler2D tex, float2 texcoord, float2 _range, float2 dir, out float3 ref_avg, out float3 ref_avg_diff, out float3 ref_max_diff, out float3 ref_mid_diff1, out float3 ref_mid_diff2)
+{
+    // Sample at quarter-turn intervals around the source pixel
+
+    // South-east
+    float3 ref = tex2Dlod(tex, float4(texcoord + _range * dir, 0.0, 0.0)).rgb;
+    float3 diff = abs(ori - ref);
+    ref_max_diff = diff;
+    ref_avg = ref;
+    ref_mid_diff1 = ref;
+
+    // North-west
+    ref = tex2Dlod(tex, float4(texcoord + _range * -dir, 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
+    ref_max_diff = max(ref_max_diff, diff);
+    ref_avg += ref;
+    ref_mid_diff1 = abs(((ref_mid_diff1 + ref) * 0.5) - ori);
+
+    // North-east
+    ref = tex2Dlod(tex, float4(texcoord + _range * float2(-dir.y, dir.x), 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
+    ref_max_diff = max(ref_max_diff, diff);
+    ref_avg += ref;
+    ref_mid_diff2 = ref;
+
+    // South-west
+    ref = tex2Dlod(tex, float4(texcoord + _range * float2( dir.y, -dir.x), 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
+    ref_max_diff = max(ref_max_diff, diff);
+    ref_avg += ref;
+    ref_mid_diff2 = abs(((ref_mid_diff2 + ref) * 0.5) - ori);
+
+    ref_avg *= 0.25; // Normalize avg
+    ref_avg_diff = abs(ori - ref_avg);
+}
+#endif
+#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
 
 /*****************************************************************************************************************************************/
 /*********************************************************** SMAA CODE BLOCK START *******************************************************/
@@ -1377,10 +1469,12 @@ float4 FXAAHysteresisDetectionPS(float4 vpos : SV_Position, float2 texcoord : TE
 
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
-// Optional effects - calculations
+// Optional effects main pass. These are sorted in an order that they won't
+// interfere with each other when they're all enabled
 float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(HQAAsamplerBufferGamma, texcoord);
+	
 #if HQAA_OPTIONAL_CAS
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength;
@@ -1437,6 +1531,42 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	 pixel *= HdrNits;
 #endif
 #endif //HQAA_OPTIONAL_CAS
+
+#if HQAA_OPTIONAL_DEBAND
+    float hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
+
+    float3 ref_avg;
+    float3 ref_avg_diff;
+    float3 ref_max_diff;
+    float3 ref_mid_diff1;
+    float3 ref_mid_diff2;
+
+    float3 ori = pixel.rgb;
+    float3 res;
+
+    float dir = rand(permute(hash)) * 6.2831853;
+    float2 angle = float2(cos(dir), sin(dir));
+
+    float dist = rand(hash) * 32.0;
+    float2 pt = dist * BUFFER_PIXEL_SIZE;
+
+    analyze_pixels(ori, ReShade::BackBuffer, texcoord, pt, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+
+    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
+
+    res = lerp(ori, ref_avg, factor);
+
+	float grid_position = frac(dot(texcoord, (BUFFER_SCREEN_SIZE * float2(1.0 / 16.0, 10.0 / 36.0)) + 0.25));
+	float dither_shift = 0.25 * (1.0 / (pow(2, BUFFER_COLOR_BIT_DEPTH) - 1.0));
+	float3 dither_shift_RGB = float3(dither_shift, -dither_shift, dither_shift);
+	dither_shift_RGB = lerp(2.0 * dither_shift_RGB, -2.0 * dither_shift_RGB, grid_position);
+	res += dither_shift_RGB;
+
+    pixel.rgb = res;
+#endif
 
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 #if HQAA_ENABLE_HDR_OUTPUT
