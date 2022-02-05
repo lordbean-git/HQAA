@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.4
+ *                        v17.2.5
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.4";
+	ui_label = "Version: 17.2.5";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -376,7 +376,7 @@ uniform int stabilizerintro <
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
-	ui_min = -15.00; ui_max = 7.50; ui_step = 0.01;
+	ui_min = -1.000; ui_max = 1.000; ui_step = 0.001;
 	ui_spacing = 3;
 	ui_label = "Brightness Gain";
 	ui_category = "Brightness Booster";
@@ -1569,18 +1569,22 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif
 
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
+	if (HqaaGainStrength != 0.0) {
 #if HQAA_ENABLE_HDR_OUTPUT
 	pixel *= (1.0 / HdrNits);
 #endif
-	float gain = 10.0 - HqaaGainStrength;
+	float alphagain = log2(HqaaGainStrength + 1.0);
+	float colorgain = 2.0 - alphagain;
+	float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
 	float4 outdot = pixel;
-	outdot = log10(rcp(outdot));
-	outdot = pow(abs(gain), outdot);
-	outdot = rcp(outdot);
+	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
+	outdot.rgb = pow(abs(colorgain), outdot.rgb);
+	outdot.a = pow(abs(alphagain), outdot.a);
 #if HQAA_ENABLE_HDR_OUTPUT
 	outdot *= HdrNits;
 #endif
 	pixel = outdot;
+	}
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
