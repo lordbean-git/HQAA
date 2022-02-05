@@ -182,7 +182,7 @@ uniform float SmaaCorneringCustom < __UNIFORM_SLIDER_INT1
     ui_category = "Custom Preset";
 	ui_category_closed = true;
 	ui_text = "\n------------------------------- SMAA Options -----------------------------------\n ";
-> = 20;
+> = 50;
 
 uniform float FxaaIterationsCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.25; ui_max = 5.0; ui_step = 0.01;
@@ -199,7 +199,7 @@ uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Determines how far along an edge FXAA will move\nfrom one scan iteration to the next.\n\nLower = slower, more accurate\nHigher = faster, more blurry";
 	ui_category = "Custom Preset";
 	ui_category_closed = true;
-> = 0.5;
+> = 1.0;
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -288,7 +288,7 @@ uniform int extradivider <
 
 #if HQAA_ENABLE_FPS_TARGET
 uniform float FramerateFloor < __UNIFORM_SLIDER_INT1
-	ui_min = 30; ui_max = 150; ui_step = 1;
+	ui_min = 30; ui_max = 240; ui_step = 1;
 	ui_label = "Target Minimum Framerate";
 	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
 > = 60;
@@ -315,7 +315,7 @@ uniform int optionseof <
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
-	ui_min = 0; ui_max = 4; ui_step = 0.01;
+	ui_min = 0; ui_max = 10; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
@@ -351,7 +351,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.25;
+> = 0.2;
 
 uniform bool ClampMaximumWeight <
 	ui_label = "Clamp Maximum Weight?";
@@ -361,7 +361,7 @@ uniform bool ClampMaximumWeight <
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
 				 "single color channel between the past frame and the current frame.";
-> = true;
+> = false;
 
 uniform int stabilizerintro <
 	ui_type = "radio";
@@ -376,7 +376,7 @@ uniform int stabilizerintro <
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
-	ui_min = -10.00; ui_max = 5.00; ui_step = 0.01;
+	ui_min = -15.00; ui_max = 7.50; ui_step = 0.01;
 	ui_spacing = 3;
 	ui_label = "Brightness Gain";
 	ui_category = "Brightness Booster";
@@ -405,7 +405,7 @@ uniform uint HqaaDebandPreset <
 	ui_label = "Debanding Strength";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 1;
+> = 0;
 
 uniform int debandintro <
 	ui_type = "radio";
@@ -417,9 +417,9 @@ uniform int debandintro <
 >;
 
 uniform int drandom < source = "random"; min = 0; max = 32767; >;
-static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.002353, 0.007059, 0.013333};
-static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.007451, 0.015686, 0.026667};
-static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.004706, 0.007843, 0.012941};
+static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.007059, 0.013333, 0.020000};
+static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.015686, 0.026667, 0.038889};
+static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.007843, 0.012941, 0.019122};
 #endif
 
 uniform int optionalseof <
