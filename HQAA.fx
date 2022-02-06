@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.5
+ *                        v17.2.6
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.5";
+	ui_label = "Version: 17.2.6";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -264,12 +264,12 @@ uniform int debugexplainer <
 			  "Hysteresis values are the calculated pixel lumas taken before\n"
 			  "any anti-aliasing is applied and used by FXAA to adjust its\n"
 			  "output to reduce aggressiveness of artifacts.\n\n"
-			  "FXAA Hysteresis shows the calculated luma difference between\n"
-			  "the original pixel and the FXAA result. This is then used as a\n"
-			  "weight to shift the appearance of the final result closer to the\n"
-			  "original pixel if necessary. Green means the result was mostly\n"
-			  "unmodified, red means the result was weighted toward the look\n"
-			  "of the original pixel.\n\n"
+			  "FXAA Hysteresis displays the result of the FXAA hysteresis\n"
+			  "calculation with gray pixels representing results that were\n"
+			  "computed to be valid without adjustment, blue pixels\n"
+			  "representing results that were computed to require brightening,\n"
+			  "and red pixels representing results that were computed to\n"
+			  "require darkening.\n\n"
 			  "Debug checks can optionally be excluded from the compiled shader\n"
 			  "by setting HQAA_COMPILE_DEBUG_CODE to 0.\n"
 	          "----------------------------------------------------------------";
@@ -417,9 +417,9 @@ uniform int debandintro <
 >;
 
 uniform int drandom < source = "random"; min = 0; max = 32767; >;
-static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.007059, 0.013333, 0.020000};
-static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.015686, 0.026667, 0.038889};
-static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.007843, 0.012941, 0.019122};
+static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.005000, 0.009500, 0.011667};
+static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.012333, 0.019667, 0.023999};
+static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.005667, 0.009996, 0.012333};
 #endif
 
 uniform int optionalseof <
@@ -698,7 +698,7 @@ float2 HQAALumaEdgeDetectionPS(float2 texcoord, float4 offset[3], sampler2D colo
     edges = step(threshold, delta.xy);
 	
 	[branch]
-	if (dot(edges, float2(1.0, 1.0)) != 0.0) {
+	if (edges.r != -edges.g) {
 		
 	// scale will always be some number >=1 with gamma 2.0 colors
 	// bright dots approach 1.0, dark dots approach 255
@@ -744,7 +744,7 @@ float4 HQAADecodeDiagBilinearAccess(float4 e) {
 float2 HQAASearchDiag1(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out float2 e) {
     float4 coord = float4(texcoord, -1.0, 1.0);
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
-    [loop] while (coord.z < 19.0 &&
+    [loop] while (coord.z < 20.0 &&
            coord.w > 0.9) {
         coord.xyz = mad(t, float3(dir, 1.0), coord.xyz);
         e = __SMAASampleLevelZero(HQAAedgesTex, coord.xy).rg;
@@ -757,7 +757,7 @@ float2 HQAASearchDiag2(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out 
     float4 coord = float4(texcoord, -1.0, 1.0);
     coord.x += 0.25 * __SMAA_RT_METRICS.x;
     float3 t = float3(__SMAA_RT_METRICS.xy, 1.0);
-    [loop] while (coord.z < 19.0 &&
+    [loop] while (coord.z < 20.0 &&
            coord.w > 0.9) {
         coord.xyz = mad(t, float3(dir, 1.0), coord.xyz);
 
@@ -863,10 +863,11 @@ float HQAASearchLength(sampler2D HQAAsearchTex, float2 e, float offset) {
  */
 float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
-    [loop] while (texcoord.x > end && e.g > 0.0 && e.r == 0.0) 
+    [loop] while (texcoord.x > end) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
+        if (e.r > 0.0 || e.g == 0.0) break;
     }
 
     float offset = mad(-(255.0 / 127.0), HQAASearchLength(HQAAsearchTex, e, 0.0), 3.25);
@@ -875,10 +876,11 @@ float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
 
 float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(0.0, 1.0);
-    [loop] while (texcoord.x < end && e.g > 0.0 && e.r == 0.0) 
+    [loop] while (texcoord.x < end) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(2.0, 0.0), __SMAA_RT_METRICS.xy, texcoord);
+        if (e.r > 0.0 || e.g == 0.0) break;
     }
     float offset = mad(-(255.0 / 127.0), HQAASearchLength(HQAAsearchTex, e, 0.5), 3.25);
     return mad(-__SMAA_RT_METRICS.x, offset, texcoord.x);
@@ -886,10 +888,11 @@ float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 t
 
 float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
-    [loop] while (texcoord.y > end && e.r > 0.0 && e.g == 0.0) 
+    [loop] while (texcoord.y > end) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(-float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
+        if (e.r == 0.0 || e.g > 0.0) break;
     }
     float offset = mad(-(255.0 / 127.0), HQAASearchLength(HQAAsearchTex, e.gr, 0.0), 3.25);
     return mad(__SMAA_RT_METRICS.y, offset, texcoord.y);
@@ -897,10 +900,11 @@ float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texc
 
 float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
     float2 e = float2(1.0, 0.0);
-    [loop] while (texcoord.y < end && e.r > 0.0 && e.g == 0.0) 
+    [loop] while (texcoord.y < end) 
 	{
         e = __SMAASampleLevelZero(HQAAedgesTex, texcoord).rg;
         texcoord = mad(float2(0.0, 2.0), __SMAA_RT_METRICS.xy, texcoord);
+        if (e.r == 0.0 || e.g > 0.0) break;
     }
     float offset = mad(-(255.0 / 127.0), HQAASearchLength(HQAAsearchTex, e.gr, 0.5), 3.25);
     return mad(-__SMAA_RT_METRICS.y, offset, texcoord.y);
@@ -1030,7 +1034,7 @@ float4 HQAANeighborhoodBlendingPS(float2 texcoord,
 	float2 posM = texcoord;
 	
 	[branch]
-    if (dot(m, float4(1.0, 1.0, 1.0, 1.0)) > 1e-5) 
+    if (any(m)) 
 	{
         bool horiz = max(m.x, m.z) > max(m.y, m.w);
 
@@ -1158,21 +1162,23 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 		maxiterations = int(trunc(max(__FXAA_MINIMUM_SEARCH_STEPS, __HQAA_FPS_CLAMP_MULTIPLIER * maxiterations)));
 	#endif
 	
-	[loop] while (iterationsN < maxiterations && !doneN)
+	[loop] while (iterationsN < maxiterations)
 	{
 		lumaEndN = dotgamma(FxaaTex2D(tex, posN.xy));
 		lumaEndN = mad(0.5, -lumaNN, lumaEndN);
 		doneN = abs(lumaEndN) >= gradientScaled;
         if (!doneN) posN = mad(granularity, -offNP, posN);
+        else break;
 		iterationsN++;
     }
 	
-	[loop] while (iterationsP < maxiterations && !doneP)
+	[loop] while (iterationsP < maxiterations)
 	{
 		lumaEndP = dotgamma(FxaaTex2D(tex, posP.xy));
 		lumaEndP = mad(0.5, -lumaNN, lumaEndP);
 		doneP = abs(lumaEndP) >= gradientScaled;
         if (!doneP) posP = mad(granularity, offNP, posP);
+        else break;
 		iterationsP++;
     }
 	
@@ -1239,7 +1245,7 @@ float4 FxaaAdaptiveLumaPixelShader(float2 pos, sampler2D tex, sampler2D edgestex
 	}
 	else {
 		// hysteresis result output
-		float4 FxaaHysteresisDebug = float4(abs(hysteresis), saturate(0.25 - abs(hysteresis)), 0.0, 1.0);
+		float4 FxaaHysteresisDebug = float4(saturate(0.1 + (hysteresis < 0.0 ? (0.9 * sqrt(abs(hysteresis))) : 0.0)), 0.1, saturate(0.1 + (hysteresis > 0.0 ? (0.9 * sqrt(hysteresis)) : 0.0)), 1.0);
 #if HQAA_ENABLE_HDR_OUTPUT
 		FxaaHysteresisDebug.a = 0.0;
 #endif
@@ -1455,7 +1461,7 @@ float4 FXAAHysteresisDetectionPS(float4 vpos : SV_Position, float2 texcoord : TE
 	
 #if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode > 4) {
-		bool validResult = dot(abs(result - tex2D(HQAAsamplerBufferGamma, texcoord)), float4(1.0, 1.0, 1.0, 1.0)) > 1e-5;
+		bool validResult = any(result - tex2D(HQAAsamplerBufferGamma, texcoord));
 		if (!validResult)
 			return float4(0.0, 0.0, 0.0, 0.0);
 	}
@@ -1468,7 +1474,7 @@ float4 FXAAHysteresisDetectionPS(float4 vpos : SV_Position, float2 texcoord : TE
 }
 
 
-#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 // Optional effects main pass. These are sorted in an order that they won't
 // interfere with each other when they're all enabled
 float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1547,7 +1553,7 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float dir = rand(permute(hash)) * 6.2831853;
     float2 angle = float2(cos(dir), sin(dir));
 
-    float dist = rand(hash) * 32.0;
+    float dist = rand(hash) * 12.0 * float(HqaaDebandPreset + 1);
     float2 pt = dist * BUFFER_PIXEL_SIZE;
 
     analyze_pixels(ori, ReShade::BackBuffer, texcoord, pt, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
@@ -1573,13 +1579,11 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #if HQAA_ENABLE_HDR_OUTPUT
 	pixel *= (1.0 / HdrNits);
 #endif
-	float alphagain = log2(HqaaGainStrength + 1.0);
-	float colorgain = 2.0 - alphagain;
+	float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
 	float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
 	float4 outdot = pixel;
 	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
-	outdot.rgb = pow(abs(colorgain), outdot.rgb);
-	outdot.a = pow(abs(alphagain), outdot.a);
+	outdot = pow(abs(colorgain), outdot);
 #if HQAA_ENABLE_HDR_OUTPUT
 	outdot *= HdrNits;
 #endif
@@ -1600,6 +1604,10 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	pixel = lerp(pixel, previous, blendweight);
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
+
+#if !HQAA_ENABLE_HDR_OUTPUT
+	pixel = saturate(pixel);
+#endif
 	return pixel;
 }
 
@@ -1653,11 +1661,13 @@ technique HQAA <
 		PixelShader = FXAAHysteresisDetectionPS;
 	}
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 	pass OptionalEffects
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAOptionalEffectPassPS;
 	}
+#endif
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 	pass SaveCurrentFrame
 	{
