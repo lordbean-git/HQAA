@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.6
+ *                        v17.2.7
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.6";
+	ui_label = "Version: 17.2.7";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -383,6 +383,15 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 0.0;
 
+uniform bool HqaaGainLowLumaCorrection <
+	ui_spacing = 2;
+	ui_label = "Low-luma Contrast Correction";
+	ui_tooltip = "Attempts to normalize contrast ratio of post-gain\n"
+				 "low-luma pixels to reduce perceived contrast washout.";
+	ui_category = "Brightness Booster";
+	ui_category_closed = true;
+> = false;
+	
 uniform int gainintro <
 	ui_type = "radio";
 	ui_label = " ";
@@ -417,9 +426,9 @@ uniform int debandintro <
 >;
 
 uniform int drandom < source = "random"; min = 0; max = 32767; >;
-static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.005000, 0.009500, 0.011667};
-static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.012333, 0.019667, 0.023999};
-static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.005667, 0.009996, 0.012333};
+static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.007500, 0.012000, 0.020000};
+static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.015000, 0.024000, 0.040000};
+static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.008000, 0.013000, 0.021500};
 #endif
 
 uniform int optionalseof <
@@ -429,8 +438,9 @@ uniform int optionalseof <
 >;
 #endif
 
+#if HQAA_ENABLE_FPS_TARGET
 uniform float frametime < source = "frametime"; >;
-uniform uint framecount < source = "framecount"; >;
+#endif
 
 static const float HQAA_THRESHOLD_PRESET[7] = {0.25, 0.2, 0.15, 0.1, 0.075, 0.05, 1.0};
 static const float HQAA_DYNAMIC_RANGE_PRESET[7] = {0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 0.0};
@@ -489,6 +499,8 @@ static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.
 
 #define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
 #define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + o * __SMAA_RT_METRICS.xy, p + o * __SMAA_RT_METRICS.xy))
+
+#define __CONST_E 2.718282
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1553,7 +1565,7 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float dir = rand(permute(hash)) * 6.2831853;
     float2 angle = float2(cos(dir), sin(dir));
 
-    float dist = rand(hash) * 12.0 * float(HqaaDebandPreset + 1);
+    float dist = rand(hash) * 32.0;
     float2 pt = dist * BUFFER_PIXEL_SIZE;
 
     analyze_pixels(ori, ReShade::BackBuffer, texcoord, pt, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
@@ -1584,6 +1596,13 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 outdot = pixel;
 	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
 	outdot = pow(abs(colorgain), outdot);
+	if (HqaaGainLowLumaCorrection && HqaaGainStrength > 0.0) {
+		// check if the dot is still below threshold
+		if (!any(saturate(outdot.rgb - HqaaGainStrength))) {
+			outdot = log10(outdot);
+			outdot = pow(abs(10.0 + log10(BUFFER_COLOR_BIT_DEPTH * rcp(HqaaGainStrength))), outdot);
+		}
+	}
 #if HQAA_ENABLE_HDR_OUTPUT
 	outdot *= HdrNits;
 #endif
