@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.7
+ *                        v17.2.8
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.7";
+	ui_label = "Version: 17.2.8";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -567,33 +567,33 @@ float permute(float x)
     return ((34.0 * x + 1.0) * x) % 289.0;
 }
 
-void analyze_pixels(float3 ori, sampler2D tex, float2 texcoord, float2 _range, float2 dir, out float3 ref_avg, out float3 ref_avg_diff, out float3 ref_max_diff, out float3 ref_mid_diff1, out float3 ref_mid_diff2)
+void analyze_pixels(float3 ori, float3 nw, float3 ne, float3 sw, float3 se, float2 dir, out float3 ref_avg, out float3 ref_avg_diff, out float3 ref_max_diff, out float3 ref_mid_diff1, out float3 ref_mid_diff2)
 {
     // Sample at quarter-turn intervals around the source pixel
 
     // South-east
-    float3 ref = tex2Dlod(tex, float4(texcoord + _range * dir, 0.0, 0.0)).rgb;
+    float3 ref = se;
     float3 diff = abs(ori - ref);
     ref_max_diff = diff;
     ref_avg = ref;
     ref_mid_diff1 = ref;
 
     // North-west
-    ref = tex2Dlod(tex, float4(texcoord + _range * -dir, 0.0, 0.0)).rgb;
+    ref = nw;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     ref_mid_diff1 = abs(((ref_mid_diff1 + ref) * 0.5) - ori);
 
     // North-east
-    ref = tex2Dlod(tex, float4(texcoord + _range * float2(-dir.y, dir.x), 0.0, 0.0)).rgb;
+    ref = ne;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     ref_mid_diff2 = ref;
 
     // South-west
-    ref = tex2Dlod(tex, float4(texcoord + _range * float2( dir.y, -dir.x), 0.0, 0.0)).rgb;
+    ref = sw;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
@@ -1493,6 +1493,13 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 {
 	float4 pixel = tex2D(HQAAsamplerBufferGamma, texcoord);
 	
+#if (HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_CAS)
+    float3 a = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(-1, -1)).rgb;
+    float3 c = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(1, -1)).rgb;
+    float3 g = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(-1, 1)).rgb;
+    float3 i = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(1, 1)).rgb;
+#endif
+	
 #if HQAA_OPTIONAL_CAS
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength;
@@ -1504,14 +1511,10 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	// proceed with CAS math.
 	
-    float3 a = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(-1, -1)).rgb;
     float3 b = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(0, -1)).rgb;
-    float3 c = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(1, -1)).rgb;
     float3 d = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(-1, 0)).rgb;
     float3 f = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(1, 0)).rgb;
-    float3 g = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(-1, 1)).rgb;
     float3 h = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(0, 1)).rgb;
-    float3 i = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(1, 1)).rgb;
 	
 	float3 mnRGB = min5(d, pixel.rgb, f, b, h);
 	float3 mnRGB2 = min5(mnRGB, a, c, g, i);
@@ -1568,7 +1571,7 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float dist = rand(hash) * 32.0;
     float2 pt = dist * BUFFER_PIXEL_SIZE;
 
-    analyze_pixels(ori, ReShade::BackBuffer, texcoord, pt, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+    analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
 
     float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
                         saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
@@ -1596,11 +1599,15 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 outdot = pixel;
 	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
 	outdot = pow(abs(colorgain), outdot);
-	if (HqaaGainLowLumaCorrection && HqaaGainStrength > 0.0) {
-		// check if the dot is still below threshold
-		if (!any(saturate(outdot.rgb - HqaaGainStrength))) {
+	if (HqaaGainLowLumaCorrection) {
+		// calculate new black level
+		channelfloor = pow(abs(colorgain), log2(channelfloor));
+		// calculate probable low luma delta
+		channelfloor = HqaaGainStrength - channelfloor;
+		// if positive delta and low luma pixel, run correction
+		if (channelfloor > 0.0 && !any(saturate(outdot.rgb - HqaaGainStrength))) {
 			outdot = log10(outdot);
-			outdot = pow(abs(10.0 + log10(BUFFER_COLOR_BIT_DEPTH * rcp(HqaaGainStrength))), outdot);
+			outdot = pow(abs(10.0 + channelfloor * 10.0), outdot);
 		}
 	}
 #if HQAA_ENABLE_HDR_OUTPUT
