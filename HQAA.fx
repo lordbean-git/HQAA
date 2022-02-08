@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.8
+ *                        v17.2.9
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.8";
+	ui_label = "Version: 17.2.9";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -385,9 +385,9 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 
 uniform bool HqaaGainLowLumaCorrection <
 	ui_spacing = 2;
-	ui_label = "Low-luma Contrast Correction";
-	ui_tooltip = "Attempts to normalize contrast ratio of post-gain\n"
-				 "low-luma pixels to reduce perceived contrast washout.";
+	ui_label = "Contrast Washout Correction";
+	ui_tooltip = "Normalizes contrast ratio of resulting pixels\n"
+				 "to reduce perceived contrast washout.";
 	ui_category = "Brightness Booster";
 	ui_category_closed = true;
 > = false;
@@ -1599,16 +1599,12 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 outdot = pixel;
 	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
 	outdot = pow(abs(colorgain), outdot);
-	if (HqaaGainLowLumaCorrection) {
+	if (HqaaGainLowLumaCorrection && HqaaGainStrength > 0.0) {
 		// calculate new black level
 		channelfloor = pow(abs(colorgain), log2(channelfloor));
-		// calculate probable low luma delta
-		channelfloor = HqaaGainStrength - channelfloor;
-		// if positive delta and low luma pixel, run correction
-		if (channelfloor > 0.0 && !any(saturate(outdot.rgb - HqaaGainStrength))) {
-			outdot = log10(outdot);
-			outdot = pow(abs(10.0 + channelfloor * 10.0), outdot);
-		}
+		// recalculate reduction strength to apply
+		channelfloor = log2(rcp(dotgamma(outdot) - channelfloor)) * (1.0 + HqaaGainStrength);
+		outdot = pow(abs(10.0 + channelfloor), log10(outdot));
 	}
 #if HQAA_ENABLE_HDR_OUTPUT
 	outdot *= HdrNits;
