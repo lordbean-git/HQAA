@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.9
+ *                        v17.2.10
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.9";
+	ui_label = "Version: 17.2.10";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -426,9 +426,9 @@ uniform int debandintro <
 >;
 
 uniform int drandom < source = "random"; min = 0; max = 32767; >;
-static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.007500, 0.012000, 0.020000};
-static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.015000, 0.024000, 0.040000};
-static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.008000, 0.013000, 0.021500};
+static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.008000, 0.012000, 0.016000};
+static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.016000, 0.024000, 0.032000};
+static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.005333, 0.008000, 0.010667};
 #endif
 
 uniform int optionalseof <
@@ -459,7 +459,7 @@ static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_LUMA_REF float4(0.25,0.25,0.25,0.25)
-#define __HQAA_GAMMA_REF float3(0.3333,0.3334,0.3333)
+#define __HQAA_GAMMA_REF float3(0.333333,0.333334,0.333333)
 
 #if HQAA_ENABLE_FPS_TARGET
 #define __HQAA_DESIRED_FRAMETIME float(1000.0 / FramerateFloor)
@@ -476,8 +476,8 @@ static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.
 #define __SMAA_MAX_SEARCH_STEPS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __SMAA_MINIMUM_SEARCH_STEPS 20
 
-#define dotluma(x) ((__HQAA_LUMA_REF.r * x.r) + (__HQAA_LUMA_REF.g * x.g) + (__HQAA_LUMA_REF.b * x.b) + (__HQAA_LUMA_REF.a * x.a))
-#define dotgamma(x) ((__HQAA_GAMMA_REF.r * x.r) + (__HQAA_GAMMA_REF.g * x.g) + (__HQAA_GAMMA_REF.b * x.b))
+#define dotluma(x) dot(x.rgba, __HQAA_LUMA_REF)
+#define dotgamma(x) dot(x.rgb, __HQAA_GAMMA_REF)
 #define vec4add(x) (x.r + x.g + x.b + x.a)
 #define vec3add(x) (x.r + x.g + x.b)
 
@@ -1499,7 +1499,43 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float3 g = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(-1, 1)).rgb;
     float3 i = tex2Doffset(HQAAsamplerBufferGamma, texcoord, int2(1, 1)).rgb;
 #endif
-	
+
+#if HQAA_OPTIONAL_DEBAND
+    float hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
+
+    float3 ref_avg;
+    float3 ref_avg_diff;
+    float3 ref_max_diff;
+    float3 ref_mid_diff1;
+    float3 ref_mid_diff2;
+
+    float3 ori = pixel.rgb;
+    float3 res;
+
+    float dir = rand(permute(hash)) * 6.2831853;
+    float2 angle = float2(cos(dir), sin(dir));
+
+    float dist = rand(hash) * 12.0 * float(HqaaDebandPreset + 1);
+    float2 pt = dist * BUFFER_PIXEL_SIZE;
+
+    analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+
+    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
+
+    res = lerp(ori, ref_avg, factor);
+
+	float grid_position = frac(dot(texcoord, (BUFFER_SCREEN_SIZE * float2(1.0 / 16.0, 10.0 / 36.0)) + 0.25));
+	float dither_shift = 0.25 * (1.0 / (pow(2, BUFFER_COLOR_BIT_DEPTH) - 1.0));
+	float3 dither_shift_RGB = float3(dither_shift, -dither_shift, dither_shift);
+	dither_shift_RGB = lerp(2.0 * dither_shift_RGB, -2.0 * dither_shift_RGB, grid_position);
+	res += dither_shift_RGB;
+
+    pixel.rgb = res;
+#endif
+
 #if HQAA_OPTIONAL_CAS
 	// set sharpening amount
 	float sharpening = HqaaSharpenerStrength;
@@ -1552,42 +1588,6 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	 pixel *= HdrNits;
 #endif
 #endif //HQAA_OPTIONAL_CAS
-
-#if HQAA_OPTIONAL_DEBAND
-    float hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
-
-    float3 ref_avg;
-    float3 ref_avg_diff;
-    float3 ref_max_diff;
-    float3 ref_mid_diff1;
-    float3 ref_mid_diff2;
-
-    float3 ori = pixel.rgb;
-    float3 res;
-
-    float dir = rand(permute(hash)) * 6.2831853;
-    float2 angle = float2(cos(dir), sin(dir));
-
-    float dist = rand(hash) * 32.0;
-    float2 pt = dist * BUFFER_PIXEL_SIZE;
-
-    analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
-
-    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
-                        saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
-                        saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
-                        saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
-
-    res = lerp(ori, ref_avg, factor);
-
-	float grid_position = frac(dot(texcoord, (BUFFER_SCREEN_SIZE * float2(1.0 / 16.0, 10.0 / 36.0)) + 0.25));
-	float dither_shift = 0.25 * (1.0 / (pow(2, BUFFER_COLOR_BIT_DEPTH) - 1.0));
-	float3 dither_shift_RGB = float3(dither_shift, -dither_shift, dither_shift);
-	dither_shift_RGB = lerp(2.0 * dither_shift_RGB, -2.0 * dither_shift_RGB, grid_position);
-	res += dither_shift_RGB;
-
-    pixel.rgb = res;
-#endif
 
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 	if (HqaaGainStrength != 0.0) {
