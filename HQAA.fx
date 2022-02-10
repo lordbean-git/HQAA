@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.10
+ *                        v17.2.11
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.10";
+	ui_label = "Version: 17.2.11";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -376,7 +376,7 @@ uniform int stabilizerintro <
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
-	ui_min = -1.000; ui_max = 1.000; ui_step = 0.001;
+	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
 	ui_spacing = 3;
 	ui_label = "Brightness Gain";
 	ui_category = "Brightness Booster";
@@ -395,11 +395,8 @@ uniform bool HqaaGainLowLumaCorrection <
 uniform int gainintro <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\nWhen enabled, allows to raise or lower overall image brightness\n"
-			  "as a quick fix for dark games and/or monitors, or to increase\n"
-			  "perceived contrast level.\n\n"
-			  "This technique may produce odd or reversed results when used in\n"
-			  "non-standard color spaces (eg. scRGB).";
+	ui_text = "\nWhen enabled, allows to raise overall image brightness\n"
+			  "as a quick fix for dark games and/or monitors.\n\n";
 	ui_category = "Brightness Booster";
 	ui_category_closed = true;
 >;
@@ -1590,7 +1587,6 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif //HQAA_OPTIONAL_CAS
 
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
-	if (HqaaGainStrength != 0.0) {
 #if HQAA_ENABLE_HDR_OUTPUT
 	pixel *= (1.0 / HdrNits);
 #endif
@@ -1599,18 +1595,18 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float4 outdot = pixel;
 	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
 	outdot = pow(abs(colorgain), outdot);
-	if (HqaaGainLowLumaCorrection && HqaaGainStrength > 0.0) {
-		// calculate new black level
+	if (HqaaGainLowLumaCorrection) {
+		// calculate new luma levels
 		channelfloor = pow(abs(colorgain), log2(channelfloor));
-		// recalculate reduction strength to apply
-		channelfloor = log2(rcp(dotgamma(outdot) - channelfloor)) * (1.0 + HqaaGainStrength);
-		outdot = pow(abs(10.0 + channelfloor), log10(outdot));
+		float lumanormal = dotgamma(outdot) - channelfloor;
+		// calculate reduction strength to apply
+		float contrastgain = log(rcp(lumanormal)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
+		outdot = pow(abs(10.0 + contrastgain), log10(outdot));
 	}
 #if HQAA_ENABLE_HDR_OUTPUT
 	outdot *= HdrNits;
 #endif
 	pixel = outdot;
-	}
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
