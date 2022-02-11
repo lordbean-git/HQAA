@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v17.2.11
+ *                        v17.2.12
  *
  *                     by lordbean
  *
@@ -131,7 +131,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 17.2.11";
+	ui_label = "Version: 17.2.12";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -396,7 +396,11 @@ uniform int gainintro <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nWhen enabled, allows to raise overall image brightness\n"
-			  "as a quick fix for dark games and/or monitors.\n\n";
+			  "as a quick fix for dark games and/or monitors.\n\n"
+			  "Contrast washout correction dynamically adjusts the luma\n"
+			  "and saturation of the result to approximate the look of\n"
+			  "the original scene, removing most of the perceived loss\n"
+			  "of contrast (or 'airy' look) after the gain is applied.";
 	ui_category = "Brightness Booster";
 	ui_category_closed = true;
 >;
@@ -423,9 +427,9 @@ uniform int debandintro <
 >;
 
 uniform int drandom < source = "random"; min = 0; max = 32767; >;
-static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.008000, 0.012000, 0.016000};
-static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.016000, 0.024000, 0.032000};
-static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.005333, 0.008000, 0.010667};
+static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.005000, 0.010000, 0.020000};
+static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.010000, 0.022000, 0.050000};
+static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.004000, 0.010000, 0.022000};
 #endif
 
 uniform int optionalseof <
@@ -493,6 +497,8 @@ static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.
 #define min7(t,u,v,w,x,y,z) min(min(min(min(min(min(t,u),v),w),x),y),z)
 #define min8(s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(s,t),u),v),w),x),y),z)
 #define min9(r,s,t,u,v,w,x,y,z) min(min(min(min(min(min(min(min(r,s),t),u),v),w),x),y),z)
+
+#define dotsat(x) (dotgamma(x) == 1.0 ? 0.0 : ((max3(x.r, x.g, x.b) - min3(x.r, x.g, x.b)) / (1.0 - (2.0 * dotgamma(x) - 1.0))))
 
 #define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
 #define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p + o * __SMAA_RT_METRICS.xy, p + o * __SMAA_RT_METRICS.xy))
@@ -1512,12 +1518,29 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float dir = rand(permute(hash)) * 6.2831853;
     float2 angle = float2(cos(dir), sin(dir));
 
-    float dist = rand(hash) * 12.0 * float(HqaaDebandPreset + 1);
-    float2 pt = dist * BUFFER_PIXEL_SIZE;
-
     analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
 
     float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
+
+    dir = rand(permute(hash)) * 6.2831853;
+    angle = float2(cos(dir), sin(dir));
+
+    analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+
+    factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
+                        saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
+
+    dir = rand(permute(hash)) * 6.2831853;
+    angle = float2(cos(dir), sin(dir));
+
+    analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+
+    factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
                         saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
                         saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
                         saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
@@ -1602,6 +1625,18 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		// calculate reduction strength to apply
 		float contrastgain = log(rcp(lumanormal)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
 		outdot = pow(abs(10.0 + contrastgain), log10(outdot));
+		float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
+		float newsat = dotsat(outdot);
+		if (newsat > 0.0) {
+			float satadjust = newsat - dotsat(pixel); // compute difference in before/after saturation
+			satadjust *= 1.0 + channelfloor - __HQAA_SMALLEST_COLOR_STEP; // adjust by black level shift
+			if (outdot.r == highlow.x) outdot.r = pow(abs(2.0 - satadjust), log2(outdot.r));
+			else if (outdot.r == highlow.y) outdot.r = pow(abs(2.0 + satadjust), log2(outdot.r));
+			if (outdot.g == highlow.x) outdot.g = pow(abs(2.0 - satadjust), log2(outdot.g));
+			else if (outdot.g == highlow.y) outdot.g = pow(abs(2.0 + satadjust), log2(outdot.g));
+			if (outdot.b == highlow.x) outdot.b = pow(abs(2.0 - satadjust), log2(outdot.b));
+			else if (outdot.b == highlow.y) outdot.b = pow(abs(2.0 + satadjust), log2(outdot.b));
+		}
 	}
 #if HQAA_ENABLE_HDR_OUTPUT
 	outdot *= HdrNits;
