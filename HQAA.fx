@@ -1491,11 +1491,11 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		// calculate reduction strength to apply
 		float contrastgain = log(rcp(lumanormal)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
 		outdot = pow(abs(10.0 + contrastgain), log10(outdot));
-		float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
 		float newsat = dotsat(outdot);
-		if (newsat > 0.0) {
+		if (HqaaGainStrength > 0.0) {
 			float satadjust = newsat - dotsat(pixel); // compute difference in before/after saturation
-			satadjust *= 1.0 + channelfloor - __HQAA_SMALLEST_COLOR_STEP; // adjust by black level shift
+			satadjust *= log(rcp(channelfloor - __HQAA_SMALLEST_COLOR_STEP)); // adjust by black level shift
+			float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
 			if (outdot.r == highlow.x) outdot.r = pow(abs(2.0 - satadjust), log2(outdot.r));
 			else if (outdot.r == highlow.y) outdot.r = pow(abs(2.0 + satadjust), log2(outdot.r));
 			if (outdot.g == highlow.x) outdot.g = pow(abs(2.0 - satadjust), log2(outdot.g));
