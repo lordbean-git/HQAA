@@ -260,8 +260,8 @@ uniform int debugexplainer <
 			  "any anti-aliasing is applied and used by FXAA to adjust its\n"
 			  "output to reduce aggressiveness of artifacts.\n\n"
 			  "FXAA Hysteresis displays the result of the FXAA hysteresis\n"
-			  "calculation with gray pixels representing results that were\n"
-			  "computed to be valid without adjustment, blue pixels\n"
+			  "calculation with blue pixels representing results that were\n"
+			  "computed to be valid without adjustment, green pixels\n"
 			  "representing results that were computed to require brightening,\n"
 			  "and red pixels representing results that were computed to\n"
 			  "require darkening.\n\n"
@@ -1303,8 +1303,9 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	
 	// perform result weighting using computed hysteresis
-	hysteresis = clamp(hysteresis, -(0.5 - __HQAA_SMALLEST_COLOR_STEP / 2.0), 1.0 - __HQAA_SMALLEST_COLOR_STEP);
-	resultAA = pow(abs((1.0 + hysteresis) * 2.0), log2(resultAA));
+	float halfE = __CONST_E / 2.0;
+	hysteresis = clamp(hysteresis, -((0.5 * halfE) - __HQAA_SMALLEST_COLOR_STEP / 2.0), halfE - __HQAA_SMALLEST_COLOR_STEP);
+	resultAA = pow(abs((halfE + hysteresis) * 2.0), log(resultAA));
 	
 	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
@@ -1330,7 +1331,11 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	}
 	else {
 		// hysteresis output
-		float4 FxaaHysteresisDebug = float4(saturate(0.1 + (hysteresis < 0.0 ? (0.9 * sqrt(abs(hysteresis))) : 0.0)), 0.1, saturate(0.1 + (hysteresis > 0.0 ? (0.9 * sqrt(hysteresis)) : 0.0)), 0.0);
+		float lowclamp = -((0.5 * halfE) - (__HQAA_SMALLEST_COLOR_STEP / 2.0));
+		float highclamp = halfE - __HQAA_SMALLEST_COLOR_STEP;
+		float downshift = hysteresis < 0.0 ? (hysteresis / lowclamp) : 0.0;
+		float upshift = hysteresis > 0.0 ? (hysteresis / highclamp) : 0.0;
+		float4 FxaaHysteresisDebug = float4(downshift, upshift, downshift == -upshift ? 0.05 : 0.0, 0.0);
 		return FxaaHysteresisDebug;
 	}
 #endif //HQAA_COMPILE_DEBUG_CODE
