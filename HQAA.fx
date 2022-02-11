@@ -1302,8 +1302,9 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	hysteresis *= rcp(HdrNits);
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	
-	// perform result weighting using computed hysteresis (if valid)
-	if (clamp(hysteresis, -0.9, 0.9) == hysteresis) resultAA = pow(abs(resultAA), 1.0 + hysteresis);
+	// perform result weighting using computed hysteresis
+	hysteresis = clamp(hysteresis, -(0.5 - __HQAA_SMALLEST_COLOR_STEP / 2.0), 1.0 - __HQAA_SMALLEST_COLOR_STEP);
+	resultAA = pow(abs((1.0 + hysteresis) * 2.0), log2(resultAA));
 	
 	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
