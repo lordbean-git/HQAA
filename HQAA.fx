@@ -205,6 +205,13 @@ uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 50;
 
+static const float HQAA_THRESHOLD_PRESET[7] = {0.2, 0.18, 0.16, 0.14, 0.12, 0.1, 1.0};
+static const float HQAA_DYNAMIC_RANGE_PRESET[7] = {0.375, 0.5, 0.666667, 0.8, 0.875, 0.933333, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0, 0.1, 0.15, 0.25, 0.5, 1.0, 0.0};
+static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25, 0.375, 0.75, 1.0, 1.25, 2.5, 0.0};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.0, 2.0, 1.5, 1.0, 1.0, 0.5, 4.0};
+static const float HQAA_SUBPIX_PRESET[7] = {0.0, 0.1, 0.25, 0.5, 0.8, 1.0, 0.0};
+
 uniform int presetbreakdown <
 	ui_type = "radio";
 	ui_label = " ";
@@ -213,12 +220,12 @@ uniform int presetbreakdown <
 			  "|        |       Global      |  SMAA  |           FXAA           |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Quality---Texel---Subpix-|\n"
 	          "|--------|-----------|-------|--------|---------|-------|--------|\n"
-	          "|  Potato|   0.250   | 25.0% |    0%  |  0.250  |  2.5  |  12.5% |\n"
-			  "|     Low|   0.200   | 37.5% |   10%  |  0.375  |  2.0  |  25.0% |\n"
-			  "|  Medium|   0.150   | 50.0% |   15%  |  0.750  |  1.5  |  50.0% |\n"
-			  "|    High|   0.100   | 62.5% |   25%  |  1.000  |  1.0  |  75.0% |\n"
-			  "|   Ultra|   0.075   | 75.0% |   50%  |  1.250  |  1.0  | 100.0% |\n"
-			  "|  GLaDOS|   0.050   | 87.5% |  100%  |  2.500  |  0.5  | 100.0% |\n"
+	          "|  Potato|   0.200   | 37.5% |    0%  |  0.250  |  2.0  |   0.0% |\n"
+			  "|     Low|   0.180   | 50.0% |   10%  |  0.375  |  2.0  |  10.0% |\n"
+			  "|  Medium|   0.160   | 66.6% |   15%  |  0.750  |  1.5  |  25.0% |\n"
+			  "|    High|   0.140   | 80.0% |   25%  |  1.000  |  1.0  |  50.0% |\n"
+			  "|   Ultra|   0.120   | 87.5% |   50%  |  1.250  |  1.0  |  80.0% |\n"
+			  "|  GLaDOS|   0.100   | 93.3% |  100%  |  2.500  |  0.5  | 100.0% |\n"
 			  "------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -437,13 +444,6 @@ uniform int optionalseof <
 uniform float frametime < source = "frametime"; >;
 #endif //HQAA_ENABLE_FPS_TARGET
 
-static const float HQAA_THRESHOLD_PRESET[7] = {0.25, 0.2, 0.15, 0.1, 0.075, 0.05, 1.0};
-static const float HQAA_DYNAMIC_RANGE_PRESET[7] = {0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[7] = {0.0, 0.1, 0.15, 0.25, 0.5, 1.0, 0.0};
-static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[7] = {0.25, 0.375, 0.75, 1.0, 1.25, 2.5, 0.0};
-static const float HQAA_FXAA_TEXEL_SIZE_PRESET[7] = {2.5, 2.0, 1.5, 1.0, 1.0, 0.5, 4.0};
-static const float HQAA_SUBPIX_PRESET[7] = {0.125, 0.25, 0.5, 0.75, 1.0, 1.0, 0.0};
-
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
 /*****************************************************************************************************************************************/
@@ -532,6 +532,10 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 	else if (outdot.g == highlow.y) outdot.g = pow(abs(2.0 + satadjust), log2(outdot.g));
 	if (outdot.b == highlow.x) outdot.b = pow(abs(2.0 - satadjust), log2(outdot.b));
 	else if (outdot.b == highlow.y) outdot.b = pow(abs(2.0 + satadjust), log2(outdot.b));
+	float midadjust = dotgamma(outdot) - dotgamma(pixel);
+	if (pixel.r == outdot.r) outdot.r += midadjust;
+	else if (pixel.g == outdot.g) outdot.g += midadjust;
+	else outdot.b += midadjust;
 	return outdot;
 }
 float4 AdjustSaturation(float4 pixel, float satadjust)
@@ -1320,9 +1324,10 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float halfE = __CONST_E / 2.0;
 	hysteresis = clamp(hysteresis, -((0.5 * halfE) - __HQAA_SMALLEST_COLOR_STEP / 2.0), halfE - __HQAA_SMALLEST_COLOR_STEP);
 	resultAA = pow(abs((halfE + hysteresis) * 2.0), log(resultAA));
+	float lumafinaldelta = abs(dotluma(resultAA) - edgedata.b);
 	
 	// compute saturation hysteresis and adjust to match
-	float sathysteresis = -(dotsat(resultAA) - edgedata.a);
+	float sathysteresis = clamp(dotsat(resultAA) - edgedata.a, -lumafinaldelta, lumafinaldelta);
 	resultAA = AdjustSaturation(resultAA, sathysteresis);
 	
 	// output selection
