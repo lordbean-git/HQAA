@@ -1383,6 +1383,43 @@ float4 HQAADebugOutputPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) 
 #endif //HQAA_COMPILE_DEBUG_CODE
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES && (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
+// brightness gain is separated to its own pass to allow deband and sharpen to run post-gain without artifacts
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
+float4 HQAABrightnessGainPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float4 pixel = tex2D(ReShade::BackBuffer, texcoord);
+#if HQAA_ENABLE_HDR_OUTPUT
+	pixel *= (1.0 / HdrNits);
+#endif //HQAA_ENABLE_HDR_OUTPUT
+	float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
+	float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
+	float4 outdot = pixel;
+	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
+	outdot = pow(abs(colorgain), outdot);
+	if (HqaaGainLowLumaCorrection) {
+		// calculate new luma levels
+		channelfloor = pow(abs(colorgain), log2(channelfloor));
+		float lumanormal = dotgamma(outdot) - channelfloor;
+		// calculate reduction strength to apply
+		float contrastgain = log(rcp(lumanormal)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
+		outdot = pow(abs(10.0 + contrastgain), log10(outdot));
+		float newsat = dotsat(outdot);
+		if (HqaaGainStrength > 0.0) {
+			float satadjust = newsat - dotsat(pixel); // compute difference in before/after saturation
+			outdot = AdjustSaturation(outdot, satadjust);
+		}
+	}
+#if HQAA_ENABLE_HDR_OUTPUT
+	outdot *= HdrNits;
+#endif //HQAA_ENABLE_HDR_OUTPUT
+	pixel = outdot;
+#if !HQAA_ENABLE_HDR_OUTPUT
+	pixel = saturate(pixel);
+#endif //HQAA_ENABLE_HDR_OUTPUT
+	return pixel;
+}
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
+#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 // Optional effects main pass. These are sorted in an order that they won't
 // interfere with each other when they're all enabled
 float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
@@ -1502,34 +1539,6 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif //HQAA_ENABLE_HDR_OUTPUT
 #endif //HQAA_OPTIONAL_CAS
 
-#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
-#if HQAA_ENABLE_HDR_OUTPUT
-	pixel *= (1.0 / HdrNits);
-#endif //HQAA_ENABLE_HDR_OUTPUT
-	float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
-	float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
-	float4 outdot = pixel;
-	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
-	outdot = pow(abs(colorgain), outdot);
-	if (HqaaGainLowLumaCorrection) {
-		// calculate new luma levels
-		channelfloor = pow(abs(colorgain), log2(channelfloor));
-		float lumanormal = dotgamma(outdot) - channelfloor;
-		// calculate reduction strength to apply
-		float contrastgain = log(rcp(lumanormal)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
-		outdot = pow(abs(10.0 + contrastgain), log10(outdot));
-		float newsat = dotsat(outdot);
-		if (HqaaGainStrength > 0.0) {
-			float satadjust = newsat - dotsat(pixel); // compute difference in before/after saturation
-			outdot = AdjustSaturation(outdot, satadjust);
-		}
-	}
-#if HQAA_ENABLE_HDR_OUTPUT
-	outdot *= HdrNits;
-#endif //HQAA_ENABLE_HDR_OUTPUT
-	pixel = outdot;
-#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
-
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 	float4 previous = tex2D(HQAAsamplerLastFrame, texcoord);
 	
@@ -1549,6 +1558,7 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	return pixel;
 }
+#endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 // optional stabilizer - save previous frame
@@ -1599,12 +1609,21 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAHysteresisBlendingPS;
 	}
-#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
+	pass BrightnessBoost
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAABrightnessGainPS;
+	}
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
+#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 	pass OptionalEffects
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAOptionalEffectPassPS;
 	}
+#endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 	pass SaveCurrentFrame
 	{
