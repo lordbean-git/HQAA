@@ -1388,34 +1388,36 @@ float4 HQAADebugOutputPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) 
 float4 HQAABrightnessGainPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(ReShade::BackBuffer, texcoord);
+	
+	[branch] if (HqaaGainStrength > 0.0)
+	{
 #if HQAA_ENABLE_HDR_OUTPUT
-	pixel *= (1.0 / HdrNits);
+		pixel *= (1.0 / HdrNits);
 #endif //HQAA_ENABLE_HDR_OUTPUT
-	float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
-	float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
-	float4 outdot = pixel;
-	outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
-	outdot = pow(abs(colorgain), outdot);
-	if (HqaaGainLowLumaCorrection) {
-		// calculate new luma levels
-		channelfloor = pow(abs(colorgain), log2(channelfloor));
-		float lumanormal = dotgamma(outdot) - channelfloor;
-		// calculate reduction strength to apply
-		float contrastgain = log(rcp(lumanormal)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
-		outdot = pow(abs(10.0 + contrastgain), log10(outdot));
-		float newsat = dotsat(outdot);
-		if (HqaaGainStrength > 0.0) {
+		float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
+		float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
+		float4 outdot = pixel;
+		outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
+		outdot = pow(abs(colorgain), outdot);
+		if (HqaaGainLowLumaCorrection)
+		{
+			// calculate new black level
+			channelfloor = pow(abs(colorgain), log2(channelfloor));
+			// calculate reduction strength to apply
+			float contrastgain = log(rcp(dotgamma(outdot) - channelfloor)) * pow(__CONST_E, (1.0 + channelfloor) * __CONST_E) * HqaaGainStrength;
+			outdot = pow(abs((HqaaGainStrength + 1.0) * (10.0 / (HqaaGainStrength + 1.0) + contrastgain)), log10(outdot));
+			float newsat = dotsat(outdot);
 			float satadjust = newsat - dotsat(pixel); // compute difference in before/after saturation
 			outdot = AdjustSaturation(outdot, satadjust);
 		}
-	}
 #if HQAA_ENABLE_HDR_OUTPUT
-	outdot *= HdrNits;
+		outdot *= HdrNits;
 #endif //HQAA_ENABLE_HDR_OUTPUT
-	pixel = outdot;
+		pixel = outdot;
 #if !HQAA_ENABLE_HDR_OUTPUT
-	pixel = saturate(pixel);
+		pixel = saturate(pixel);
 #endif //HQAA_ENABLE_HDR_OUTPUT
+	}
 	return pixel;
 }
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
