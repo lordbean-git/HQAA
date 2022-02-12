@@ -1521,7 +1521,6 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		float newsat = dotsat(outdot);
 		if (HqaaGainStrength > 0.0) {
 			float satadjust = newsat - dotsat(pixel); // compute difference in before/after saturation
-			satadjust *= log(rcp(channelfloor - __HQAA_SMALLEST_COLOR_STEP)); // adjust by black level shift
 			outdot = AdjustSaturation(outdot, satadjust);
 		}
 	}
