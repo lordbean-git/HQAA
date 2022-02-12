@@ -1322,7 +1322,7 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	resultAA = pow(abs((halfE + hysteresis) * 2.0), log(resultAA));
 	
 	// compute saturation hysteresis and adjust to match
-	float sathysteresis = edgedata.a - dotsat(resultAA);
+	float sathysteresis = -(dotsat(resultAA) - edgedata.a);
 	resultAA = AdjustSaturation(resultAA, sathysteresis);
 	
 	// output selection
