@@ -533,11 +533,12 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 	if (outdot.b == highlow.x) outdot.b = pow(abs(2.0 - satadjust), log2(outdot.b));
 	else if (outdot.b == highlow.y) outdot.b = pow(abs(2.0 + satadjust), log2(outdot.b));
 	float midadjust = dotgamma(outdot) - dotgamma(pixel);
-	if (pixel.r == outdot.r) outdot.r += midadjust;
-	else if (pixel.g == outdot.g) outdot.g += midadjust;
-	else outdot.b += midadjust;
+	if (pixel.r == outdot.r) outdot.r = pow(abs(2.0 + midadjust), log2(outdot.r));
+	else if (pixel.g == outdot.g) outdot.g = pow(abs(2.0 + midadjust), log2(outdot.g));
+	else outdot.b = pow(abs(2.0 + midadjust), log2(outdot.b));
 	return outdot;
 }
+
 float4 AdjustSaturation(float4 pixel, float satadjust)
 {
 	return float4(AdjustSaturation(pixel.rgb, satadjust), pixel.a);
@@ -1159,8 +1160,8 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float2 posB = texcoord;
     float2 offNP;
 	
-    offNP.x = (!horzSpan) ? 0.0 : (BUFFER_RCP_WIDTH * texelsize);
-    offNP.y = ( horzSpan) ? 0.0 : (BUFFER_RCP_HEIGHT * texelsize);
+	if (horzSpan) offNP = float2(BUFFER_RCP_WIDTH * texelsize, 0.0);
+	else offNP = float2(0.0, BUFFER_RCP_HEIGHT * texelsize);
 	
     if(!horzSpan) posB.x += lengthSign / 2.0;
     else posB.y += lengthSign / 2.0;
@@ -1212,11 +1213,14 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		iterations++;
     }
 	
-    float dstN = texcoord.x - posN.x;
-    float dstP = posP.x - texcoord.x;
-	
-	[branch]
-    if(!horzSpan) {
+	float dstN, dstP;
+	if (horzSpan)
+	{
+		dstN = texcoord.x - posN.x;
+		dstP = posP.x - texcoord.x;
+	}
+	else 
+	{
 		dstN = texcoord.y - posN.y;
 		dstP = posP.y - texcoord.y;
 	}
@@ -1238,18 +1242,19 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float2 posM = texcoord;
     if(!horzSpan) posM.x += lengthSign * subpixOut;
     else posM.y += lengthSign * subpixOut;
+    
+	float2 Escale = float2(__CONST_E * 0.333333, __CONST_E * 0.666667);
 	
 	// Establish result and compute luma hysteresis
 	float4 resultAA = float4(FxaaTex2D(ReShade::BackBuffer, posM).rgb, rgbyM.a);
-	
 	float hysteresis = (dotluma(resultAA) - edgedata.b);
 #if HQAA_ENABLE_HDR_OUTPUT
 	hysteresis *= rcp(HdrNits);
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	
 	// perform result weighting using computed luma hysteresis
-	hysteresis = clamp(hysteresis, -(0.5 - channelstep / 2.0), 1.0 - channelstep);
-	resultAA = pow(abs((1.0 + hysteresis) * 2.0), log2(resultAA));
+	hysteresis = clamp(hysteresis, -(Escale.x - channelstep / 2.0), Escale.y - channelstep);
+	resultAA = pow(abs(Escale.y + hysteresis) * 1.5, log(resultAA));
 	float lumafinaldelta = abs(dotluma(resultAA) - edgedata.b);
 	
 	// compute saturation hysteresis and adjust to match
@@ -1277,8 +1282,8 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	}
 	else if (debugmode == 8) {
 		// hysteresis output
-		float lowclamp = -(0.5 - channelstep / 2.0);
-		float highclamp = 1.0 - channelstep;
+		float lowclamp = -(Escale.x - channelstep / 2.0);
+		float highclamp = Escale.y - channelstep;
 		float downshift = hysteresis < 0.0 ? (hysteresis / lowclamp) : 0.0;
 		float upshift = hysteresis > 0.0 ? (hysteresis / highclamp) : 0.0;
 		float4 FxaaHysteresisDebug = float4(downshift, upshift, downshift == -upshift ? 0.05 : 0.0, 0.0);
