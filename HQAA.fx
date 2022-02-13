@@ -506,8 +506,7 @@ uniform float frametime < source = "frametime"; >;
 #define dotgamma(x) dot(x.rgb, __HQAA_GAMMA_REF)
 #define vec4add(x) (x.r + x.g + x.b + x.a)
 #define vec3add(x) (x.r + x.g + x.b)
-#define dotsat(x) ((max3(x.r, x.g, x.b) - min3(x.r, x.g, x.b)) / (1.0 - (2.0 * dotgamma(x) - 1.0)))
-//#define dotsat(x) (dotgamma(x) == 1.0 ? 0.0 : ((max3(x.r, x.g, x.b) - min3(x.r, x.g, x.b)) / (1.0 - (2.0 * dotgamma(x) - 1.0))))
+#define dotsat(x) (dotgamma(x) == 1.0 ? 0.0 : ((max3(x.r, x.g, x.b) - min3(x.r, x.g, x.b)) / (1.0 - (2.0 * dotgamma(x) - 1.0))))
 
 #define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
 #define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p.xyxy + o.xyxy * __SMAA_RT_METRICS.xyxy))
