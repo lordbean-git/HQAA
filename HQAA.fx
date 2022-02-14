@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0b
+ *                        v18.0
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0b";
+	ui_label = "Version: 18.0";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
