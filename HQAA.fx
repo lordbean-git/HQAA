@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0.1
+ *                        v18.0.2
  *
  *                     by lordbean
  *
@@ -98,7 +98,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif //HQAA_ENABLE_FPS_TARGET
 
 #ifndef HQAA_COMPILE_DEBUG_CODE
-	#define HQAA_COMPILE_DEBUG_CODE 1
+	#define HQAA_COMPILE_DEBUG_CODE 0
 #endif //HQAA_COMPILE_DEBUG_CODE
 
 #ifndef HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0.1";
+	ui_label = "Version: 18.0.2";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -506,7 +506,6 @@ uniform float frametime < source = "frametime"; >;
 #define dotgamma(x) dot(x.rgb, __HQAA_GAMMA_REF)
 #define vec4add(x) (x.r + x.g + x.b + x.a)
 #define vec3add(x) (x.r + x.g + x.b)
-#define dotsat(x) (dotgamma(x) == 1.0 ? 0.0 : ((max3(x.r, x.g, x.b) - min3(x.r, x.g, x.b)) / (1.0 - (2.0 * dotgamma(x) - 1.0))))
 
 #define FxaaTex2D(t, p) tex2Dlod(t, float4(p, p))
 #define FxaaTex2DOffset(t, p, o) tex2Dlod(t, float4(p.xyxy + o.xyxy * __SMAA_RT_METRICS.xyxy))
@@ -520,6 +519,21 @@ uniform float frametime < source = "frametime"; >;
 /*****************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE START *************************************************************/
 /*****************************************************************************************************************************************/
+
+// Saturation calculator
+float dotsat(float3 x)
+{
+	float floor = __HQAA_SMALLEST_COLOR_STEP;
+	float ceiling = 1.0 - floor;
+	float luma = dotgamma(x);
+	
+	if (clamp(luma, floor, ceiling) != luma) return 0.0;
+	else return (max3(x.r, x.g, x.b) - min3(x.r, x.g, x.b)) / (1.0 - (2.0 * luma - 1.0));
+}
+float dotsat(float4 x)
+{
+	return dotsat(x.rgb);
+}
 
 // Saturation adjuster
 float3 AdjustSaturation(float3 pixel, float satadjust)
