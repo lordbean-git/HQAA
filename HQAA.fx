@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0
+ *                        v18.0.1
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0";
+	ui_label = "Version: 18.0.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -829,6 +829,9 @@ void analyze_pixels(float3 ori, float3 nw, float3 ne, float3 sw, float3 se, floa
 //////////////////////////////////////////////////////////// TEXTURES ///////////////////////////////////////////////////////////////////
 
 texture HQAAedgesTex
+#if __RESHADE__ >= 50000
+< pooled = true; >
+#endif
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
@@ -836,6 +839,9 @@ texture HQAAedgesTex
 };
 
 texture HQAAblendTex
+#if __RESHADE__ >= 50000
+< pooled = true; >
+#endif
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
@@ -865,6 +871,9 @@ texture HQAAsearchTex < source = "SearchTex.png"; >
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 texture HQAAstabilizerTex
+#if __RESHADE__ < 50000
+< pooled = false; >
+#endif
 {
 	Width = BUFFER_WIDTH;
 	Height = BUFFER_HEIGHT;
@@ -1331,7 +1340,6 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif //(HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_CAS)
 
 #if HQAA_OPTIONAL_DEBAND
-    float hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
 
     float3 ref_avg;
     float3 ref_avg_diff;
@@ -1344,10 +1352,12 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	float dir;
 	float2 angle;
+	float hash;
 	uint2 loopcounter = int2(0, 4 * (HqaaDebandPreset + 1));
 	
 	[loop] for (loopcounter.x = 0; loopcounter.x < loopcounter.y; loopcounter.x++)
 	{
+    	hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
     	dir = rand(permute(hash)) * 6.2831853;
     	angle = float2(cos(dir), sin(dir));
 
