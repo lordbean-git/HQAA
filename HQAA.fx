@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0.3
+ *                        v18.0.4
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0.3";
+	ui_label = "Version: 18.0.4";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -539,17 +539,21 @@ float dotsat(float4 x)
 float3 AdjustSaturation(float3 pixel, float satadjust)
 {
 	float3 outdot = pixel;
-	float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
-	if (outdot.r == highlow.x) outdot.r = pow(abs(2.0 - satadjust), log2(outdot.r));
-	else if (outdot.r == highlow.y) outdot.r = pow(abs(2.0 + satadjust), log2(outdot.r));
-	if (outdot.g == highlow.x) outdot.g = pow(abs(2.0 - satadjust), log2(outdot.g));
-	else if (outdot.g == highlow.y) outdot.g = pow(abs(2.0 + satadjust), log2(outdot.g));
-	if (outdot.b == highlow.x) outdot.b = pow(abs(2.0 - satadjust), log2(outdot.b));
-	else if (outdot.b == highlow.y) outdot.b = pow(abs(2.0 + satadjust), log2(outdot.b));
-	float midadjust = dotgamma(outdot) - dotgamma(pixel);
-	if (pixel.r == outdot.r) outdot.r = pow(abs(2.0 + midadjust), log2(outdot.r));
-	else if (pixel.g == outdot.g) outdot.g = pow(abs(2.0 + midadjust), log2(outdot.g));
-	else outdot.b = pow(abs(2.0 + midadjust), log2(outdot.b));
+	bool grayscale = max3(abs(pixel.r - pixel.g), abs(pixel.r - pixel.b), abs(pixel.g - pixel.b)) < (__HQAA_SMALLEST_COLOR_STEP * 3.0);
+	[branch] if (!grayscale)
+	{
+		float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
+		if (outdot.r == highlow.x) outdot.r = pow(abs(2.0 - satadjust), log2(outdot.r));
+		else if (outdot.r == highlow.y) outdot.r = pow(abs(2.0 + satadjust), log2(outdot.r));
+		if (outdot.g == highlow.x) outdot.g = pow(abs(2.0 - satadjust), log2(outdot.g));
+		else if (outdot.g == highlow.y) outdot.g = pow(abs(2.0 + satadjust), log2(outdot.g));
+		if (outdot.b == highlow.x) outdot.b = pow(abs(2.0 - satadjust), log2(outdot.b));
+		else if (outdot.b == highlow.y) outdot.b = pow(abs(2.0 + satadjust), log2(outdot.b));
+		float midadjust = dotgamma(outdot) - dotgamma(pixel);
+		if (pixel.r == outdot.r) outdot.r = pow(abs(2.0 + midadjust), log2(outdot.r));
+		else if (pixel.g == outdot.g) outdot.g = pow(abs(2.0 + midadjust), log2(outdot.g));
+		else outdot.b = pow(abs(2.0 + midadjust), log2(outdot.b));
+	}
 	return outdot;
 }
 
@@ -635,7 +639,8 @@ float2 HQAASearchDiag2(sampler2D HQAAedgesTex, float2 texcoord, float2 dir, out 
     return coord.zw;
 }
 
-float2 HQAAAreaDiag(sampler2D HQAAareaTex, float2 dist, float2 e, float offset) {
+float2 HQAAAreaDiag(sampler2D HQAAareaTex, float2 dist, float2 e, float offset)
+{
     float2 texcoord = mad(float2(__SMAA_AREATEX_MAX_DISTANCE_DIAG, __SMAA_AREATEX_MAX_DISTANCE_DIAG), e, dist);
 
     texcoord = mad(__SMAA_AREATEX_PIXEL_SIZE, texcoord, 0.5 * __SMAA_AREATEX_PIXEL_SIZE);
@@ -645,7 +650,8 @@ float2 HQAAAreaDiag(sampler2D HQAAareaTex, float2 dist, float2 e, float offset) 
     return __SMAASampleLevelZero(HQAAareaTex, texcoord).rg;
 }
 
-float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, float2 texcoord, float2 e, float4 subsampleIndices) {
+float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, float2 texcoord, float2 e, float4 subsampleIndices)
+{
     float2 weights = float2(0.0, 0.0);
     float2 end;
     float4 d;
@@ -704,7 +710,8 @@ float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, f
 }
 
 // SMAA horizontal / vertical search functions
-float HQAASearchLength(sampler2D HQAAsearchTex, float2 e, float offset) {
+float HQAASearchLength(sampler2D HQAAsearchTex, float2 e, float offset)
+{
     float2 scale = __SMAA_SEARCHTEX_SIZE * float2(0.5, -1.0);
     float2 bias = __SMAA_SEARCHTEX_SIZE * float2(offset, 1.0);
 
@@ -717,7 +724,8 @@ float HQAASearchLength(sampler2D HQAAsearchTex, float2 e, float offset) {
     return __SMAASampleLevelZero(HQAAsearchTex, mad(scale, e, bias)).r;
 }
 
-float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
+float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
+{
     float2 e = float2(0.0, 1.0);
     bool endedge = false;
     [loop] while (texcoord.x > end) 
@@ -727,12 +735,12 @@ float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
         endedge = e.r > 0.0 || e.g == 0.0;
         if (endedge) break;
     }
-
     float offset = mad(-(255.0 / 127.0), HQAASearchLength(HQAAsearchTex, e, 0.0), 3.25);
     return mad(__SMAA_RT_METRICS.x, offset, texcoord.x);
 }
 
-float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
+float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
+{
     float2 e = float2(0.0, 1.0);
     bool endedge = false;
     [loop] while (texcoord.x < end) 
@@ -746,7 +754,8 @@ float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 t
     return mad(-__SMAA_RT_METRICS.x, offset, texcoord.x);
 }
 
-float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
+float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
+{
     float2 e = float2(1.0, 0.0);
     bool endedge = false;
     [loop] while (texcoord.y > end) 
@@ -760,7 +769,8 @@ float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texc
     return mad(__SMAA_RT_METRICS.y, offset, texcoord.y);
 }
 
-float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end) {
+float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
+{
     float2 e = float2(1.0, 0.0);
     bool endedge = false;
     [loop] while (texcoord.y < end) 
@@ -774,7 +784,8 @@ float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
     return mad(-__SMAA_RT_METRICS.y, offset, texcoord.y);
 }
 
-float2 HQAAArea(sampler2D HQAAareaTex, float2 dist, float e1, float e2, float offset) {
+float2 HQAAArea(sampler2D HQAAareaTex, float2 dist, float e1, float e2, float offset)
+{
     float2 texcoord = mad(float2(__SMAA_AREATEX_MAX_DISTANCE, __SMAA_AREATEX_MAX_DISTANCE), round(4.0 * float2(e1, e2)), dist);
     
     texcoord = mad(__SMAA_AREATEX_PIXEL_SIZE, texcoord, 0.5 * __SMAA_AREATEX_PIXEL_SIZE);
@@ -784,7 +795,8 @@ float2 HQAAArea(sampler2D HQAAareaTex, float2 dist, float e1, float e2, float of
 }
 
 // SMAA corner detection functions
-void HQAADetectHorizontalCornerPattern(sampler2D HQAAedgesTex, inout float2 weights, float4 texcoord, float2 d) {
+void HQAADetectHorizontalCornerPattern(sampler2D HQAAedgesTex, inout float2 weights, float4 texcoord, float2 d)
+{
     float2 leftRight = step(d.xy, d.yx);
     float2 rounding = (1.0 - __HQAA_SMAA_CORNERING) * leftRight;
 
@@ -797,7 +809,8 @@ void HQAADetectHorizontalCornerPattern(sampler2D HQAAedgesTex, inout float2 weig
     weights *= saturate(factor);
 }
 
-void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weights, float4 texcoord, float2 d) {
+void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weights, float4 texcoord, float2 d)
+{
     float2 leftRight = step(d.xy, d.yx);
     float2 rounding = (1.0 - __HQAA_SMAA_CORNERING) * leftRight;
 
