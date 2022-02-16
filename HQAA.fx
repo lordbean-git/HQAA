@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0.5
+ *                        v18.0.6
  *
  *                     by lordbean
  *
@@ -115,9 +115,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#ifndef HQAA_OPTIONAL_BRIGHTNESS_GAIN
 		#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 1
 	#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
-	#ifndef HQAA_OPTIONAL_DEBAND
-		#define HQAA_OPTIONAL_DEBAND 1
-	#endif //HQAA_OPTIONAL_DEBAND
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_SCREENSHOT_MODE
@@ -126,7 +123,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0.5";
+	ui_label = "Version: 18.0.6";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -407,31 +404,6 @@ uniform int gainintro <
 	ui_category_closed = true;
 >;
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
-
-#if HQAA_OPTIONAL_DEBAND
-uniform uint HqaaDebandPreset < 
-	ui_type = "combo";
-	ui_items = "Low\0Medium\0High\0";
-	ui_spacing = 3;
-	ui_label = "Debanding Strength";
-	ui_category = "Debanding";
-	ui_category_closed = true;
-> = 0;
-
-uniform int debandintro <
-	ui_type = "radio";
-	ui_label = " ";
-	ui_text = "\nWhen enabled, performs a fast debanding pass very similar to\n"
-			  "Deband.fx to reduce color banding in the scene.";
-	ui_category = "Debanding";
-	ui_category_closed = true;
->;
-
-uniform int drandom < source = "random"; min = 0; max = 32767; >;
-static const float HQAA_DEBAND_AVGDIFF_PRESET[3] = {0.002500, 0.005000, 0.010000};
-static const float HQAA_DEBAND_MAXDIFF_PRESET[3] = {0.005000, 0.010000, 0.020000};
-static const float HQAA_DEBAND_MIDDIFF_PRESET[3] = {0.002000, 0.004333, 0.009333};
-#endif //HQAA_OPTIONAL_DEBAND
 
 uniform int optionalseof <
 	ui_type = "radio";
@@ -822,50 +794,6 @@ void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weight
 
     weights *= saturate(factor);
 }
-
-#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
-#if HQAA_OPTIONAL_DEBAND
-float rand(float x)
-{
-    return frac(x / 41.0);
-}
-
-float permute(float x)
-{
-    return ((34.0 * x + 1.0) * x) % 289.0;
-}
-
-void analyze_pixels(float3 ori, float2 _range, float2 dir, sampler2D tex, float2 texcoord, out float3 ref_avg, out float3 ref_avg_diff, out float3 ref_max_diff, out float3 ref_mid_diff1, out float3 ref_mid_diff2)
-{
-    float3 ref = tex2Dlod(tex, float4(texcoord + _range * dir, 0.0, 0.0)).rgb;
-    float3 diff = abs(ori - ref);
-    ref_max_diff = diff;
-    ref_avg = ref;
-    ref_mid_diff1 = ref;
-
-    ref = tex2Dlod(tex, float4(texcoord + _range * -dir, 0.0, 0.0)).rgb;
-    diff = abs(ori - ref);
-    ref_max_diff = max(ref_max_diff, diff);
-    ref_avg += ref;
-    ref_mid_diff1 = abs(((ref_mid_diff1 + ref) / 2.0) - ori);
-
-    ref = tex2Dlod(tex, float4(texcoord + _range * float2(-dir.y, dir.x), 0.0, 0.0)).rgb;
-    diff = abs(ori - ref);
-    ref_max_diff = max(ref_max_diff, diff);
-    ref_avg += ref;
-    ref_mid_diff2 = ref;
-
-    ref = tex2Dlod(tex, float4(texcoord + _range * float2( dir.y, -dir.x), 0.0, 0.0)).rgb;
-    diff = abs(ori - ref);
-    ref_max_diff = max(ref_max_diff, diff);
-    ref_avg += ref;
-    ref_mid_diff2 = abs(((ref_mid_diff2 + ref) / 2.0) - ori);
-
-    ref_avg /= 4.0;
-    ref_avg_diff = abs(ori - ref_avg);
-}
-#endif //HQAA_OPTIONAL_DEBAND
-#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE END *************************************************************/
@@ -1383,61 +1311,13 @@ float4 HQAADebugOutputPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) 
 #endif //HQAA_COMPILE_DEBUG_CODE
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES 
-#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
+#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 // Optional effects main pass. These are sorted in an order that they won't
 // interfere with each other when they're all enabled
 float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(ReShade::BackBuffer, texcoord);
 	
-#if (HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_CAS)
-    float3 a = tex2Doffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
-    float3 c = tex2Doffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
-    float3 g = tex2Doffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
-    float3 i = tex2Doffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
-#endif //(HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_CAS)
-
-#if HQAA_OPTIONAL_DEBAND
-	
-	float avgdiff = HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset];
-	float maxdiff = HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset];
-	float middiff = HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset];
-	float2 range = ((HqaaDebandPreset + 1) * 8.0) * BUFFER_PIXEL_SIZE;
-    float3 ori = pixel.rgb;
-    float3 res;
-	
-	uint2 loopcounter = int2(0, 2 * (HqaaDebandPreset + 1));
-	
-	[fastopt] for (loopcounter.x = 0; loopcounter.x < loopcounter.y; loopcounter.x++)
-	{
-		float3 ref_avg;
-		float3 ref_avg_diff;
-		float3 ref_max_diff;
-		float3 ref_mid_diff1;
-		float3 ref_mid_diff2;
-
-    	float hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
-    	float dir = rand(permute(hash)) * 6.2831853;
-    	float2 angle = float2(cos(dir), sin(dir));
-
-    	analyze_pixels(ori, range, angle, ReShade::BackBuffer, texcoord, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
-
-    	float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff / avgdiff)) *
-     	                   saturate(3.0 * (1.0 - ref_max_diff / maxdiff)) *
-      	                  saturate(3.0 * (1.0 - ref_mid_diff1 / middiff)) *
-       	                 saturate(3.0 * (1.0 - ref_mid_diff2 / middiff)), 0.1);
-
-	    res = lerp(ori, ref_avg, factor);
-	}
-	
-	float dither_shift = 0.25 * (1.0 / (pow(2, BUFFER_COLOR_BIT_DEPTH) - 1.0));
-	float3 dither_shift_RGB = float3(dither_shift, -dither_shift, dither_shift);
-	dither_shift_RGB = lerp(2.0 * dither_shift_RGB, -2.0 * dither_shift_RGB, frac(dot(texcoord, (BUFFER_SCREEN_SIZE * float2(1.0 / 16.0, 10.0 / 36.0)) + 0.25)));
-	res += dither_shift_RGB;
-
-    pixel.rgb = res;
-#endif //HQAA_OPTIONAL_DEBAND
-
 #if HQAA_OPTIONAL_CAS
 	float4 casdot = pixel;
 	
@@ -1446,6 +1326,10 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (any(tex2D(HQAAsamplerAlphaEdges, texcoord).rg))
 		sharpening *= (1.0 - HqaaSharpenerClamping);
 	
+    float3 a = tex2Doffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
+    float3 c = tex2Doffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
+    float3 g = tex2Doffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
+    float3 i = tex2Doffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
     float3 b = tex2Doffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
     float3 d = tex2Doffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
     float3 f = tex2Doffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
@@ -1479,7 +1363,6 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	 casdot *= HdrNits;
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	pixel = casdot;
-
 #endif //HQAA_OPTIONAL_CAS
 
 #if HQAA_OPTIONAL_BRIGHTNESS_GAIN
@@ -1532,7 +1415,7 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 
 	return pixel;
 }
-#endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
+#endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 // optional stabilizer - save previous frame
@@ -1584,13 +1467,13 @@ technique HQAA <
 		PixelShader = HQAAHysteresisBlendingPS;
 	}
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
-#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN)
+#if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN)
 	pass OptionalEffects
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAOptionalEffectPassPS;
 	}
-#endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN)
+#endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN)
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 	pass SaveCurrentFrame
 	{
