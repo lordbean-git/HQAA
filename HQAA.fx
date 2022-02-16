@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0.4
+ *                        v18.0.5
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0.4";
+	ui_label = "Version: 18.0.5";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -835,27 +835,31 @@ float permute(float x)
     return ((34.0 * x + 1.0) * x) % 289.0;
 }
 
-void analyze_pixels(float3 ori, float3 nw, float3 ne, float3 sw, float3 se, float2 dir, out float3 ref_avg, out float3 ref_avg_diff, out float3 ref_max_diff, out float3 ref_mid_diff1, out float3 ref_mid_diff2)
+void analyze_pixels(float3 ori, float2 _range, float2 dir, sampler2D tex, float2 texcoord, out float3 ref_avg, out float3 ref_avg_diff, out float3 ref_max_diff, out float3 ref_mid_diff1, out float3 ref_mid_diff2)
 {
-    float3 diff = abs(ori - se);
+    float3 ref = tex2Dlod(tex, float4(texcoord + _range * dir, 0.0, 0.0)).rgb;
+    float3 diff = abs(ori - ref);
     ref_max_diff = diff;
-    ref_avg = se;
-    ref_mid_diff1 = se;
+    ref_avg = ref;
+    ref_mid_diff1 = ref;
 
-    diff = abs(ori - nw);
+    ref = tex2Dlod(tex, float4(texcoord + _range * -dir, 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
-    ref_avg += nw;
-    ref_mid_diff1 = abs(((ref_mid_diff1 + nw) / 2.0) - ori);
+    ref_avg += ref;
+    ref_mid_diff1 = abs(((ref_mid_diff1 + ref) / 2.0) - ori);
 
-    diff = abs(ori - ne);
+    ref = tex2Dlod(tex, float4(texcoord + _range * float2(-dir.y, dir.x), 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
-    ref_avg += ne;
-    ref_mid_diff2 = ne;
+    ref_avg += ref;
+    ref_mid_diff2 = ref;
 
-    diff = abs(ori - sw);
+    ref = tex2Dlod(tex, float4(texcoord + _range * float2( dir.y, -dir.x), 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
-    ref_avg += sw;
-    ref_mid_diff2 = abs(((ref_mid_diff2 + sw) / 2.0) - ori);
+    ref_avg += ref;
+    ref_mid_diff2 = abs(((ref_mid_diff2 + ref) / 2.0) - ori);
 
     ref_avg /= 4.0;
     ref_avg_diff = abs(ori - ref_avg);
@@ -1394,33 +1398,34 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #endif //(HQAA_OPTIONAL_DEBAND || HQAA_OPTIONAL_CAS)
 
 #if HQAA_OPTIONAL_DEBAND
-
-    float3 ref_avg;
-    float3 ref_avg_diff;
-    float3 ref_max_diff;
-    float3 ref_mid_diff1;
-    float3 ref_mid_diff2;
-
+	
+	float avgdiff = HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset];
+	float maxdiff = HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset];
+	float middiff = HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset];
+	float2 range = ((HqaaDebandPreset + 1) * 8.0) * BUFFER_PIXEL_SIZE;
     float3 ori = pixel.rgb;
     float3 res;
 	
-	float dir;
-	float2 angle;
-	float hash;
-	uint2 loopcounter = int2(0, 4 * (HqaaDebandPreset + 1));
+	uint2 loopcounter = int2(0, 2 * (HqaaDebandPreset + 1));
 	
-	[loop] for (loopcounter.x = 0; loopcounter.x < loopcounter.y; loopcounter.x++)
+	[fastopt] for (loopcounter.x = 0; loopcounter.x < loopcounter.y; loopcounter.x++)
 	{
-    	hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
-    	dir = rand(permute(hash)) * 6.2831853;
-    	angle = float2(cos(dir), sin(dir));
+		float3 ref_avg;
+		float3 ref_avg_diff;
+		float3 ref_max_diff;
+		float3 ref_mid_diff1;
+		float3 ref_mid_diff2;
 
-    	analyze_pixels(ori, a, c, g, i, angle, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+    	float hash = permute(permute(permute(texcoord.x) + texcoord.y) + drandom / 32767.0);
+    	float dir = rand(permute(hash)) * 6.2831853;
+    	float2 angle = float2(cos(dir), sin(dir));
 
-    	float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / HQAA_DEBAND_AVGDIFF_PRESET[HqaaDebandPreset])) *
-     	                   saturate(3.0 * (1.0 - ref_max_diff  / HQAA_DEBAND_MAXDIFF_PRESET[HqaaDebandPreset])) *
-      	                  saturate(3.0 * (1.0 - ref_mid_diff1 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])) *
-       	                 saturate(3.0 * (1.0 - ref_mid_diff2 / HQAA_DEBAND_MIDDIFF_PRESET[HqaaDebandPreset])), 0.1);
+    	analyze_pixels(ori, range, angle, ReShade::BackBuffer, texcoord, ref_avg, ref_avg_diff, ref_max_diff, ref_mid_diff1, ref_mid_diff2);
+
+    	float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff / avgdiff)) *
+     	                   saturate(3.0 * (1.0 - ref_max_diff / maxdiff)) *
+      	                  saturate(3.0 * (1.0 - ref_mid_diff1 / middiff)) *
+       	                 saturate(3.0 * (1.0 - ref_mid_diff2 / middiff)), 0.1);
 
 	    res = lerp(ori, ref_avg, factor);
 	}
