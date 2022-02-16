@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.0.6
+ *                        v18.1
  *
  *                     by lordbean
  *
@@ -123,7 +123,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.0.6";
+	ui_label = "Version: 18.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1086,7 +1086,7 @@ float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
 /********************************************************** FXAA SHADER CODE START *****************************************************/
 /***************************************************************************************************************************************/
 
-float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float4 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
  {
     float4 rgbyM = FxaaTex2D(ReShade::BackBuffer, texcoord);
     float basethreshold = __FXAA_EDGE_THRESHOLD;
@@ -1123,13 +1123,11 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
     bool earlyExit = range < fxaaQualityEdgeThreshold;
 	if (earlyExit)
 #if HQAA_COMPILE_DEBUG_CODE
-		if (debugmode > 4) return float4(0.0, 0.0, 0.0, 0.0);
+		if (debugmode > 4 && debugmode < 8) return float4(0.0, 0.0, 0.0, 0.0);
 		else
 #endif //HQAA_COMPILE_DEBUG_CODE
 		return rgbyM;
 	
-	float4 edgedata = tex2D(HQAAsamplerAlphaEdges, texcoord);
-	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
 	float texelsize = __HQAA_FXAA_SCAN_GRANULARITY;
 	
     float edgeHorz = abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)));
@@ -1238,27 +1236,12 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
     if(!horzSpan) posM.x += lengthSign * subpixOut;
     else posM.y += lengthSign * subpixOut;
     
-	float2 Escale = float2(__CONST_E * 0.333333, __CONST_E * 0.666667);
-	
-	// Establish result and compute luma hysteresis
+	// Establish result
 	float4 resultAA = float4(FxaaTex2D(ReShade::BackBuffer, posM).rgb, rgbyM.a);
-	float hysteresis = (dotluma(resultAA) - edgedata.b);
-#if HQAA_ENABLE_HDR_OUTPUT
-	hysteresis *= rcp(HdrNits);
-#endif //HQAA_ENABLE_HDR_OUTPUT
-	
-	// perform result weighting using computed luma hysteresis
-	hysteresis = clamp(hysteresis, -(Escale.x - channelstep / 2.0), Escale.y - channelstep);
-	resultAA = pow(abs(Escale.y + hysteresis) * 1.5, log(resultAA));
-	float lumafinaldelta = abs(dotluma(resultAA) - edgedata.b);
-	
-	// compute saturation hysteresis and adjust to match
-	float sathysteresis = clamp(dotsat(resultAA) - edgedata.a, -lumafinaldelta, lumafinaldelta);
-	resultAA = AdjustSaturation(resultAA, sathysteresis);
 	
 	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
-	if (debugmode < 6)
+	if (debugmode < 6 || debugmode > 7)
 	{
 #endif //HQAA_COMPILE_DEBUG_CODE
 	// normal output (valid for debug 5, its check happens with early-exit path)
@@ -1269,24 +1252,11 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		// luminance output
 		return float4(lumaMa, lumaMa, lumaMa, lumaMa);
 	}
-	else if (debugmode == 7) {
+	else {
 		// metrics output
 		float runtime = float(iterations / maxiterations);
 		float4 FxaaMetrics = float4(runtime, 1.0 - runtime, 0.0, 0.0);
 		return FxaaMetrics;
-	}
-	else if (debugmode == 8) {
-		// hysteresis output
-		float lowclamp = -(Escale.x - channelstep / 2.0);
-		float highclamp = Escale.y - channelstep;
-		float downshift = hysteresis < 0.0 ? (hysteresis / lowclamp) : 0.0;
-		float upshift = hysteresis > 0.0 ? (hysteresis / highclamp) : 0.0;
-		float4 FxaaHysteresisDebug = float4(downshift, upshift, downshift == -upshift ? 0.05 : 0.0, 0.0);
-		return FxaaHysteresisDebug;
-	}
-	else {
-		float4 FxaaSatHysteresisDebug = float4(sathysteresis > 0.0 ? sathysteresis : 0.0, sathysteresis < 0.0 ? abs(sathysteresis) : 0.0, sathysteresis == 0.0 ? 0.05 : 0.0, 0.0);
-		return FxaaSatHysteresisDebug;
 	}
 #endif //HQAA_COMPILE_DEBUG_CODE
 }
@@ -1296,19 +1266,75 @@ float4 HQAAHysteresisBlendingPS(float4 vpos : SV_Position, float2 texcoord : TEX
 /***************************************************************************************************************************************/
 
 /***************************************************************************************************************************************/
-/******************************************************* OPTIONAL SHADER CODE START ****************************************************/
+/****************************************************** HYSTERESIS SHADER CODE START ***************************************************/
 /***************************************************************************************************************************************/
 
-#if HQAA_COMPILE_DEBUG_CODE
-float4 HQAADebugOutputPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float4 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+#if HQAA_COMPILE_DEBUG_CODE
 	if (debugmode == 1) return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).rg, 0.0, 0.0);
 	if (debugmode == 2) return tex2D(HQAAsamplerSMweights, texcoord);
 	if (debugmode == 3) return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).a, 0.0, 0.0, 0.0);
 	if (debugmode == 4) return float4(tex2D(HQAAsamplerAlphaEdges, texcoord).b, 0.0, 0.0, 0.0);
-	return tex2D(ReShade::BackBuffer, texcoord);
-}
+#endif
+
+	float4 pixel = tex2D(ReShade::BackBuffer, texcoord);
+	float4 edgedata = tex2D(HQAAsamplerAlphaEdges, texcoord);
+	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
+	float2 Escale = float2(__CONST_E * 0.333333, __CONST_E * 0.666667);
+	
+	float hysteresis = (dotluma(pixel) - edgedata.b);
+	float sathysteresis;
+	bool runhysteresis = hysteresis != 0.0;
+	
+	[branch] if (runhysteresis)
+	{
+#if HQAA_ENABLE_HDR_OUTPUT
+		hysteresis *= rcp(HdrNits);
+#endif //HQAA_ENABLE_HDR_OUTPUT
+	
+		// perform weighting using computed luma hysteresis
+		hysteresis = clamp(hysteresis, -(Escale.x - channelstep / 2.0), Escale.y - channelstep);
+	
+		pixel = pow(abs(Escale.y + hysteresis) * 1.5, log(pixel));
+		float lumafinaldelta = abs(dotluma(pixel) - edgedata.b);
+	
+		// compute saturation hysteresis and adjust to match
+		sathysteresis = clamp(dotsat(pixel) - edgedata.a, -lumafinaldelta, lumafinaldelta);
+		pixel = AdjustSaturation(pixel, sathysteresis);
+	}
+	
+	//output
+#if HQAA_COMPILE_DEBUG_CODE
+	if (debugmode < 8)
+	{
 #endif //HQAA_COMPILE_DEBUG_CODE
+	return pixel;
+#if HQAA_COMPILE_DEBUG_CODE
+	}
+	else if (debugmode == 8) {
+		// hysteresis output
+		float lowclamp = -(Escale.x - channelstep / 2.0);
+		float highclamp = Escale.y - channelstep;
+		float downshift = hysteresis < 0.0 ? (hysteresis / lowclamp) : 0.0;
+		float upshift = hysteresis > 0.0 ? (hysteresis / highclamp) : 0.0;
+		float4 HysteresisDebug = float4(downshift, upshift, downshift == -upshift ? 0.05 : 0.0, 0.0);
+		return HysteresisDebug;
+	}
+	else {
+		float4 SatHysteresisDebug = float4(sathysteresis > 0.0 ? sathysteresis : 0.0, sathysteresis < 0.0 ? abs(sathysteresis) : 0.0, sathysteresis == 0.0 ? 0.05 : 0.0, 0.0);
+		return SatHysteresisDebug;
+	}
+#endif //HQAA_COMPILE_DEBUG_CODE
+}
+
+/***************************************************************************************************************************************/
+/******************************************************* HYSTERESIS SHADER CODE END ****************************************************/
+/***************************************************************************************************************************************/
+
+/***************************************************************************************************************************************/
+/******************************************************* OPTIONAL SHADER CODE START ****************************************************/
+/***************************************************************************************************************************************/
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES 
 #if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
@@ -1317,6 +1343,10 @@ float4 HQAADebugOutputPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) 
 float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float4 pixel = tex2D(ReShade::BackBuffer, texcoord);
+	
+#if HQAA_COMPILE_DEBUG_CODE
+	if (debugmode == 0) {
+#endif
 	
 #if HQAA_OPTIONAL_CAS
 	float4 casdot = pixel;
@@ -1413,6 +1443,10 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	pixel = lerp(current, previous, blendweight);
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 
+#if HQAA_COMPILE_DEBUG_CODE
+	}
+#endif
+	
 	return pixel;
 }
 #endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
@@ -1464,8 +1498,15 @@ technique HQAA <
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = HQAAHysteresisBlendingPS;
+		PixelShader = HQAAFXPS;
 	}
+#if !HQAA_SCREENSHOT_MODE
+	pass Hysteresis
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAHysteresisPS;
+	}
+#endif
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 #if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN)
 	pass OptionalEffects
@@ -1484,11 +1525,4 @@ technique HQAA <
 	}
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
-#if HQAA_COMPILE_DEBUG_CODE
-	pass DebugOutput
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAADebugOutputPS;
-	}
-#endif //HQAA_COMPILE_DEBUG_CODE
 }
