@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.2
+ *                        v18.2.1
  *
  *                     by lordbean
  *
@@ -123,7 +123,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.2";
+	ui_label = "Version: 18.2.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1296,7 +1296,8 @@ float4 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 		// compute saturation hysteresis and adjust to match
 		sathysteresis = -(dotsat(pixel) - edgedata.a);
 		sathysteresis *= pow(abs(sathysteresis), 0.625);
-		pixel = AdjustSaturation(pixel, sathysteresis);
+		bool adjustsat = abs(sathysteresis) > channelstep;
+		if (adjustsat) pixel = AdjustSaturation(pixel, sathysteresis);
 	}
 	
 	//output
@@ -1419,7 +1420,8 @@ float4 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			outdot = pow(abs((HqaaGainStrength + 1.0) * (10.0 / (HqaaGainStrength + 1.0) + contrastgain)), log10(outdot));
 			float newsat = dotsat(outdot);
 			float satadjust = newsat - presaturation; // compute difference in before/after saturation
-			outdot = AdjustSaturation(outdot, satadjust);
+			bool adjustsat = abs(satadjust) > channelfloor;
+			if (adjustsat) outdot = AdjustSaturation(outdot, satadjust);
 		}
 #if HQAA_ENABLE_HDR_OUTPUT
 		outdot *= HdrNits;
