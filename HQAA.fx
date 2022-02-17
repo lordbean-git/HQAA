@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.3.2
+ *                        v18.3.3
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.3.2";
+	ui_label = "Version: 18.3.3";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -536,37 +536,6 @@ float dotsat(float4 x)
 	return dotsat(x.rgb);
 }
 
-// Saturation adjuster
-float3 AdjustSaturation(float3 pixel, float satadjust)
-{
-	float3 outdot = pixel;
-	bool runadjustment = abs(satadjust) > __HQAA_SMALLEST_COLOR_STEP;
-	[branch] if (runadjustment)
-	{
-		float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
-		float mid = -1.0;
-		if (outdot.r == highlow.x) outdot.r = pow(abs(2.0 - satadjust), log2(outdot.r));
-		else if (outdot.r == highlow.y) outdot.r = pow(abs(2.0 + satadjust), log2(outdot.r));
-		else mid = outdot.r;
-		if (outdot.g == highlow.x) outdot.g = pow(abs(2.0 - satadjust), log2(outdot.g));
-		else if (outdot.g == highlow.y) outdot.g = pow(abs(2.0 + satadjust), log2(outdot.g));
-		else mid = outdot.g;
-		if (outdot.b == highlow.x) outdot.b = pow(abs(2.0 - satadjust), log2(outdot.b));
-		else if (outdot.b == highlow.y) outdot.b = pow(abs(2.0 + satadjust), log2(outdot.b));
-		else mid = outdot.b;
-		float midadjust = dotgamma(outdot) - dotgamma(pixel);
-		if (pixel.r == mid) outdot.r = pow(abs(2.0 + midadjust), log2(outdot.r));
-		else if (pixel.g == mid) outdot.g = pow(abs(2.0 + midadjust), log2(outdot.g));
-		else if (pixel.b == mid) outdot.b = pow(abs(2.0 + midadjust), log2(outdot.b));
-	}
-	return outdot;
-}
-
-float4 AdjustSaturation(float4 pixel, float satadjust)
-{
-	return float4(AdjustSaturation(pixel.rgb, satadjust), pixel.a);
-}
-
 // Alpha channel normalizer
 float4 NormalizeAlpha(float4 pixel)
 {
@@ -845,6 +814,42 @@ float permute(float3 x)
     return ((34.0 * factor + 1.0) * factor) % 289.0;
 }
 #endif //HQAA_OPTIONAL_DEBAND
+
+#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
+// Saturation adjuster
+float3 AdjustSaturation(float3 pixel, float satadjust)
+{
+	float3 outdot = pixel;
+	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
+	bool grayscale = max3(abs(pixel.r - pixel.g), abs(pixel.r - pixel.b), abs(pixel.g - pixel.b)) < (2.0 * channelstep);
+	bool runadjustment = (abs(satadjust) > __HQAA_SMALLEST_COLOR_STEP) && !grayscale;
+	[branch] if (runadjustment)
+	{
+		float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
+		float mid = -1.0;
+		float adjustdown = (1.0 - satadjust) * 2.0;
+		float adjustup = (1.0 + satadjust) * 2.0;
+		if (outdot.r == highlow.x) outdot.r = pow(abs(adjustdown), log2(outdot.r));
+		else if (outdot.r == highlow.y) outdot.r = pow(abs(adjustup), log2(outdot.r));
+		else mid = outdot.r;
+		if (outdot.g == highlow.x) outdot.g = pow(abs(adjustdown), log2(outdot.g));
+		else if (outdot.g == highlow.y) outdot.g = pow(abs(adjustup), log2(outdot.g));
+		else mid = outdot.g;
+		if (outdot.b == highlow.x) outdot.b = pow(abs(adjustdown), log2(outdot.b));
+		else if (outdot.b == highlow.y) outdot.b = pow(abs(adjustup), log2(outdot.b));
+		else mid = outdot.b;
+		float midadjust = dotgamma(outdot) - dotgamma(pixel);
+		if (pixel.r == mid) outdot.r = pow(abs(2.0 + midadjust), log2(outdot.r));
+		else if (pixel.g == mid) outdot.g = pow(abs(2.0 + midadjust), log2(outdot.g));
+		else if (pixel.b == mid) outdot.b = pow(abs(2.0 + midadjust), log2(outdot.b));
+	}
+	return outdot;
+}
+float4 AdjustSaturation(float4 pixel, float satadjust)
+{
+	return float4(AdjustSaturation(pixel.rgb, satadjust), pixel.a);
+}
+#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
@@ -1334,6 +1339,7 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	if (debugmode == 6) { float presatlevel = tex2D(HQAAsamplerAlphaEdges, texcoord).a; return float3((1.0 - presatlevel) / 2.0, presatlevel / 2.0, 0.0); }
 	if (debugmode == 7) { float prelumalevel = tex2D(HQAAsamplerAlphaEdges, texcoord).b; return float(prelumalevel).xxx; }
 	float3 postAAdot = pixel;
+	if (debugmode == 0) {
 #endif
 
 	[branch] if (modifiedpixel)
@@ -1341,25 +1347,20 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 		float channelstep = __HQAA_SMALLEST_COLOR_STEP;
 	
 		float hysteresis = (dotgamma(pixel) - edgedata.b);
-		hysteresis *= pow(abs(hysteresis), 0.375);
-		float sathysteresis;
+		float sathysteresis = (dotsat(pixel) - edgedata.a);
+		hysteresis *= pow(abs(hysteresis), (0.5 - sathysteresis) * 2.0);
 	
 #if HQAA_ENABLE_HDR_OUTPUT
 		hysteresis *= rcp(HdrNits);
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	
-		// perform weighting using computed luma hysteresis
+		// perform weighting using computed hysteresis
 		pixel = pow(abs(1.0 + hysteresis) * 2.0, log2(pixel));
-	
-		// compute saturation hysteresis and adjust to match
-		sathysteresis = -(dotsat(pixel) - edgedata.a);
-		sathysteresis *= pow(abs(sathysteresis), 0.375);
-		bool adjustsat = abs(sathysteresis) > channelstep;
-		if (adjustsat) pixel = AdjustSaturation(pixel, sathysteresis);
 	}
 	
 	//output
 #if HQAA_COMPILE_DEBUG_CODE
+	}
 	if (debugmode < 8)
 	{
 #endif //HQAA_COMPILE_DEBUG_CODE
@@ -1402,6 +1403,10 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 #if HQAA_OPTIONAL_DEBAND
 float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
+    float3 ori = tex2Dlod(ReShade::BackBuffer, texcoord.xyxy).rgb; // Original pixel
+#if HQAA_COMPILE_DEBUG_CODE
+	if (debugmode == 0) {
+#endif
     // Settings
     float avgdiff[3] = {0.002353, 0.007059, 0.013333}; // 0.6/255, 1.8/255, 3.4/255
     float maxdiff[3] = {0.007451, 0.015686, 0.026667}; // 1.9/255, 4.0/255, 6.8/255
@@ -1410,8 +1415,6 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
     // Initialize the PRNG
     float randomseed = drandom / 32767.0;
     float h = permute(float2(permute(float2(texcoord.x, randomseed)), permute(float2(texcoord.y, randomseed))));
-
-    float3 ori = tex2Dlod(ReShade::BackBuffer, texcoord.xyxy).rgb; // Original pixel
 
     // Compute a random angle
     float dir = frac(permute(h) / 41.0) * 6.2831853;
@@ -1460,6 +1463,10 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
                             saturate(3.0 * (1.0 - ref_mid_diff2 / middiff[HqaaDebandPreset])), 0.1);
 
     return lerp(ori, ref_avg, factor);
+#if HQAA_COMPILE_DEBUG_CODE
+	}
+	else return ori;
+#endif
 }
 #endif //HQAA_OPTIONAL_DEBAND
 
