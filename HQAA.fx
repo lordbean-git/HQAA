@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.3
+ *                        v18.3.1
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.3";
+	ui_label = "Version: 18.3.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -402,11 +402,19 @@ uniform int gainintro <
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 
 #if HQAA_OPTIONAL_DEBAND
+uniform uint HqaaDebandPreset <
+	ui_type = "combo";
+	ui_items = "Low\0Medium\0High\0";
+	ui_spacing = 3;
+    ui_label = "Strength";
+	ui_category = "Debanding";
+	ui_category_closed = true;
+> = 0;
+
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
     ui_max = 32.0;
     ui_step = 1.0;
-	ui_spacing = 3;
     ui_label = "Scan Radius";
 	ui_category = "Debanding";
 	ui_category_closed = true;
@@ -1392,9 +1400,9 @@ float4 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
     // Settings
-    float avgdiff = 0.013333; // 3.4 / 255
-    float maxdiff = 0.026667; // 6.8 / 255
-    float middiff = 0.012941; // 3.3 / 255
+    float avgdiff[3] = {0.002353, 0.007059, 0.013333}; // 0.6/255, 1.8/255, 3.4/255
+    float maxdiff[3] = {0.007451, 0.015686, 0.026667}; // 1.9/255, 4.0/255, 6.8/255
+    float middiff[3] = {0.004706, 0.007843, 0.012941}; // 1.2/255, 2.0/255, 3.3/255
 
     // Initialize the PRNG
     float randomseed = drandom / 32767.0;
@@ -1443,10 +1451,10 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
     float3 ref_avg_diff = abs(ori - ref_avg);
     
     // Fuzzy logic based pixel selection
-    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / avgdiff)) *
-                            saturate(3.0 * (1.0 - ref_max_diff  / maxdiff)) *
-                            saturate(3.0 * (1.0 - ref_mid_diff1 / middiff)) *
-                            saturate(3.0 * (1.0 - ref_mid_diff2 / middiff)), 0.1);
+    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / avgdiff[HqaaDebandPreset])) *
+                            saturate(3.0 * (1.0 - ref_max_diff  / maxdiff[HqaaDebandPreset])) *
+                            saturate(3.0 * (1.0 - ref_mid_diff1 / middiff[HqaaDebandPreset])) *
+                            saturate(3.0 * (1.0 - ref_mid_diff2 / middiff[HqaaDebandPreset])), 0.1);
 
     return lerp(ori, ref_avg, factor);
 }
