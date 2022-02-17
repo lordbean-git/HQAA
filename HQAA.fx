@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.2.1
+ *                        v18.3
  *
  *                     by lordbean
  *
@@ -115,6 +115,9 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#ifndef HQAA_OPTIONAL_BRIGHTNESS_GAIN
 		#define HQAA_OPTIONAL_BRIGHTNESS_GAIN 1
 	#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
+	#ifndef HQAA_OPTIONAL_DEBAND
+		#define HQAA_OPTIONAL_DEBAND 1
+	#endif
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_SCREENSHOT_MODE
@@ -123,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.2.1";
+	ui_label = "Version: 18.3";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -397,6 +400,31 @@ uniform int gainintro <
 	ui_category_closed = true;
 >;
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
+
+#if HQAA_OPTIONAL_DEBAND
+uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
+    ui_min = 4.0;
+    ui_max = 32.0;
+    ui_step = 1.0;
+	ui_spacing = 3;
+    ui_label = "Scan Radius";
+	ui_category = "Debanding";
+	ui_category_closed = true;
+> = 16.0;
+
+uniform int debandintro <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\nWhen enabled, performs a fast debanding pass similar\n"
+			  "to Deband.fx to mitigate color banding.\n\n"
+			  "Please note that debanding will have a significant performance\n"
+			  "impact compared to other optional features.";
+	ui_category = "Debanding";
+	ui_category_closed = true;
+>;
+
+uniform uint drandom < source = "random"; min = 0; max = 32767; >;
+#endif
 
 uniform int optionalseof <
 	ui_type = "radio";
@@ -787,6 +815,25 @@ void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weight
 
     weights *= saturate(factor);
 }
+
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_DEBAND
+float permute(float x)
+{
+    return ((34.0 * x + 1.0) * x) % 289.0;
+}
+float permute(float2 x)
+{
+	float factor = (x.x + x.y) / 2.0;
+    return ((34.0 * factor + 1.0) * factor) % 289.0;
+}
+float permute(float3 x)
+{
+	float factor = (x.x + x.y + x.z) / 3.0;
+    return ((34.0 * factor + 1.0) * factor) % 289.0;
+}
+#endif //HQAA_OPTIONAL_DEBAND
+#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE END *************************************************************/
@@ -1339,7 +1386,72 @@ float4 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 /******************************************************* OPTIONAL SHADER CODE START ****************************************************/
 /***************************************************************************************************************************************/
 
-#if HQAA_ENABLE_OPTIONAL_TECHNIQUES 
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
+#if HQAA_OPTIONAL_DEBAND
+float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
+{
+    // Settings
+    float avgdiff = 0.013333; // 3.4 / 255
+    float maxdiff = 0.026667; // 6.8 / 255
+    float middiff = 0.012941; // 3.3 / 255
+
+    // Initialize the PRNG
+    float randomseed = drandom / 32767.0;
+    float h = permute(float2(permute(float2(texcoord.x, randomseed)), permute(float2(texcoord.y, randomseed))));
+
+    float3 ori = tex2Dlod(ReShade::BackBuffer, texcoord.xyxy).rgb; // Original pixel
+
+    // Compute a random angle
+    float dir = frac(permute(h) / 41.0) * 6.2831853;
+    float2 angle = float2(cos(dir), sin(dir));
+
+    // Compute a random distance
+    float2 dist = frac(h / 41.0) * HqaaDebandRange * BUFFER_PIXEL_SIZE;
+
+    // Sample at quarter-turn intervals around the source pixel
+
+    // South-east
+    float3 ref = tex2Dlod(ReShade::BackBuffer, float4(texcoord + dist * angle, 0.0, 0.0)).rgb;
+    float3 diff = abs(ori - ref);
+    float3 ref_max_diff = diff;
+    float3 ref_avg = ref;
+    float3 ref_mid_diff1 = ref;
+
+    // North-west
+    ref = tex2Dlod(ReShade::BackBuffer, float4(texcoord + dist * -angle, 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
+    ref_max_diff = max(ref_max_diff, diff);
+    ref_avg += ref;
+    ref_mid_diff1 = abs(((ref_mid_diff1 + ref) * 0.5) - ori);
+
+    // North-east
+    ref = tex2Dlod(ReShade::BackBuffer, float4(texcoord + dist * float2(-angle.y, angle.x), 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
+    ref_max_diff = max(ref_max_diff, diff);
+    ref_avg += ref;
+    float3 ref_mid_diff2 = ref;
+
+    // South-west
+    ref = tex2Dlod(ReShade::BackBuffer, float4(texcoord + dist * float2(angle.y, -angle.x), 0.0, 0.0)).rgb;
+    diff = abs(ori - ref);
+    ref_max_diff = max(ref_max_diff, diff);
+    ref_avg += ref;
+    ref_mid_diff2 = abs(((ref_mid_diff2 + ref) * 0.5) - ori);
+
+    ref_avg *= 0.25; // Normalize avg
+    float3 ref_avg_diff = abs(ori - ref_avg);
+    
+    // Fuzzy logic based pixel selection
+    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / avgdiff)) *
+                            saturate(3.0 * (1.0 - ref_max_diff  / maxdiff)) *
+                            saturate(3.0 * (1.0 - ref_mid_diff1 / middiff)) *
+                            saturate(3.0 * (1.0 - ref_mid_diff2 / middiff)), 0.1);
+
+    return lerp(ori, ref_avg, factor);
+}
+#endif //HQAA_OPTIONAL_DEBAND
+
 #if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
 // Optional effects main pass. These are sorted in an order that they won't
 // interfere with each other when they're all enabled
@@ -1512,6 +1624,18 @@ technique HQAA <
 	}
 #endif
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_DEBAND
+	pass Deband
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAADebandPS;
+	}
+	pass Deband
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAADebandPS;
+	}
+#endif //HQAA_OPTIONAL_DEBAND
 #if (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN)
 	pass OptionalEffects
 	{
