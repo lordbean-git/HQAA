@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.3.3
+ *                        v18.3.4
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.3.3";
+	ui_label = "Version: 18.3.4";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -1348,7 +1348,7 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	
 		float hysteresis = (dotgamma(pixel) - edgedata.b);
 		float sathysteresis = (dotsat(pixel) - edgedata.a);
-		hysteresis *= pow(abs(hysteresis), (0.5 - sathysteresis) * 2.0);
+		hysteresis *= pow(abs(hysteresis), 1.0 - sathysteresis);
 	
 #if HQAA_ENABLE_HDR_OUTPUT
 		hysteresis *= rcp(HdrNits);
