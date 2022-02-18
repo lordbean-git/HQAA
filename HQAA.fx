@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.4
+ *                        v18.5
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.4";
+	ui_label = "Version: 18.5";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -138,17 +138,22 @@ uniform int introeof <
 	ui_label = " ";
 	ui_text = "-------------------------------------------------------------------------\n"
 			  "See HQAA's Preprocessor definitions section for optional feature toggles.\n"
-			  "-------------------------------------------------------------------------\n";
+			  "-------------------------------------------------------------------------";
 >;
 
-uniform int preset <
+uniform uint preset <
 	ui_type = "combo";
-	ui_label = "Quality Preset\n\n";
+	ui_label = "Quality Preset";
 	ui_tooltip = "For quick start use, pick a preset. If you'd prefer to fine tune, select Custom.";
-	ui_category = "Presets";
 	ui_items = "Low\0Medium\0High\0Ultra\0Custom\0";
-	ui_text = "\n";
 > = 3;
+
+uniform float HqaaHysteresisStrength <
+	ui_type = "slider";
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_label = "% Max Hysteresis\n\n";
+	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
+> = 20;
 
 uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -156,7 +161,7 @@ uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Local contrast (luma difference) required to be considered an edge";
     ui_category = "Custom Preset";
 	ui_category_closed = true;
-	ui_text = "\n------------------------------ Global Options ----------------------------------\n ";
+	ui_text = "------------------------------ Global Options ----------------------------------\n ";
 > = 0.1;
 
 uniform float DynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -198,7 +203,7 @@ uniform float FxaaTexelSizeCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "Subpixel Effect Strength";
+	ui_label = "Subpixel Effect Strength\n\n";
 	ui_tooltip = "Percentage of blending FXAA will apply to long slopes.\n"
 				 "Lower = sharper image, Higher = more AA effect";
     ui_category = "Custom Preset";
@@ -206,7 +211,7 @@ uniform float SubpixCustom < __UNIFORM_SLIDER_FLOAT1
 > = 50;
 
 static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.1, 0.075, 0.05, 1.0};
-static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.5, 0.666667, 0.75, 0.833333, 0.0};
+static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.5, 0.666667, 0.8, 0.9, 0.0};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.5, 1.0, 0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 1.0, 1.25, 2.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
@@ -222,8 +227,8 @@ uniform int presetbreakdown <
 	          "|--------|-----------|-------|--------|---------|-------|--------|\n"
 			  "|     Low|   0.200   | 50.0% |   10%  |  0.500  |  2.0  |  20.0% |\n"
 			  "|  Medium|   0.100   | 66.6% |   25%  |  1.000  |  1.5  |  50.0% |\n"
-			  "|    High|   0.075   | 75.0% |   50%  |  1.250  |  1.0  |  80.0% |\n"
-			  "|   Ultra|   0.050   | 83.3% |  100%  |  2.500  |  0.5  | 100.0% |\n"
+			  "|    High|   0.075   | 80.0% |   50%  |  1.250  |  1.0  |  80.0% |\n"
+			  "|   Ultra|   0.050   | 90.0% |  100%  |  2.500  |  0.5  | 100.0% |\n"
 			  "------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -808,8 +813,8 @@ float permute(float3 x)
     return ((34.0 * factor + 1.0) * factor) % 289.0;
 }
 #endif //HQAA_OPTIONAL_DEBAND
+#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
-#if HQAA_OPTIONAL_BRIGHTNESS_GAIN
 // Saturation adjuster
 float3 AdjustSaturation(float3 pixel, float satadjust)
 {
@@ -832,10 +837,10 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 		if (outdot.b == highlow.x) outdot.b = pow(abs(adjustdown), log2(outdot.b));
 		else if (outdot.b == highlow.y) outdot.b = pow(abs(adjustup), log2(outdot.b));
 		else mid = outdot.b;
-		float midadjust = dotgamma(outdot) - dotgamma(pixel);
-		if (pixel.r == mid) outdot.r = pow(abs(2.0 + midadjust), log2(outdot.r));
-		else if (pixel.g == mid) outdot.g = pow(abs(2.0 + midadjust), log2(outdot.g));
-		else if (pixel.b == mid) outdot.b = pow(abs(2.0 + midadjust), log2(outdot.b));
+		float midadjust = (1.0 + dotgamma(outdot) - dotgamma(pixel)) * 2.0;
+		if (pixel.r == mid) outdot.r = pow(abs(midadjust), log2(outdot.r));
+		else if (pixel.g == mid) outdot.g = pow(abs(midadjust), log2(outdot.g));
+		else if (pixel.b == mid) outdot.b = pow(abs(midadjust), log2(outdot.b));
 	}
 	return outdot;
 }
@@ -843,8 +848,6 @@ float4 AdjustSaturation(float4 pixel, float satadjust)
 {
 	return float4(AdjustSaturation(pixel.rgb, satadjust), pixel.a);
 }
-#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
-#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE END *************************************************************/
@@ -1334,22 +1337,30 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 #endif
 
 	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
+	float multiplier = HqaaHysteresisStrength / 100.0;
 	
-	float hysteresis = (dotgamma(pixel) - edgedata.b);
-		
-	bool runcorrection = abs(hysteresis) > (3.0 * channelstep);
-	
+	float hysteresis = (dotgamma(pixel) - edgedata.b) * multiplier;
+	bool runcorrection = abs(hysteresis) > channelstep;
 	[branch] if (runcorrection)
 	{
-		float sathysteresis = (dotsat(pixel) - edgedata.a);
-		hysteresis *= pow(abs(hysteresis), 1.0 - sathysteresis);
-	
 #if HQAA_ENABLE_HDR_OUTPUT
 		hysteresis *= rcp(HdrNits);
 #endif //HQAA_ENABLE_HDR_OUTPUT
 	
 		// perform weighting using computed hysteresis
 		pixel = pow(abs(1.0 + hysteresis) * 2.0, log2(pixel));
+	}
+	
+	float sathysteresis = (dotsat(pixel) - edgedata.a) * multiplier;
+	runcorrection = abs(sathysteresis) > channelstep;
+	[branch] if (runcorrection)
+	{
+#if HQAA_ENABLE_HDR_OUTPUT
+		sathysteresis *= rcp(HdrNits);
+#endif //HQAA_ENABLE_HDR_OUTPUT
+	
+		// perform weighting using computed hysteresis
+		pixel = AdjustSaturation(pixel, -sathysteresis);
 	}
 	
 	//output
