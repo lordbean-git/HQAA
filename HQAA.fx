@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.5.1
+ *                        v18.6
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.5.1";
+	ui_label = "Version: 18.6";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -153,7 +153,7 @@ uniform float HqaaHysteresisStrength <
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_label = "% Max Hysteresis\n\n";
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
-> = 20;
+> = 33;
 
 uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -379,29 +379,38 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
 	ui_spacing = 3;
 	ui_label = "Brightness Gain";
-	ui_category = "Brightness Booster";
+	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
 > = 0.0;
 
 uniform bool HqaaGainLowLumaCorrection <
-	ui_spacing = 2;
 	ui_label = "Contrast Washout Correction";
 	ui_tooltip = "Normalizes contrast ratio of resulting pixels\n"
 				 "to reduce perceived contrast washout.";
-	ui_category = "Brightness Booster";
+	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
 > = false;
-	
+
+uniform float HqaaSaturationStrength < __UNIFORM_SLIDER_FLOAT1
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_spacing = 2;
+	ui_label = "% Vibrance";
+	ui_tooltip = "50% means no modification is performed and this option is skipped.";
+	ui_text = "-------------------------------------------------------------------------\n ";
+	ui_category = "Brightness & Vibrance";
+	ui_category_closed = true;
+> = 50;
+
 uniform int gainintro <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\nWhen enabled, allows to raise overall image brightness\n"
-			  "as a quick fix for dark games and/or monitors.\n\n"
+			  "and/or vibrance as a quick fix for dark games or monitors.\n\n"
 			  "Contrast washout correction dynamically adjusts the luma\n"
 			  "and saturation of the result to approximate the look of\n"
 			  "the original scene, removing most of the perceived loss\n"
 			  "of contrast (or 'airy' look) after the gain is applied.";
-	ui_category = "Brightness Booster";
+	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
 >;
 #endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
@@ -818,27 +827,29 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 {
 	float3 outdot = pixel;
 	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
-	bool grayscale = max3(abs(pixel.r - pixel.g), abs(pixel.r - pixel.b), abs(pixel.g - pixel.b)) < (2.0 * channelstep);
-	bool runadjustment = (abs(satadjust) > __HQAA_SMALLEST_COLOR_STEP) && !grayscale;
+	float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
+	bool runadjustment = (abs(satadjust) > __HQAA_SMALLEST_COLOR_STEP) && (highlow.x - highlow.y) > 0.0;
 	[branch] if (runadjustment)
 	{
-		float2 highlow = float2(max3(outdot.r, outdot.g, outdot.b), min3(outdot.r, outdot.g, outdot.b));
 		float mid = -1.0;
-		float adjustdown = (1.0 - satadjust) * 2.0;
-		float adjustup = (1.0 + satadjust) * 2.0;
-		if (outdot.r == highlow.x) outdot.r = pow(abs(adjustdown), log2(outdot.r));
-		else if (outdot.r == highlow.y) outdot.r = pow(abs(adjustup), log2(outdot.r));
+		float lowadjust = ((highlow.y - highlow.x / 2.0) / highlow.x) * satadjust;
+		float highadjust = ((highlow.x / 2.0) / highlow.x) * satadjust;
+		if (outdot.r == highlow.x) outdot.r = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.r));
+		else if (outdot.r == highlow.y) outdot.r = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.r));
 		else mid = outdot.r;
-		if (outdot.g == highlow.x) outdot.g = pow(abs(adjustdown), log2(outdot.g));
-		else if (outdot.g == highlow.y) outdot.g = pow(abs(adjustup), log2(outdot.g));
+		if (outdot.g == highlow.x) outdot.g = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.g));
+		else if (outdot.g == highlow.y) outdot.g = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.g));
 		else mid = outdot.g;
-		if (outdot.b == highlow.x) outdot.b = pow(abs(adjustdown), log2(outdot.b));
-		else if (outdot.b == highlow.y) outdot.b = pow(abs(adjustup), log2(outdot.b));
+		if (outdot.b == highlow.x) outdot.b = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.b));
+		else if (outdot.b == highlow.y) outdot.b = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.b));
 		else mid = outdot.b;
-		float midadjust = (1.0 + dotgamma(outdot) - dotgamma(pixel)) * 2.0;
-		if (pixel.r == mid) outdot.r = pow(abs(midadjust), log2(outdot.r));
-		else if (pixel.g == mid) outdot.g = pow(abs(midadjust), log2(outdot.g));
-		else if (pixel.b == mid) outdot.b = pow(abs(midadjust), log2(outdot.b));
+		if (mid > 0.0)
+		{
+			float midadjust = ((mid - highlow.x / 2.0) / highlow.x) * satadjust;
+			if (pixel.r == mid) outdot.r = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.r));
+			else if (pixel.g == mid) outdot.g = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.g));
+			else if (pixel.b == mid) outdot.b = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.b));
+		}
 	}
 	return outdot;
 }
@@ -1554,8 +1565,23 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			float newsat = dotsat(outdot);
 			float satadjust = newsat - presaturation; // compute difference in before/after saturation
 			bool adjustsat = abs(satadjust) > channelfloor;
-			if (adjustsat) outdot = AdjustSaturation(outdot, satadjust);
+			if (adjustsat) outdot = AdjustSaturation(outdot, -satadjust);
 		}
+#if HQAA_ENABLE_HDR_OUTPUT
+		outdot *= HdrNits;
+#else
+		outdot = saturate(outdot);
+#endif //HQAA_ENABLE_HDR_OUTPUT
+		pixel = outdot;
+	}
+	applygain = HqaaSaturationStrength != 50.0;
+	[branch] if (applygain)
+	{
+		float3 outdot = pixel;
+#if HQAA_ENABLE_HDR_OUTPUT
+		outdot *= (1.0 / HdrNits);
+#endif //HQAA_ENABLE_HDR_OUTPUT
+		outdot = AdjustSaturation(outdot, -((HqaaSaturationStrength / 100.0) - 0.5));
 #if HQAA_ENABLE_HDR_OUTPUT
 		outdot *= HdrNits;
 #else
