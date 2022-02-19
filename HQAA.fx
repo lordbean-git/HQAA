@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.6
+ *                        v18.7
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.6";
+	ui_label = "Version: 18.7";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -146,14 +146,14 @@ uniform uint preset <
 	ui_label = "Quality Preset";
 	ui_tooltip = "For quick start use, pick a preset. If you'd prefer to fine tune, select Custom.";
 	ui_items = "Low\0Medium\0High\0Ultra\0Custom\0";
-> = 3;
+> = 1;
 
 uniform float HqaaHysteresisStrength <
 	ui_type = "slider";
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_label = "% Max Hysteresis\n\n";
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
-> = 33;
+> = 50;
 
 uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -546,14 +546,6 @@ float dotsat(float4 x)
 	return dotsat(x.rgb);
 }
 
-// Alpha channel normalizer
-float4 NormalizeAlpha(float4 pixel)
-{
-	float rgbluma = dotluma(pixel);
-	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
-	return pixel;
-}
-
 // conditional move
 void HQAAMovc(bool2 cond, inout float2 variable, float2 value)
 {
@@ -833,7 +825,7 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 	{
 		float mid = -1.0;
 		float lowadjust = ((highlow.y - highlow.x / 2.0) / highlow.x) * satadjust;
-		float highadjust = ((highlow.x / 2.0) / highlow.x) * satadjust;
+		float highadjust = 0.5 * satadjust;
 		if (outdot.r == highlow.x) outdot.r = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.r));
 		else if (outdot.r == highlow.y) outdot.r = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.r));
 		else mid = outdot.r;
@@ -1027,12 +1019,6 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 {
 	float4 middle = tex2D(ReShade::BackBuffer, texcoord);
 	
-	// calculate data for FXAA hysteresis (needs to be done before alpha normalize)
-	float2 hysteresisdata = float2(dotgamma(middle), dotsat(middle));
-	
-	// Normalize the alpha channel
-	middle = NormalizeAlpha(middle);
-	
 	// calculate the threshold
 #if HQAA_SCREENSHOT_MODE
 	float2 threshold = float(0.0).xx;
@@ -1046,17 +1032,17 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 #endif //HQAA_SCREENSHOT_MODE
 	
 	// calculate color channel weighting
-	float4 weights = __HQAA_LUMA_REF;
+	float4 weights = float4(__HQAA_GAMMA_REF, 0.0);
 	weights *= middle;
 	float scale = rcp(vec4add(weights));
 	weights *= scale;
 	
-	float2 edges = float2(0.0, 0.0);
+	float2 edges = float(0.0).xx;
 	
     float L = dot(middle, weights);
 
-    float Lleft = dot(NormalizeAlpha(tex2D(ReShade::BackBuffer, offset[0].xy)), weights);
-    float Ltop  = dot(NormalizeAlpha(tex2D(ReShade::BackBuffer, offset[0].zw)), weights);
+    float Lleft = dot(tex2D(ReShade::BackBuffer, offset[0].xy), weights);
+    float Ltop  = dot(tex2D(ReShade::BackBuffer, offset[0].zw), weights);
 
     float4 delta = float4(abs(L - float2(Lleft, Ltop)), 0.0, 0.0);
     edges = step(threshold, delta.xy);
@@ -1064,26 +1050,29 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	
 	[branch] if (edgedetected)
 	{
-		float Lright = dot(NormalizeAlpha(tex2D(ReShade::BackBuffer, offset[1].xy)), weights);
-		float Lbottom  = dot(NormalizeAlpha(tex2D(ReShade::BackBuffer, offset[1].zw)), weights);
+		float Lright = dot(tex2D(ReShade::BackBuffer, offset[1].xy), weights);
+		float Lbottom  = dot(tex2D(ReShade::BackBuffer, offset[1].zw), weights);
 
 		delta.zw = abs(L - float2(Lright, Lbottom));
 
 		float2 maxDelta = max(delta.xy, delta.zw);
 
-		float Lleftleft = dot(NormalizeAlpha(tex2D(ReShade::BackBuffer, offset[2].xy)), weights);
-		float Ltoptop = dot(NormalizeAlpha(tex2D(ReShade::BackBuffer, offset[2].zw)), weights);
+		float Lleftleft = dot(tex2D(ReShade::BackBuffer, offset[2].xy), weights);
+		float Ltoptop = dot(tex2D(ReShade::BackBuffer, offset[2].zw), weights);
 	
 		delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
 
 		maxDelta = max(maxDelta.xy, delta.zw);
 		float finalDelta = max(maxDelta.x, maxDelta.y);
-
-		edges.xy *= step(finalDelta, clamp(1.0 + log10(scale), 1.0, 8.0) * delta.xy);
+		
+		// max value of scale is equal to 2^BUFFER_COLOR_BIT_DEPTH -1, usually 255
+		// subtraction based on the bit depth should make the calculation scale fairly evenly between
+		// RGBA8 and RGBA16F but is still clamped to make sure we don't go out of range
+		edges.xy *= step(finalDelta, (1.0 + clamp(log10(scale) - (BUFFER_COLOR_BIT_DEPTH / 8.0), 0.0, 7.0)) * delta.xy);
 	}
 	
 	// pass packed result (edges + hysteresis data)
-	return float4(edges, hysteresisdata);
+	return float4(edges, dotgamma(middle), dotsat(middle));
 }
 
 float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float2 pixcoord : TEXCOORD1, float4 offset[3] : TEXCOORD2) : SV_Target
