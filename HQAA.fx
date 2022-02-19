@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.5
+ *                        v18.5.1
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.5";
+	ui_label = "Version: 18.5.1";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -239,12 +239,40 @@ uniform uint debugmode <
 	ui_type = "radio";
 	ui_category = "Debug";
 	ui_category_closed = true;
+	ui_spacing = 2;
 	ui_label = " ";
-	ui_spacing = 1;
 	ui_text = "Debug Mode:";
 	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA Results\0FXAA Lumas\0FXAA Metrics\0Prepass Saturation Levels\0Prepass Luma Levels\0PostAA Saturation Levels\0PostAA Luma Levels\0Final Saturation Levels\0Final Luma Levels\0";
 > = 0;
+#endif //HQAA_COMPILE_DEBUG_CODE
 
+#if (HQAA_ENABLE_FPS_TARGET || HQAA_ENABLE_HDR_OUTPUT || HQAA_COMPILE_DEBUG_CODE)
+uniform int extradivider <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n-------------------------------------------------------------------------";
+>;
+#endif //(HQAA_ENABLE_FPS_TARGET || HQAA_ENABLE_HDR_OUTPUT || HQAA_COMPILE_DEBUG_CODE)
+
+#if HQAA_ENABLE_FPS_TARGET
+uniform float FramerateFloor < __UNIFORM_SLIDER_INT1
+	ui_min = 30; ui_max = 240; ui_step = 1;
+	ui_label = "Target Minimum Framerate";
+	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
+> = 60;
+#endif //HQAA_ENABLE_FPS_TARGET
+
+#if HQAA_ENABLE_HDR_OUTPUT
+uniform float HdrNits < 
+	ui_type = "combo";
+	ui_min = 200.0; ui_max = 1000.0; ui_step = 200.0;
+	ui_label = "HDR Nits";
+	ui_tooltip = "Most DisplayHDR certified monitors calculate colors based on 1000 nits\n"
+				 "even when the certification is for a lower value (like DisplayHDR400).";
+> = 1000.0;
+#endif //HQAA_ENABLE_HDR_OUTPUT
+
+#if HQAA_COMPILE_DEBUG_CODE
 uniform int debugexplainer <
 	ui_type = "radio";
 	ui_label = " ";
@@ -276,32 +304,6 @@ uniform int debugexplainer <
 	ui_category_closed = true;
 >;
 #endif //HQAA_COMPILE_DEBUG_CODE
-
-#if (HQAA_ENABLE_FPS_TARGET || HQAA_ENABLE_HDR_OUTPUT)
-uniform int extradivider <
-	ui_type = "radio";
-	ui_label = " ";
-	ui_text = "\n-------------------------------------------------------------------------";
->;
-#endif //(HQAA_ENABLE_FPS_TARGET || HQAA_ENABLE_HDR_OUTPUT)
-
-#if HQAA_ENABLE_FPS_TARGET
-uniform float FramerateFloor < __UNIFORM_SLIDER_INT1
-	ui_min = 30; ui_max = 240; ui_step = 1;
-	ui_label = "Target Minimum Framerate";
-	ui_tooltip = "HQAA will automatically reduce FXAA sampling quality if\nthe framerate drops below this number";
-> = 60;
-#endif //HQAA_ENABLE_FPS_TARGET
-
-#if HQAA_ENABLE_HDR_OUTPUT
-uniform float HdrNits < 
-	ui_type = "combo";
-	ui_min = 200.0; ui_max = 1000.0; ui_step = 200.0;
-	ui_label = "HDR Nits";
-	ui_tooltip = "Most DisplayHDR certified monitors calculate colors based on 1000 nits\n"
-				 "even when the certification is for a lower value (like DisplayHDR400).";
-> = 1000.0;
-#endif //HQAA_ENABLE_HDR_OUTPUT
 
 uniform int optionseof <
 	ui_type = "radio";
@@ -538,11 +540,7 @@ float dotsat(float4 x)
 // Alpha channel normalizer
 float4 NormalizeAlpha(float4 pixel)
 {
-#if HQAA_ENABLE_HDR_OUTPUT
 	float rgbluma = dotluma(pixel);
-#else
-	float rgbluma = dotgamma(pixel);
-#endif //HQAA_ENABLE_HDR_OUTPUT
 	pixel.a = lerp(rgbluma, pixel.a, rgbluma);
 	return pixel;
 }
@@ -1042,7 +1040,7 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	float scale = rcp(vec4add(weights));
 	weights *= scale;
 	
-	float2 edges = float(0.0).xx;
+	float2 edges = float2(0.0, 0.0);
 	
     float L = dot(middle, weights);
 
