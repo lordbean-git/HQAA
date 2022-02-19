@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.7
+ *                        v18.8
  *
  *                     by lordbean
  *
@@ -126,7 +126,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.7";
+	ui_label = "Version: 18.8";
 	ui_text = "-------------------------------------------------------------------------\n\n"
 			  "Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			  "https://github.com/lordbean-git/HQAA/\n";
@@ -151,9 +151,16 @@ uniform uint preset <
 uniform float HqaaHysteresisStrength <
 	ui_type = "slider";
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Max Hysteresis\n\n";
+	ui_label = "% Max Hysteresis";
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
 > = 50;
+
+uniform float HqaaHysteresisFudgeFactor <
+	ui_type = "slider";
+	ui_min = 0; ui_max = 50; ui_step = 0.5;
+	ui_label = "% Fudge Factor\n\n";
+	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
+> = 10.0;
 
 uniform float EdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
@@ -1338,7 +1345,7 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	float multiplier = HqaaHysteresisStrength / 100.0;
 	
 	float hysteresis = (dotgamma(pixel) - edgedata.b) * multiplier;
-	bool runcorrection = abs(hysteresis) > channelstep;
+	bool runcorrection = abs(hysteresis) > max(channelstep, HqaaHysteresisFudgeFactor / 100.0);
 	[branch] if (runcorrection)
 	{
 #if HQAA_ENABLE_HDR_OUTPUT
@@ -1350,7 +1357,7 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	}
 	
 	float sathysteresis = (dotsat(pixel) - edgedata.a) * multiplier;
-	runcorrection = abs(sathysteresis) > channelstep;
+	runcorrection = abs(sathysteresis) > max(channelstep, HqaaHysteresisFudgeFactor / 100.0);
 	[branch] if (runcorrection)
 	{
 #if HQAA_ENABLE_HDR_OUTPUT
