@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.9
+ *                        v18.9.1
  *
  *                     by lordbean
  *
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.9";
+	ui_label = "Version: 18.9.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n\n"
@@ -917,14 +917,17 @@ float permute(float3 x)
 float3 AdjustSaturation(float3 pixel, float satadjust)
 {
 	float3 outdot = pixel;
+	float refsat = dotsat(pixel);
+	float requestedsat = saturate(refsat + satadjust);
+	float realadjustment = requestedsat - refsat;
 	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
 	float2 highlow = float2(HQAAmax3(outdot.r, outdot.g, outdot.b), HQAAmin3(outdot.r, outdot.g, outdot.b));
-	bool runadjustment = (abs(satadjust) > __HQAA_SMALLEST_COLOR_STEP) && (highlow.x - highlow.y) > 0.0;
+	bool runadjustment = (abs(realadjustment) > __HQAA_SMALLEST_COLOR_STEP) && (highlow.x - highlow.y) > 0.0;
 	[branch] if (runadjustment)
 	{
 		float mid = -1.0;
-		float lowadjust = ((highlow.y - highlow.x / 2.0) / highlow.x) * satadjust;
-		float highadjust = 0.5 * satadjust;
+		float lowadjust = ((highlow.y - highlow.x / 2.0) / highlow.x) * realadjustment;
+		float highadjust = 0.5 * realadjustment;
 		if (outdot.r == highlow.x) outdot.r = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.r));
 		else if (outdot.r == highlow.y) outdot.r = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.r));
 		else mid = outdot.r;
@@ -936,7 +939,7 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 		else mid = outdot.b;
 		if (mid > 0.0)
 		{
-			float midadjust = ((mid - highlow.x / 2.0) / highlow.x) * satadjust;
+			float midadjust = ((mid - highlow.x / 2.0) / highlow.x) * realadjustment;
 			if (pixel.r == mid) outdot.r = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.r));
 			else if (pixel.g == mid) outdot.g = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.g));
 			else if (pixel.b == mid) outdot.b = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.b));
