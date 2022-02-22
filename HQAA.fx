@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v18.10
+ *                        v18.10.1
  *
  *                     by lordbean
  *
@@ -134,7 +134,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 18.10";
+	ui_label = "Version: 18.10.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n\n"
@@ -290,7 +290,7 @@ uniform float HqaaHysteresisStrength <
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 25;
+> = 50;
 
 uniform float HqaaHysteresisFudgeFactor <
 	ui_type = "slider";
@@ -299,7 +299,7 @@ uniform float HqaaHysteresisFudgeFactor <
 	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 12.5;
+> = 5.0;
 
 uniform bool HqaaDoLumaHysteresis <
 	ui_label = "Use Luma Difference Hysteresis?";
@@ -308,7 +308,7 @@ uniform bool HqaaDoLumaHysteresis <
 > = true;
 
 uniform bool HqaaDoSaturationHysteresis <
-	ui_label = "Use Saturation Difference Hysteresis?";
+	ui_label = "Use Saturation Difference Hysteresis?\n\n";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
 > = true;
@@ -323,7 +323,7 @@ uniform uint HqaaDebugMode <
 	ui_spacing = 2;
 	ui_label = " ";
 	ui_text = "Debug Mode:";
-	ui_items = "Off\0Detected Edges\0SMAA Blend Weights\0FXAA Results\0FXAA Lumas\0FXAA Metrics\0Prepass Saturation Levels\0Prepass Luma Levels\0PostAA Saturation Levels\0PostAA Luma Levels\0Final Saturation Levels\0Final Luma Levels\0";
+	ui_items = "Off\n\n\0Detected Edges\0SMAA Blend Weights\n\n\0FXAA Results\0FXAA Lumas\0FXAA Metrics\n\n\0Hysteresis Pattern\0";
 > = 0;
 #endif //HQAA_COMPILE_DEBUG_CODE
 
@@ -358,8 +358,6 @@ uniform int HqaaDebugExplainer <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "----------------------------------------------------------------\n"
-	          "                 HOW TO READ DEBUG RESULTS\n"
-              "----------------------------------------------------------------\n"
 			  "When viewing the detected edges, the colors shown in the texture\n"
 			  "are not related to the image on the screen directly, rather they\n"
 			  "are markers indicating the following:\n"
@@ -368,18 +366,16 @@ uniform int HqaaDebugExplainer <
 			  "- Yellow = Probable Diagonal Edge Here\n\n"
 			  "SMAA blending weights and FXAA results show what each related\n"
 			  "pass is blending with the screen to produce its AA effect.\n\n"
-			  "FXAA lumas shows FXAA's estimation of the brightness of pixels\n"
-			  "where the pass ran corrections.\n\n"
+			  "The FXAA luma view compresses its calculated range to 0.25-1.0\n"
+			  "so that black pixels mean the shader didn't run in that area.\n\n"
 			  "FXAA metrics draws a range of green to red where the selected\n"
 			  "pass ran, with green representing not much execution time used\n"
 			  "and red representing a lot of execution time used.\n\n"
-			  "Saturation and Luma calculations show a represenation of the\n"
-			  "bespoke calculation onscreen. In both cases, black pixels are\n"
-			  "areas where no edges were detected. Saturation is displayed as a\n"
-			  "range from red to green, where red areas represent low\n"
-			  "saturation and green areas represent high saturation.\n\n"
-			  "Debug checks can optionally be excluded from the compiled shader\n"
-			  "by setting HQAA_COMPILE_DEBUG_CODE to 0.\n"
+			  "The Hysteresis pattern is a representation of where and how\n"
+			  "strongly the hysteresis pass is performing corrections, but it\n"
+			  "does not directly indicate the color that it is blending (it is\n"
+			  "the absolute value of a difference calculation, meaning that\n"
+			  "decreases are the visual inversion of the actual blend color).\n"
 	          "----------------------------------------------------------------";
 	ui_category = "DEBUG README";
 	ui_category_closed = true;
@@ -396,7 +392,7 @@ uniform int HqaaOptionsEOF <
 #if HQAA_OPTIONAL_CAS
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
-	ui_min = 0; ui_max = 10; ui_step = 0.01;
+	ui_min = 0; ui_max = 5; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
@@ -432,7 +428,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.2;
+> = 0.333333;
 
 uniform bool HqaaTemporalClamp <
 	ui_label = "Clamp Maximum Weight?";
@@ -442,7 +438,7 @@ uniform bool HqaaTemporalClamp <
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
 				 "single color channel between the past frame and the current frame.";
-> = false;
+> = true;
 
 uniform int HqaaStabilizerIntro <
 	ui_type = "radio";
@@ -462,7 +458,7 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Brightness Gain";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = 0.0;
+> = 0.5;
 
 uniform bool HqaaGainLowLumaCorrection <
 	ui_label = "Contrast Washout Correction";
@@ -470,7 +466,7 @@ uniform bool HqaaGainLowLumaCorrection <
 				 "to reduce perceived contrast washout.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = false;
+> = true;
 
 uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -513,7 +509,7 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_label = "Scan Radius";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 16.0;
+> = 32.0;
 
 uniform int HqaaDebandIntro <
 	ui_type = "radio";
@@ -646,8 +642,7 @@ uniform float HqaaFrametime < source = "frametime"; >;
 
 float dotsat(float3 x)
 {
-	float luma = HQAAdotgamma(x);
-	return (HQAAmax3(x.r, x.g, x.b) - HQAAmin3(x.r, x.g, x.b)) / (1.0 - (2.0 * luma - 1.0));
+	return (HQAAmax3(x.r, x.g, x.b) - HQAAmin3(x.r, x.g, x.b)) / (1.0 - (2.0 * HQAAdotgamma(x) - 1.0));
 }
 float dotsat(float4 x)
 {
@@ -658,16 +653,21 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 {
 	float3 outdot = pixel;
 	float refsat = dotsat(pixel);
-	float requestedsat = saturate(refsat + satadjust);
-	float realadjustment = requestedsat - refsat;
-	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
+	float realadjustment = saturate(refsat + satadjust) - refsat;
 	float2 highlow = float2(HQAAmax3(outdot.r, outdot.g, outdot.b), HQAAmin3(outdot.r, outdot.g, outdot.b));
-	bool runadjustment = (abs(realadjustment) > __HQAA_SMALLEST_COLOR_STEP) && (highlow.x - highlow.y) > 0.0;
+	bool runadjustment = abs(realadjustment) > __HQAA_SMALLEST_COLOR_STEP;
 	[branch] if (runadjustment)
 	{
+		// there won't necessarily be a valid mid if eg. pixel.r == pixel.g > pixel.b
 		float mid = -1.0;
+		
+		// figure out if the low needs to move up or down
 		float lowadjust = ((highlow.y - highlow.x / 2.0) / highlow.x) * realadjustment;
+		
+		// same calculation used with the high factors to this
 		float highadjust = 0.5 * realadjustment;
+		
+		// method = apply corrections based on matched high or low channel, assign mid if neither
 		if (outdot.r == highlow.x) outdot.r = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.r));
 		else if (outdot.r == highlow.y) outdot.r = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.r));
 		else mid = outdot.r;
@@ -677,14 +677,20 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 		if (outdot.b == highlow.x) outdot.b = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.b));
 		else if (outdot.b == highlow.y) outdot.b = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.b));
 		else mid = outdot.b;
+		
+		// perform mid channel calculations if a valid mid was found
 		if (mid > 0.0)
 		{
+			// figure out whether it should move up or down
 			float midadjust = ((mid - highlow.x / 2.0) / highlow.x) * realadjustment;
+			
+			// determine which channel is mid and apply correction
 			if (pixel.r == mid) outdot.r = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.r));
 			else if (pixel.g == mid) outdot.g = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.g));
 			else if (pixel.b == mid) outdot.b = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.b));
 		}
 	}
+	
 	return outdot;
 }
 float4 AdjustSaturation(float4 pixel, float satadjust)
@@ -1179,10 +1185,10 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 #elif HQAA_ENABLE_HDR_OUTPUT
 	float2 threshold = float(__HQAA_SM_THRESHOLD * log2(HqaaHdrNits)).xx;
 #else
-	float adjustmentrange = __HQAA_DYNAMIC_RANGE * __HQAA_SM_THRESHOLD;
-	float thresholdOffset = mad(pow(abs((HQAAdotgamma(middle) + middle.a) / 2.0), 1.0 + __HQAA_DYNAMIC_RANGE), adjustmentrange, -adjustmentrange);
+	float maxdynamicrange = __HQAA_DYNAMIC_RANGE;
+	float adjustmentrange = maxdynamicrange * __HQAA_SM_THRESHOLD;
 	
-	float2 threshold = float(__HQAA_SM_THRESHOLD + thresholdOffset).xx;
+	float2 threshold = float(__HQAA_SM_THRESHOLD + mad(saturate(((HQAAdotgamma(middle) + middle.a) / 2.0) * (1.0 + maxdynamicrange)), adjustmentrange, -adjustmentrange)).xx;
 #endif //HQAA_SCREENSHOT_MODE
 	
 	// calculate color channel weighting
@@ -1300,8 +1306,8 @@ float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
 float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
  {
     float4 rgbyM = tex2D(ReShade::BackBuffer, texcoord);
+	float lumaMa = HQAAdotgamma(rgbyM);
     float basethreshold = __HQAA_FX_THRESHOLD;
-    float maximumreduction = __HQAA_DYNAMIC_RANGE;
 	
 	// calculate the threshold
 #if HQAA_SCREENSHOT_MODE
@@ -1311,13 +1317,11 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 #elif HQAA_RUN_TWO_FXAA_PASSES
 	float fxaaQualityEdgeThreshold = basethreshold;
 #else
-	float adjustmentrange = maximumreduction * basethreshold;
-	float fxaaQualityEdgeThreshold = basethreshold + mad(pow(abs((HQAAdotgamma(rgbyM) + rgbyM.a) / 2.0), 1.0 + maximumreduction), adjustmentrange, -adjustmentrange);
+	float maxdynamicrange = __HQAA_DYNAMIC_RANGE;
+	float adjustmentrange = maxdynamicrange * basethreshold;
+	float fxaaQualityEdgeThreshold = basethreshold + mad(saturate(((lumaMa + rgbyM.a) / 2.0) * (1.0 + maxdynamicrange)), adjustmentrange, -adjustmentrange);
 #endif //HQAA_SCREENSHOT_MODE
 
-	
-	float lumaMa = HQAAdotgamma(rgbyM);
-	
     float lumaS = HQAAdotgamma(__HQAA_SAMPLETEX_OFFSET(ReShade::BackBuffer, texcoord, int2( 0, 1)));
     float lumaE = HQAAdotgamma(__HQAA_SAMPLETEX_OFFSET(ReShade::BackBuffer, texcoord, int2( 1, 0)));
     float lumaN = HQAAdotgamma(__HQAA_SAMPLETEX_OFFSET(ReShade::BackBuffer, texcoord, int2( 0,-1)));
@@ -1344,10 +1348,6 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
     bool horzSpan = (abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)))) >= (abs(mad(-2.0, lumaS, lumaSW + lumaSE)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaW + lumaE)), abs(mad(-2.0, lumaN, lumaNW + lumaNE))));	
     float lengthSign = horzSpan ? BUFFER_RCP_HEIGHT : BUFFER_RCP_WIDTH;
- /*   if(!horzSpan) {
-		lumaN = lumaW;
-		lumaS = lumaE;
-	}*/
 	
 	float2 lumaNP = float2(lumaN, lumaS);
 	HQAAMovc(bool(!horzSpan).xx, lumaNP, float2(lumaW, lumaE));
@@ -1449,24 +1449,21 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
 	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
-	if (clamp(HqaaDebugMode, 4, 5) != HqaaDebugMode)
+	if (HqaaDebugMode == 4)
 	{
-#endif //HQAA_COMPILE_DEBUG_CODE
-	// normal output
-	return resultAA;
-#if HQAA_COMPILE_DEBUG_CODE
-	}
-	else if (HqaaDebugMode == 4) {
 		// luminance output
-		return float(lumaMa).xxx;
+		return float(lumaMa * 0.75 + 0.25).xxx;
 	}
-	else {
+	if (HqaaDebugMode == 5)
+	{
 		// metrics output
 		float runtime = float(iterations / maxiterations) * 0.5;
 		float3 FxaaMetrics = float3(runtime, 0.5 - runtime, 0.0);
 		return FxaaMetrics;
 	}
 #endif //HQAA_COMPILE_DEBUG_CODE
+	// normal output
+	return resultAA;
 }
 
 /***************************************************************************************************************************************/
@@ -1484,13 +1481,11 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	
 #if HQAA_COMPILE_DEBUG_CODE
 	bool modifiedpixel = any(edgedata.rg);
-	if (HqaaDebugMode != 0 && !modifiedpixel) return float(0.0).xxx;
+	float3 AAdot = pixel;
+	if (HqaaDebugMode == 6 && !modifiedpixel) return float(0.0).xxx;
 	if (HqaaDebugMode == 1) return float3(tex2D(HQAAsamplerAlphaEdges, texcoord).rg, 0.0);
 	if (HqaaDebugMode == 2) return tex2D(HQAAsamplerSMweights, texcoord).rgb;
-	if (HqaaDebugMode == 6) { float presatlevel = tex2D(HQAAsamplerAlphaEdges, texcoord).a; return float3((1.0 - presatlevel) / 2.0, presatlevel / 2.0, 0.0); }
-	if (HqaaDebugMode == 7) { float prelumalevel = tex2D(HQAAsamplerAlphaEdges, texcoord).b; return float(prelumalevel).xxx; }
-	float3 postAAdot = pixel;
-	if (HqaaDebugMode == 0) {
+	if (HqaaDebugMode == 0 || HqaaDebugMode == 6) {
 #endif
 
 	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
@@ -1523,33 +1518,13 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	//output
 #if HQAA_COMPILE_DEBUG_CODE
 	}
-	if (HqaaDebugMode < 8)
+	if (HqaaDebugMode == 6)
 	{
+		// hysteresis pattern
+		return sqrt(abs(pixel - AAdot));
+	}
 #endif //HQAA_COMPILE_DEBUG_CODE
 	return pixel;
-#if HQAA_COMPILE_DEBUG_CODE
-	}
-	else if (HqaaDebugMode == 8) {
-		// postAA saturation
-		float postAAsat = dotsat(postAAdot);
-		return float3((1.0 - postAAsat) / 2.0, postAAsat / 2.0, 0.0);
-	}
-	else if (HqaaDebugMode == 9) {
-		// postAA luma
-		float postAAluma = HQAAdotgamma(postAAdot);
-		return float(postAAluma).xxx;
-	}
-	else if (HqaaDebugMode == 10) {
-		// final saturation
-		float finalsat = dotsat(pixel);
-		return float3((1.0 - finalsat) / 2.0, finalsat / 2.0, 0.0);
-	}
-	else {
-		// final luma
-		float finalluma = HQAAdotgamma(pixel);
-		return float(finalluma).xxx;
-	}
-#endif //HQAA_COMPILE_DEBUG_CODE
 }
 
 /***************************************************************************************************************************************/
