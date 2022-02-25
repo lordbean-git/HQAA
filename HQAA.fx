@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v19.1
+ *                        v19.2
  *
  *                     by lordbean
  *
@@ -104,12 +104,12 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif //HQAA_COMPILE_DEBUG_CODE
 
 #ifndef HQAA_ENABLE_OPTIONAL_TECHNIQUES
-	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 1
+	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 0
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 	#ifndef HQAA_OPTIONAL_CAS
-		#define HQAA_OPTIONAL_CAS 1
+		#define HQAA_OPTIONAL_CAS 0
 	#endif //HQAA_OPTIONAL_CAS
 	#ifndef HQAA_OPTIONAL_TEMPORAL_STABILIZER
 		#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 0
@@ -134,67 +134,65 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 19.1";
+	ui_label = "Version: 19.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
-			"https://github.com/lordbean-git/HQAA/\n\n"
+			"https://github.com/lordbean-git/HQAA/\n"
+			"-------------------------------------------------------------------------\n\n"
 			"Currently Compiled Configuration:\n\n"
 			#if HQAA_TARGET_COLOR_SPACE == 1
-				"Color Space: HDR nits*\n"
+				"Color Space:      HDR nits*\n"
 			#elif HQAA_TARGET_COLOR_SPACE == 2
 				"Color Space: HDR10 / scRGB*\n"
 			#else
-				"Color Space: Linear\n"
+				"Color Space:      Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_ENABLE_FPS_TARGET
-				"FPS Target Self-Throttling: ON*\n"
+				"FPS Target Throttling:  ON*\n"
 			#else
-				"FPS Target Self-Throttling: OFF\n"
+				"FPS Target Throttling:  off\n"
 			#endif //HQAA_ENABLE_FPS_TARGET
 			#if HQAA_SCREENSHOT_MODE
-				"Screenshot Mode: ON*\n"
+				"Screenshot Mode:        ON*\n"
 			#else
-				"Screenshot Mode: OFF\n"
+				"Screenshot Mode:        off\n"
 			#endif //HQAA_SCREENSHOT_MODE
 			#if HQAA_RUN_TWO_FXAA_PASSES
-				"Two FXAA Passes: ON*\n"
+				"Two FXAA Passes:        ON*\n"
 			#else
-				"Two FXAA Passes: OFF\n"
+				"Two FXAA Passes:        off\n"
 			#endif //HQAA_RUN_TWO_FXAA_PASSES
 			#if HQAA_COMPILE_DEBUG_CODE
-				"Debug Code: ON*\n"
+				"Debug Code:             ON*\n"
 			#else
-				"Debug Code: OFF\n"
+				"Debug Code:             off\n"
 			#endif //HQAA_COMPILE_DEBUG_CODE
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND)
-				"Optional Techniques: ON\n"
+				"Optional Effects:       ON*\n"
 			#else
-				"Optional Techniques: OFF*\n"
+				"Optional Effects:       off\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_CAS
-				"Sharpening: ON\n"
+				"Sharpening:             ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_CAS
-				"Sharpening: OFF*\n"
+				"Sharpening:             off\n"
 			#endif //HQAA_OPTIONAL_CAS
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_TEMPORAL_STABILIZER
-				"Temporal Stabilizer: ON*\n"
+				"Temporal Stabilizer:    ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_TEMPORAL_STABILIZER
-				"Temporal Stabilizer: OFF\n"
+				"Temporal Stabilizer:    off\n"
 			#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_BRIGHTNESS_GAIN
-				"Brightness & Vibrance Gain: ON*\n"
+				"Brightness & Vibrance:  ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_BRIGHTNESS_GAIN
-				"Brightness & Vibrance Gain: OFF\n"
+				"Brightness & Vibrance:  off\n"
 			#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_DEBAND
-				"Debanding: ON*\n"
+				"Debanding:              ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_DEBAND
-				"Debanding: OFF\n"
+				"Debanding:              off\n"
 			#endif //HQAA_OPTIONAL_DEBAND
 			
-			#if HQAA_TARGET_COLOR_SPACE == 1 || HQAA_TARGET_COLOR_SPACE == 2 || HQAA_ENABLE_FPS_TARGET || HQAA_SCREENSHOT_MODE || HQAA_RUN_TWO_FXAA_PASSES || HQAA_COMPILE_DEBUG_CODE || !HQAA_ENABLE_OPTIONAL_TECHNIQUES || ((HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_CAS) || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_TEMPORAL_STABILIZER) || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_BRIGHTNESS_GAIN) || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_DEBAND))
-				"\n* = not default setting\n"
-			#endif
 			#if HQAA_SCREENSHOT_MODE || HQAA_RUN_TWO_FXAA_PASSES || HQAA_COMPILE_DEBUG_CODE || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && !(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND))
 				"\nRemarks:\n"
 			#endif
@@ -219,10 +217,11 @@ uniform int HQAAintroduction <
 				"an HDR color format because the randomized noise used\n"
 				"to correct banding tends to be visible.\n"
 			#endif
+			"\n-------------------------------------------------------------------------"
 			"\nSet HQAA_TARGET_COLOR_SPACE to 1 for HDR in Nits, 2 for HDR10/scRGB.\n"
 			"See the 'Preprocessor definitions' section for color & feature toggles.\n"
 			"-------------------------------------------------------------------------";
-	ui_tooltip = "Also try minecraft!";
+	ui_tooltip = "Totally Bug-Free (tm)!";
 	ui_category = "About";
 	ui_category_closed = true;
 >;
@@ -298,16 +297,16 @@ uniform float HqaaHysteresisStrength <
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 50;
+> = 33;
 
 uniform float HqaaHysteresisFudgeFactor <
 	ui_type = "slider";
-	ui_min = 0; ui_max = 50; ui_step = 0.5;
+	ui_min = 0; ui_max = 20; ui_step = 0.1;
 	ui_label = "% Fudge Factor";
 	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 5.0;
+> = 2.5;
 
 uniform bool HqaaDoLumaHysteresis <
 	ui_label = "Use Luma Difference Hysteresis?";
@@ -550,21 +549,21 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Global      |  SMAA  |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 50.0% |   0 %  | 50 % |  2.0  |  25 % |\n"
-			  "|  Medium|   0.100   | 66.6% |   15%  | 100% |  1.5  |  50 % |\n"
-			  "|    High|   0.075   | 80.0% |   25%  | 100% |  1.0  |  75 % |\n"
-			  "|   Ultra|   0.050   | 90.0% |   50%  | 200% |  0.5  |  100% |\n"
+			  "|     Low|   0.200   | 25.0% |   10%  |  50% |  2.0  |   25% |\n"
+			  "|  Medium|   0.100   | 33.3% |   25%  |  75% |  1.5  |   50% |\n"
+			  "|    High|   0.060   | 50.0% |   50%  | 100% |  1.0  |  100% |\n"
+			  "|   Ultra|   0.040   | 75.0% |  100%  | 200% |  1.0  |  100% |\n"
 			  "--------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.1, 0.075, 0.05, 1.0};
-static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.5, 0.666667, 0.8, 0.9, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.0, 0.15, 0.25, 0.5, 0.0};
-static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 1.0, 1.0, 2.0, 0.0};
-static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
-static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.75, 1.0, 0.0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.1, 0.06, 0.04, 1.0};
+static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.25, 0.333333, 0.5, 0.75, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.5, 1.0, 0.0};
+static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 2.0, 0.0};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 1.0, 4.0};
+static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 1.0, 1.0, 0.0};
 
 #if HQAA_ENABLE_FPS_TARGET
 uniform float HqaaFrametime < source = "frametime"; >;
@@ -1413,10 +1412,8 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 #if HQAA_SCREENSHOT_MODE
 	float2 threshold = float(0.0).xx;
 #else
-	float maxdynamicrange = __HQAA_DYNAMIC_RANGE;
-	float adjustmentrange = maxdynamicrange * __HQAA_SM_THRESHOLD;
-	
-	float2 threshold = float(__HQAA_SM_THRESHOLD + mad(saturate(((HQAAdotgamma(middle) + middle.a) / 2.0) * (1.0 + maxdynamicrange)), adjustmentrange, -adjustmentrange)).xx;
+	float adjustmentrange = __HQAA_DYNAMIC_RANGE * __HQAA_SM_THRESHOLD;
+	float2 threshold = float(__HQAA_SM_THRESHOLD + mad(sqrt(HQAAdotgamma(middle)), adjustmentrange, -adjustmentrange)).xx;
 #endif //HQAA_SCREENSHOT_MODE
 	
 	// calculate color channel weighting
@@ -1453,7 +1450,7 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 		maxDelta = max(maxDelta.xy, delta.zw);
 		float finalDelta = max(maxDelta.x, maxDelta.y);
 		
-		edges.xy *= step(finalDelta, scale * delta.xy);
+		edges.xy *= step(finalDelta, log2(scale) * delta.xy);
 	}
 	
 	float4 bufferdot = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
@@ -1540,9 +1537,8 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 #elif HQAA_RUN_TWO_FXAA_PASSES
 	float fxaaQualityEdgeThreshold = basethreshold;
 #else
-	float maxdynamicrange = __HQAA_DYNAMIC_RANGE;
-	float adjustmentrange = maxdynamicrange * basethreshold;
-	float fxaaQualityEdgeThreshold = basethreshold + mad(saturate(((lumaMa + rgbyM.a) / 2.0) * (1.0 + maxdynamicrange)), adjustmentrange, -adjustmentrange);
+	float adjustmentrange = __HQAA_DYNAMIC_RANGE * basethreshold;
+	float fxaaQualityEdgeThreshold = basethreshold + mad(sqrt(lumaMa), adjustmentrange, -adjustmentrange);
 #endif //HQAA_SCREENSHOT_MODE
 
     float lumaS = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1))));
