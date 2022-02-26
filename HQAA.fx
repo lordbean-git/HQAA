@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v19.2
+ *                        v20.0
  *
  *                     by lordbean
  *
@@ -130,11 +130,15 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_RUN_TWO_FXAA_PASSES 0
 #endif
 
+#ifndef HQAA_TAA_ASSIST_MODE
+	#define HQAA_TAA_ASSIST_MODE 0
+#endif
+
 /////////////////////////////////////////////////////// GLOBAL SETUP OPTIONS //////////////////////////////////////////////////////////////
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 19.2";
+	ui_label = "Version: 20.0";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -162,6 +166,11 @@ uniform int HQAAintroduction <
 			#else
 				"Two FXAA Passes:        off\n"
 			#endif //HQAA_RUN_TWO_FXAA_PASSES
+			#if HQAA_TAA_ASSIST_MODE
+				"TAA Assist Mode:        ON*\n"
+			#else
+				"TAA Assist Mode:        off\n"
+			#endif //HQAA_TAA_ASSIST_MODE
 			#if HQAA_COMPILE_DEBUG_CODE
 				"Debug Code:             ON*\n"
 			#else
@@ -193,7 +202,7 @@ uniform int HQAAintroduction <
 				"Debanding:              off\n"
 			#endif //HQAA_OPTIONAL_DEBAND
 			
-			#if HQAA_SCREENSHOT_MODE || HQAA_RUN_TWO_FXAA_PASSES || HQAA_COMPILE_DEBUG_CODE || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && !(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND))
+			#if HQAA_SCREENSHOT_MODE || HQAA_RUN_TWO_FXAA_PASSES || HQAA_COMPILE_DEBUG_CODE || HQAA_TAA_ASSIST_MODE || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && !(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND))
 				"\nRemarks:\n"
 			#endif
 			#if HQAA_SCREENSHOT_MODE
@@ -217,11 +226,18 @@ uniform int HQAAintroduction <
 				"an HDR color format because the randomized noise used\n"
 				"to correct banding tends to be visible.\n"
 			#endif
+			#if HQAA_TAA_ASSIST_MODE
+				"\nTAA Assist Mode is designed to help the game's internal\n"
+				"Temporal Anti-Aliasing solution by performing corrections\n"
+				"only on scenes that are in motion. This both helps to fix\n"
+				"aliasing during high movement and conserves GPU power by\n"
+				"skipping stationary objects.\n"
+			#endif
 			"\n-------------------------------------------------------------------------"
 			"\nSet HQAA_TARGET_COLOR_SPACE to 1 for HDR in Nits, 2 for HDR10/scRGB.\n"
 			"See the 'Preprocessor definitions' section for color & feature toggles.\n"
 			"-------------------------------------------------------------------------";
-	ui_tooltip = "Totally Bug-Free (tm)!";
+	ui_tooltip = "The PROBABLY (maybe) Done Version";
 	ui_category = "About";
 	ui_category_closed = true;
 >;
@@ -1282,6 +1298,28 @@ texture HQAAstabilizerTex
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
+#if HQAA_TAA_ASSIST_MODE
+texture HQAApreviousLumaTex
+#if __RESHADE__ >= 50000
+< pooled = true; >
+#endif
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	Format = R16F;
+};
+
+texture HQAAlumaMaskTex
+#if __RESHADE__ >= 50000
+< pooled = true; >
+#endif
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	Format = R8;
+};
+#endif //HQAA_TAA_ASSIST_MODE
+
 //////////////////////////////////////////////////////////// SAMPLERS ///////////////////////////////////////////////////////////////////
 
 sampler HQAAsamplerAlphaEdges
@@ -1313,6 +1351,20 @@ sampler HQAAsamplerLastFrame
 };
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
+#if HQAA_TAA_ASSIST_MODE
+sampler HQAAsamplerPreviousLuma
+{
+	Texture = HQAApreviousLumaTex;
+	MipFilter = Point; MinFilter = Point; MagFilter = Point;
+};
+
+sampler HQAAsamplerLumaMask
+{
+	Texture = HQAAlumaMaskTex;
+	MipFilter = Point; MinFilter = Point; MagFilter = Point;
+};
+#endif //HQAA_TAA_ASSIST_MODE
 
 //////////////////////////////////////////////////////////// VERTEX SHADERS /////////////////////////////////////////////////////////////
 
@@ -1361,13 +1413,21 @@ void HQAANeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position : 
 /*****************************************************************************************************************************************/
 
 /*****************************************************************************************************************************************/
-/****************************************************** CAS-TO-TEXTURE CODE START ********************************************************/
+/****************************************************** SUPPORT SHADER CODE START ********************************************************/
 /*****************************************************************************************************************************************/
 
+/////////////////////////////////////////////////////////// CAS-TO-TEXTURE ////////////////////////////////////////////////////////////////
 float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float4 casdot = Unmaximize(HQAA_Tex2D(ReShade::BackBuffer, texcoord));
+	float4 casdot = tex2D(ReShade::BackBuffer, texcoord);
 	
+#if HQAA_TAA_ASSIST_MODE
+	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	if (!lumachange) return casdot;
+#endif
+
+	casdot = Unmaximize(ConditionalDecode(casdot));
+
     float3 a = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb);
     float3 c = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb);
     float3 g = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb);
@@ -1393,9 +1453,38 @@ float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 
 	return ConditionalEncode(outColor);
 }
-	
+
+/////////////////////////////////////////////////// TEMPORAL STABILIZER FRAME COPY ////////////////////////////////////////////////////////
+#if HQAA_ENABLE_OPTIONAL_TECHNIQUES
+#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
+// optional stabilizer - save previous frame
+float4 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+}
+#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
+#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
+
+///////////////////////////////////////////////////// TAA ASSIST LUMA HISTOGRAM ///////////////////////////////////////////////////////////
+#if HQAA_TAA_ASSIST_MODE
+float HQAALumaSnapshotPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAAdotgamma(HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb);
+}
+
+float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float previous = tex2D(HQAAsamplerPreviousLuma, texcoord).r;
+	float current = HQAAdotgamma(HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb);
+	// for some reason this seems to be a good baseline difference
+	float mindiff = __HQAA_SMALLEST_COLOR_STEP * BUFFER_COLOR_BIT_DEPTH;
+	bool outdata = abs(current - previous) > mindiff;
+	return float(outdata);
+}
+#endif //HQAA_TAA_ASSIST_MODE
+
 /*****************************************************************************************************************************************/
-/******************************************************* CAS-TO-TEXTURE CODE END *********************************************************/
+/******************************************************* SUPPORT SHADER CODE END *********************************************************/
 /*****************************************************************************************************************************************/
 
 /*****************************************************************************************************************************************/
@@ -1408,6 +1497,11 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 {
 	float4 middle = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
 	
+#if HQAA_TAA_ASSIST_MODE
+	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	if (!lumachange) return float(0.0).xxxx;
+#endif //HQAA_TAA_ASSIST_MODE
+
 	// calculate the threshold
 #if HQAA_SCREENSHOT_MODE
 	float2 threshold = float(0.0).xx;
@@ -1462,6 +1556,11 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 
 float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float2 pixcoord : TEXCOORD1, float4 offset[3] : TEXCOORD2) : SV_Target
 {
+#if HQAA_TAA_ASSIST_MODE
+	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	if (!lumachange) return float(0.0).xxxx;
+#endif //HQAA_TAA_ASSIST_MODE
+
     float4 weights = float(0.0).xxxx;
     float2 e = tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
     bool2 edges = bool2(e.r > 0.0, e.g > 0.0);
@@ -1498,11 +1597,12 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
     float4 m = float4(tex2D(HQAAsamplerSMweights, offset.xy).a, tex2D(HQAAsamplerSMweights, offset.zw).g, tex2D(HQAAsamplerSMweights, texcoord).zx);
-	float4 resultAA = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+	float4 resultAA = tex2D(ReShade::BackBuffer, texcoord);
 	bool modifypixel = any(m);
 	
 	[branch] if (modifypixel)
 	{
+		resultAA = ConditionalDecode(resultAA);
         bool horiz = max(m.x, m.z) > max(m.y, m.w);
         float4 blendingOffset = float4(0.0, m.y, 0.0, m.w);
         float2 blendingWeight = m.yw;
@@ -1512,9 +1612,10 @@ float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
         float4 blendingCoord = mad(blendingOffset, float4(__HQAA_SM_BUFFERINFO.xy, -__HQAA_SM_BUFFERINFO.xy), texcoord.xyxy);
         resultAA = blendingWeight.x * HQAA_Tex2D(ReShade::BackBuffer, blendingCoord.xy);
         resultAA += blendingWeight.y * HQAA_Tex2D(ReShade::BackBuffer, blendingCoord.zw);
+		resultAA = ConditionalEncode(resultAA);
     }
     
-	return ConditionalEncode(resultAA);
+	return resultAA;
 }
 
 /***************************************************************************************************************************************/
@@ -1527,7 +1628,14 @@ float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
 
 float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
  {
-    float4 rgbyM = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+    float4 rgbyM = tex2D(ReShade::BackBuffer, texcoord);
+	
+#if HQAA_TAA_ASSIST_MODE
+	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	if (!lumachange) return rgbyM.rgb;
+#endif //HQAA_TAA_ASSIST_MODE
+
+	rgbyM = ConditionalDecode(rgbyM);
 	float lumaMa = HQAAdotgamma(Unmaximize(rgbyM));
     float basethreshold = __HQAA_FX_THRESHOLD;
 	
@@ -1695,9 +1803,16 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 
 float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float3 pixel = tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float4 edgedata = tex2D(HQAAsamplerAlphaEdges, texcoord);
 	
+#if HQAA_TAA_ASSIST_MODE
+	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	if (!lumachange) return pixel;
+#endif //HQAA_TAA_ASSIST_MODE
+
+	pixel = ConditionalDecode(pixel);
+
 #if HQAA_COMPILE_DEBUG_CODE
 	bool modifiedpixel = any(edgedata.rg);
 	float3 AAdot = pixel;
@@ -1920,14 +2035,6 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	return ConditionalEncode(pixel);
 }
 #endif //(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_TEMPORAL_STABILIZER)
-
-#if HQAA_OPTIONAL_TEMPORAL_STABILIZER
-// optional stabilizer - save previous frame
-float4 GenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	return HQAA_Tex2D(ReShade::BackBuffer, texcoord);
-}
-#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 /***************************************************************************************************************************************/
@@ -1943,6 +2050,22 @@ technique HQAA <
 				 "============================================================";
 >
 {
+#if HQAA_TAA_ASSIST_MODE
+	pass CreateLumaMask
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAALumaMaskingPS;
+		RenderTarget = HQAAlumaMaskTex;
+		ClearRenderTargets = true;
+	}
+	pass SaveCurrentLumas
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAALumaSnapshotPS;
+		RenderTarget = HQAApreviousLumaTex;
+		ClearRenderTargets = true;
+	}
+#endif //HQAA_TAA_ASSIST_MODE
 	pass GenerateTemporarySharpen
 	{
 		VertexShader = PostProcessVS;
@@ -2010,7 +2133,7 @@ technique HQAA <
 	pass SaveCurrentFrame
 	{
 		VertexShader = PostProcessVS;
-		PixelShader = GenerateImageCopyPS;
+		PixelShader = HQAAGenerateImageCopyPS;
 		RenderTarget = HQAAstabilizerTex;
 		ClearRenderTargets = true;
 	}
