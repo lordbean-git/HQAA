@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v20.1
+ *                        v20.2
  *
  *                     by lordbean
  *
@@ -126,8 +126,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_SCREENSHOT_MODE 0
 #endif //HQAA_SCREENSHOT_MODE
 
-#ifndef HQAA_RUN_TWO_FXAA_PASSES
-	#define HQAA_RUN_TWO_FXAA_PASSES 0
+#ifndef HQAA_USE_MULTISAMPLED_FXAA
+	#define HQAA_USE_MULTISAMPLED_FXAA 1
 #endif
 
 #ifndef HQAA_TAA_ASSIST_MODE
@@ -138,7 +138,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 20.1";
+	ui_label = "Version: 20.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -161,10 +161,10 @@ uniform int HQAAintroduction <
 			#else
 				"Screenshot Mode:        off\n"
 			#endif //HQAA_SCREENSHOT_MODE
-			#if HQAA_RUN_TWO_FXAA_PASSES
-				"Two FXAA Passes:        ON*\n"
+			#if HQAA_USE_MULTISAMPLED_FXAA
+				"FXAA Multisampling:      on\n"
 			#else
-				"Two FXAA Passes:        off\n"
+				"FXAA Multisampling:    OFF*\n"
 			#endif //HQAA_RUN_TWO_FXAA_PASSES
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:        ON*\n"
@@ -202,16 +202,10 @@ uniform int HQAAintroduction <
 				"Debanding:              off\n"
 			#endif //HQAA_OPTIONAL_DEBAND
 			
-			#if HQAA_SCREENSHOT_MODE || HQAA_RUN_TWO_FXAA_PASSES || HQAA_COMPILE_DEBUG_CODE || HQAA_TAA_ASSIST_MODE || (HQAA_ENABLE_OPTIONAL_TECHNIQUES && !(HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND))
-				"\nRemarks:\n"
-			#endif
+			"\nRemarks:\n"
+			
 			#if HQAA_SCREENSHOT_MODE
 				"\nScreenshot Mode will impact performance and may blur UIs.\n"
-			#endif
-			#if HQAA_RUN_TWO_FXAA_PASSES
-				"\nRunning two FXAA passes reduces the quality of both\n"
-				"and has significant performance overhead. Not\n"
-				"recommended in most games.\n"
 			#endif
 			#if HQAA_COMPILE_DEBUG_CODE
 				"\nDebug code should be disabled when you are not using it\n"
@@ -232,6 +226,18 @@ uniform int HQAAintroduction <
 				"only on scenes that are in motion. This both helps to fix\n"
 				"aliasing during high movement and conserves GPU power by\n"
 				"skipping stationary objects.\n"
+			#endif
+			#if !HQAA_USE_MULTISAMPLED_FXAA
+				"\nUsing one FXAA pass may not be sufficient to correct\n"
+				"certain types of aliasing.\n"
+			#else
+				"\nHQAA uses multiple FXAA passes to correct certain kinds\n"
+				"of compound aliasing (like tri-gradient edges, a common\n"
+				"side effect of supersampling) that cannot be accurately\n"
+				"corrected by a single pass. If the performance hit is\n"
+				"too large for your system, you can set the preprocessor\n"
+				"define 'HQAA_USE_MULTISAMPLED_FXAA' to 0 to revert to one\n"
+				"FXAA pass only.\n"
 			#endif
 			"\n-------------------------------------------------------------------------"
 			"\nSet HQAA_TARGET_COLOR_SPACE to 1 for HDR in Nits, 2 for HDR10/scRGB.\n"
@@ -313,7 +319,7 @@ uniform float HqaaHysteresisStrength <
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 33;
+> = 25;
 
 uniform float HqaaHysteresisFudgeFactor <
 	ui_type = "slider";
@@ -322,7 +328,7 @@ uniform float HqaaHysteresisFudgeFactor <
 	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 2.5;
+> = 5.0;
 
 uniform bool HqaaDoLumaHysteresis <
 	ui_label = "Use Luma Difference Hysteresis?";
@@ -565,10 +571,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Global      |  SMAA  |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 25.0% |   10%  |  50% |  2.0  |   25% |\n"
-			  "|  Medium|   0.100   | 33.3% |   25%  |  75% |  1.5  |   50% |\n"
-			  "|    High|   0.060   | 50.0% |   50%  | 100% |  1.0  |  100% |\n"
-			  "|   Ultra|   0.040   | 75.0% |  100%  | 200% |  0.5  |  100% |\n"
+			  "|     Low|   0.200   | 25.0% |    0%  |  50% |  2.0  |   25% |\n"
+			  "|  Medium|   0.100   | 33.3% |   15%  |  75% |  1.5  |   50% |\n"
+			  "|    High|   0.060   | 50.0% |   25%  | 100% |  1.0  |   75% |\n"
+			  "|   Ultra|   0.040   | 75.0% |   50%  | 150% |  0.5  |  100% |\n"
 			  "--------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -576,10 +582,10 @@ uniform int HqaaPresetBreakdown <
 
 static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.1, 0.06, 0.04, 1.0};
 static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.25, 0.333333, 0.5, 0.75, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.5, 1.0, 0.0};
-static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 2.0, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.0, 0.15, 0.25, 0.5, 0.0};
+static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
-static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 1.0, 1.0, 0.0};
+static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.75, 1.0, 0.0};
 
 #if HQAA_ENABLE_FPS_TARGET
 uniform float HqaaFrametime < source = "frametime"; >;
@@ -1426,16 +1432,16 @@ float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	if (!lumachange) return casdot;
 #endif
 
-	casdot = Unmaximize(ConditionalDecode(casdot));
+	casdot = ConditionalDecode(casdot);
 
-    float3 a = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb);
-    float3 c = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb);
-    float3 g = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb);
-    float3 i = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb);
-    float3 b = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb);
-    float3 d = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb);
-    float3 f = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb);
-    float3 h = Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb);
+    float3 a = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
+    float3 c = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
+    float3 g = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
+    float3 i = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
+    float3 b = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
+    float3 d = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
+    float3 f = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
+    float3 h = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
 	
 	float3 mnRGB = HQAAmin5(d, casdot.rgb, f, b, h);
 	float3 mnRGB2 = HQAAmin5(mnRGB, a, c, g, i);
@@ -1543,7 +1549,7 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 
 	maxDelta = max(maxDelta.xy, delta.zw);
 	float finalDelta = max(maxDelta.x, maxDelta.y);
-	edges.xy *= step(finalDelta, log2(scale) * delta.xy);
+	edges.xy *= step(finalDelta, log2(scale) * (1.0 + contrastmultiplier) * delta.xy);
 	
 	float4 bufferdot = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
 	
@@ -1564,7 +1570,7 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
     float2 e = tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
     bool2 edges = bool2(e.r > 0.0, e.g > 0.0);
 	
-	if (edges.g) 
+	[branch] if (edges.g) 
 	{
         float3 coords = float3(HQAASearchXLeft(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].xy, offset[2].x), offset[1].y, HQAASearchXRight(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].zw, offset[2].y));
         float e1 = tex2D(HQAAsamplerAlphaEdges, coords.xy).r;
@@ -1576,7 +1582,7 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
         HQAADetectHorizontalCornerPattern(HQAAsamplerAlphaEdges, weights.rg, coords.xyzy, d);
     }
 	
-	if (edges.r) 
+	[branch] if (edges.r) 
 	{
         float3 coords = float3(offset[0].x, HQAASearchYUp(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[1].xy, offset[2].z), HQAASearchYDown(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[1].zw, offset[2].w));
         float e1 = tex2D(HQAAsamplerAlphaEdges, coords.xy).g;
@@ -1641,8 +1647,6 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	// calculate the threshold
 #if HQAA_SCREENSHOT_MODE
 	float fxaaQualityEdgeThreshold = 0.0;
-#elif HQAA_RUN_TWO_FXAA_PASSES
-	float fxaaQualityEdgeThreshold = basethreshold;
 #else
 	// contrast between pixels becomes low at both the high and low ranges of luma
 	float contrastmultiplier = abs(0.5 - lumaMa) * 2.0;
@@ -1689,11 +1693,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
     float2 posB = texcoord;
 	
-#if HQAA_RUN_TWO_FXAA_PASSES
-	float texelsize = max(__HQAA_FX_TEXEL, 1.0);
-#else
 	float texelsize = __HQAA_FX_TEXEL;
-#endif //HQAA_RUN_TWO_FXAA_PASSES
 
     float2 offNP = float2(0.0, BUFFER_RCP_HEIGHT * texelsize);
 	HQAAMovc(bool(horzSpan).xx, offNP, float2(BUFFER_RCP_WIDTH * texelsize, 0.0));
@@ -1720,11 +1720,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
 	uint iterations = 0;
 	
-#if HQAA_RUN_TWO_FXAA_PASSES
-	uint maxiterations = trunc(__HQAA_FX_MIN_RADIUS * 4.0 * __HQAA_FX_QUALITY);
-#else
 	uint maxiterations = trunc(max(__HQAA_FX_RADIUS * __HQAA_FX_QUALITY, __HQAA_FX_MIN_RADIUS));
-#endif //HQAA_RUN_TWO_FXAA_PASSES
 	
 #if HQAA_ENABLE_FPS_TARGET
 	if (HqaaFrametime > __HQAA_DESIRED_FRAMETIME) maxiterations = trunc(max(__HQAA_FX_MIN_RADIUS, __HQAA_FPS_CLAMP_MULTIPLIER * maxiterations));
@@ -1761,12 +1757,9 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
 	// calculating subpix quality is only necessary with a failed span
 	[branch] if (!goodSpan) {
-		float fxaaQualitySubpix = __HQAA_FX_BLEND * texelsize;
-		subpixOut = mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW); // A
-		subpixOut = saturate(abs(mad((1.0/12.0), subpixOut, -lumaMa)) * rcp(range)); // BC
-		subpixOut = mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut); // DEF
-		subpixOut = (subpixOut * subpixOut) * fxaaQualitySubpix; // GH
-		subpixOut *= pixelOffset;
+		// ABC - saturate and abs in original code for entire statement
+		subpixOut = mad(mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW), 0.083333, -lumaMa) * rcp(range);
+		subpixOut = pow(abs(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * __HQAA_FX_BLEND * texelsize * pixelOffset * range; // DEFGH
     }
 
     float2 posM = texcoord;
@@ -2101,13 +2094,18 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAFXPS;
 	}
-#if HQAA_RUN_TWO_FXAA_PASSES
+#if HQAA_USE_MULTISAMPLED_FXAA
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAFXPS;
 	}
-#endif //HQAA_RUN_TWO_FXAA_PASSES
+	pass FXAA
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAFXPS;
+	}
+#endif //HQAA_USE_MULTISAMPLED_FXAA
 	pass Hysteresis
 	{
 		VertexShader = PostProcessVS;
