@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v20.2
+ *                        v20.2.1
  *
  *                     by lordbean
  *
@@ -104,12 +104,12 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif //HQAA_COMPILE_DEBUG_CODE
 
 #ifndef HQAA_ENABLE_OPTIONAL_TECHNIQUES
-	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 0
+	#define HQAA_ENABLE_OPTIONAL_TECHNIQUES 1
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #if HQAA_ENABLE_OPTIONAL_TECHNIQUES
 	#ifndef HQAA_OPTIONAL_CAS
-		#define HQAA_OPTIONAL_CAS 0
+		#define HQAA_OPTIONAL_CAS 1
 	#endif //HQAA_OPTIONAL_CAS
 	#ifndef HQAA_OPTIONAL_TEMPORAL_STABILIZER
 		#define HQAA_OPTIONAL_TEMPORAL_STABILIZER 0
@@ -138,7 +138,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 20.2";
+	ui_label = "Version: 20.2.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -177,14 +177,14 @@ uniform int HQAAintroduction <
 				"Debug Code:             off\n"
 			#endif //HQAA_COMPILE_DEBUG_CODE
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND)
-				"Optional Effects:       ON*\n"
+				"Optional Effects:        on\n"
 			#else
-				"Optional Effects:       off\n"
+				"Optional Effects:      OFF*\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_CAS
-				"Sharpening:             ON*\n"
+				"Sharpening:              on\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_CAS
-				"Sharpening:             off\n"
+				"Sharpening:            OFF*\n"
 			#endif //HQAA_OPTIONAL_CAS
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_TEMPORAL_STABILIZER
 				"Temporal Stabilizer:    ON*\n"
@@ -319,16 +319,16 @@ uniform float HqaaHysteresisStrength <
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 25;
+> = 67;
 
 uniform float HqaaHysteresisFudgeFactor <
 	ui_type = "slider";
-	ui_min = 0; ui_max = 20; ui_step = 0.1;
+	ui_min = 0; ui_max = 25; ui_step = 0.1;
 	ui_label = "% Fudge Factor";
 	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 5.0;
+> = 10;
 
 uniform bool HqaaDoLumaHysteresis <
 	ui_label = "Use Luma Difference Hysteresis?";
@@ -1821,9 +1821,10 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 
 	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
 	float multiplier = HqaaHysteresisStrength / 100.0;
+	float fudgefactor = HqaaHysteresisFudgeFactor / 100.0;
 	
 	float hysteresis = (HQAAdotgamma(pixel) - edgedata.b) * multiplier;
-	bool runcorrection = abs(hysteresis) > max(channelstep, HqaaHysteresisFudgeFactor / 100.0) && HqaaDoLumaHysteresis;
+	bool runcorrection = abs(hysteresis) > max(channelstep, fudgefactor) && HqaaDoLumaHysteresis;
 	[branch] if (runcorrection)
 	{
 		// perform weighting using computed hysteresis
@@ -1831,7 +1832,7 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	}
 	
 	float sathysteresis = (dotsat(pixel) - edgedata.a) * multiplier;
-	runcorrection = abs(sathysteresis) > max(channelstep, HqaaHysteresisFudgeFactor / 100.0) && HqaaDoSaturationHysteresis;
+	runcorrection = abs(sathysteresis) > max(channelstep, fudgefactor) && HqaaDoSaturationHysteresis;
 	[branch] if (runcorrection)
 	{
 		// perform weighting using computed hysteresis
