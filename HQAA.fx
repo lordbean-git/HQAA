@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v20.2.1
+ *                        v20.2.2
  *
  *                     by lordbean
  *
@@ -138,7 +138,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 20.2.1";
+	ui_label = "Version: 20.2.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -608,8 +608,8 @@ uniform float HqaaFrametime < source = "frametime"; >;
 
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
-#define __HQAA_LUMA_REF float(0.25).xxxx
-#define __HQAA_GAMMA_REF float(0.333334).xxx
+#define __HQAA_LUMA_REF (float(0.25).xxxx)
+#define __HQAA_GAMMA_REF (float(0.333334).xxx)
 
 #if HQAA_ENABLE_FPS_TARGET
 #define __HQAA_DESIRED_FRAMETIME float(1000.0 / HqaaFramerateFloor)
@@ -633,8 +633,10 @@ uniform float HqaaFrametime < source = "frametime"; >;
 #define __HQAA_SM_SEARCHTEX_SIZE float2(66.0, 33.0)
 #define __HQAA_SM_SEARCHTEX_SIZE_PACKED float2(64.0, 16.0)
 
-#define HQAA_Tex2D(tex, coord) ConditionalDecode(tex2Dlod(tex, coord.xyxy))
-#define HQAA_Tex2DOffset(tex, coord, offset) ConditionalDecode(tex2Dlodoffset(tex, coord.xyxy, offset))
+#define HQAA_Tex2D(tex, coord) tex2Dlod(tex, (coord).xyxy)
+#define HQAA_Tex2DOffset(tex, coord, offset) tex2Dlodoffset(tex, (coord).xyxy, offset)
+#define HQAA_DecodeTex2D(tex, coord) ConditionalDecode(tex2Dlod(tex, (coord).xyxy))
+#define HQAA_DecodeTex2DOffset(tex, coord, offset) ConditionalDecode(tex2Dlodoffset(tex, (coord).xyxy, offset))
 
 #define HQAAmax3(x,y,z) max(max(x,y),z)
 #define HQAAmax4(w,x,y,z) max(max(max(w,x),y),z)
@@ -1076,7 +1078,7 @@ float2 HQAACalculateDiagWeights(sampler2D HQAAedgesTex, sampler2D HQAAareaTex, f
     d.xz = HQAASearchDiag2(HQAAedgesTex, texcoord, float2(-1.0, -1.0), end);
     d.yw = float(0.0).xx;
     
-    checkpassed = tex2Doffset(HQAAedgesTex, texcoord, int2(1, 0)).r > 0.0;
+    checkpassed = HQAA_Tex2DOffset(HQAAedgesTex, texcoord, int2(1, 0)).r > 0.0;
     [branch] if (checkpassed) 
 	{
         d.yw = HQAASearchDiag2(HQAAedgesTex, texcoord, float(1.0).xx, end);
@@ -1425,23 +1427,23 @@ void HQAANeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position : 
 /////////////////////////////////////////////////////////// CAS-TO-TEXTURE ////////////////////////////////////////////////////////////////
 float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float4 casdot = tex2D(ReShade::BackBuffer, texcoord);
+	float4 casdot = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
 	
 #if HQAA_TAA_ASSIST_MODE
-	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (!lumachange) return casdot;
 #endif
 
 	casdot = ConditionalDecode(casdot);
 
-    float3 a = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
-    float3 c = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
-    float3 g = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
-    float3 i = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
-    float3 b = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
-    float3 d = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
-    float3 f = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
-    float3 h = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
+    float3 a = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
+    float3 c = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
+    float3 g = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
+    float3 i = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
+    float3 b = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
+    float3 d = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
+    float3 f = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
+    float3 h = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
 	
 	float3 mnRGB = HQAAmin5(d, casdot.rgb, f, b, h);
 	float3 mnRGB2 = HQAAmin5(mnRGB, a, c, g, i);
@@ -1466,7 +1468,7 @@ float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 // optional stabilizer - save previous frame
 float4 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+	return HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord);
 }
 #endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -1475,13 +1477,13 @@ float4 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXC
 #if HQAA_TAA_ASSIST_MODE
 float HQAALumaSnapshotPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return HQAAdotgamma(HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb);
+	return HQAAdotgamma(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb);
 }
 
 float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float previous = tex2D(HQAAsamplerPreviousLuma, texcoord).r;
-	float current = HQAAdotgamma(HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb);
+	float previous = HQAA_Tex2D(HQAAsamplerPreviousLuma, texcoord).r;
+	float current = HQAAdotgamma(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb);
 	// for some reason this seems to be a good baseline difference
 	float mindiff = __HQAA_SMALLEST_COLOR_STEP * BUFFER_COLOR_BIT_DEPTH;
 	bool outdata = abs(current - previous) > mindiff;
@@ -1501,10 +1503,10 @@ float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 
 float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	float4 middle = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
+	float4 middle = HQAA_DecodeTex2D(HQAAsamplerSMweights, texcoord);
 	
 #if HQAA_TAA_ASSIST_MODE
-	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (!lumachange) return float(0.0).xxxx;
 #endif //HQAA_TAA_ASSIST_MODE
 
@@ -1529,21 +1531,21 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	
     float L = dot(middle, weights);
 
-    float Lleft = dot(HQAA_Tex2D(HQAAsamplerSMweights, offset[0].xy), weights);
-    float Ltop  = dot(HQAA_Tex2D(HQAAsamplerSMweights, offset[0].zw), weights);
+    float Lleft = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].xy), weights);
+    float Ltop  = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].zw), weights);
 
     float4 delta = float4(abs(L - float2(Lleft, Ltop)), 0.0, 0.0);
     edges = step(threshold, delta.xy);
     
-	float Lright = dot(HQAA_Tex2D(HQAAsamplerSMweights, offset[1].xy), weights);
-	float Lbottom  = dot(HQAA_Tex2D(HQAAsamplerSMweights, offset[1].zw), weights);
+	float Lright = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].xy), weights);
+	float Lbottom  = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].zw), weights);
 
 	delta.zw = abs(L - float2(Lright, Lbottom));
 
 	float2 maxDelta = max(delta.xy, delta.zw);
 
-	float Lleftleft = dot(HQAA_Tex2D(HQAAsamplerSMweights, offset[2].xy), weights);
-	float Ltoptop = dot(HQAA_Tex2D(HQAAsamplerSMweights, offset[2].zw), weights);
+	float Lleftleft = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].xy), weights);
+	float Ltoptop = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].zw), weights);
 	
 	delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
 
@@ -1551,7 +1553,7 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	float finalDelta = max(maxDelta.x, maxDelta.y);
 	edges.xy *= step(finalDelta, log2(scale) * (1.0 + contrastmultiplier) * delta.xy);
 	
-	float4 bufferdot = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+	float4 bufferdot = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord);
 	
 	// pass packed result (edges + hysteresis data)
 	return float4(edges, HQAAdotgamma(bufferdot), dotsat(bufferdot));
@@ -1562,21 +1564,21 @@ float4 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float2 pixcoord : TEXCOORD1, float4 offset[3] : TEXCOORD2) : SV_Target
 {
 #if HQAA_TAA_ASSIST_MODE
-	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (!lumachange) return float(0.0).xxxx;
 #endif //HQAA_TAA_ASSIST_MODE
 
     float4 weights = float(0.0).xxxx;
-    float2 e = tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
+    float2 e = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
     bool2 edges = bool2(e.r > 0.0, e.g > 0.0);
 	
 	[branch] if (edges.g) 
 	{
         float3 coords = float3(HQAASearchXLeft(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].xy, offset[2].x), offset[1].y, HQAASearchXRight(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].zw, offset[2].y));
-        float e1 = tex2D(HQAAsamplerAlphaEdges, coords.xy).r;
+        float e1 = HQAA_Tex2D(HQAAsamplerAlphaEdges, coords.xy).r;
 		float2 d = coords.xz;
         d = abs(round(mad(__HQAA_SM_BUFFERINFO.zz, d, -pixcoord.xx)));
-        float e2 = tex2Doffset(HQAAsamplerAlphaEdges, coords.zy, int2(1, 0)).r;
+        float e2 = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, coords.zy, int2(1, 0)).r;
         weights.rg = HQAAArea(HQAAsamplerSMarea, sqrt(d), e1, e2, 0.0);
         coords.y = texcoord.y;
         HQAADetectHorizontalCornerPattern(HQAAsamplerAlphaEdges, weights.rg, coords.xyzy, d);
@@ -1585,10 +1587,10 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 	[branch] if (edges.r) 
 	{
         float3 coords = float3(offset[0].x, HQAASearchYUp(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[1].xy, offset[2].z), HQAASearchYDown(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[1].zw, offset[2].w));
-        float e1 = tex2D(HQAAsamplerAlphaEdges, coords.xy).g;
+        float e1 = HQAA_Tex2D(HQAAsamplerAlphaEdges, coords.xy).g;
 		float2 d = coords.yz;
         d = abs(round(mad(__HQAA_SM_BUFFERINFO.ww, d, -pixcoord.yy)));
-        float e2 = tex2Doffset(HQAAsamplerAlphaEdges, coords.xz, int2(0, 1)).g;
+        float e2 = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, coords.xz, int2(0, 1)).g;
         weights.ba = HQAAArea(HQAAsamplerSMarea, sqrt(d), e1, e2, 0.0);
         coords.x = texcoord.x;
         HQAADetectVerticalCornerPattern(HQAAsamplerAlphaEdges, weights.ba, coords.xyxz, d);
@@ -1601,8 +1603,8 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 
 float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
-    float4 m = float4(tex2D(HQAAsamplerSMweights, offset.xy).a, tex2D(HQAAsamplerSMweights, offset.zw).g, tex2D(HQAAsamplerSMweights, texcoord).zx);
-	float4 resultAA = tex2D(ReShade::BackBuffer, texcoord);
+    float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
+	float4 resultAA = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
 	bool modifypixel = any(m);
 	
 	[branch] if (modifypixel)
@@ -1615,8 +1617,8 @@ float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
         HQAAMovc(bool(horiz).xx, blendingWeight, m.xz);
         blendingWeight /= dot(blendingWeight, float(1.0).xx);
         float4 blendingCoord = mad(blendingOffset, float4(__HQAA_SM_BUFFERINFO.xy, -__HQAA_SM_BUFFERINFO.xy), texcoord.xyxy);
-        resultAA = blendingWeight.x * HQAA_Tex2D(ReShade::BackBuffer, blendingCoord.xy);
-        resultAA += blendingWeight.y * HQAA_Tex2D(ReShade::BackBuffer, blendingCoord.zw);
+        resultAA = blendingWeight.x * HQAA_DecodeTex2D(ReShade::BackBuffer, blendingCoord.xy);
+        resultAA += blendingWeight.y * HQAA_DecodeTex2D(ReShade::BackBuffer, blendingCoord.zw);
 		resultAA = ConditionalEncode(resultAA);
     }
     
@@ -1633,10 +1635,10 @@ float4 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
 
 float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
  {
-    float4 rgbyM = tex2D(ReShade::BackBuffer, texcoord);
+    float4 rgbyM = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
 	
 #if HQAA_TAA_ASSIST_MODE
-	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (!lumachange) return rgbyM.rgb;
 #endif //HQAA_TAA_ASSIST_MODE
 
@@ -1654,10 +1656,10 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 #endif //HQAA_SCREENSHOT_MODE
 
-    float lumaS = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1))));
-    float lumaE = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0))));
-    float lumaN = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1))));
-    float lumaW = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0))));
+    float lumaS = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1))));
+    float lumaE = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0))));
+    float lumaN = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1))));
+    float lumaW = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0))));
 	
     float rangeMax = HQAAmax5(lumaS, lumaE, lumaN, lumaW, lumaMa);
     float rangeMin = HQAAmin5(lumaS, lumaE, lumaN, lumaW, lumaMa);
@@ -1673,10 +1675,10 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 #endif //HQAA_COMPILE_DEBUG_CODE
 		return ConditionalEncode(rgbyM.rgb);
 	
-    float lumaNW = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1,-1))));
-    float lumaSE = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 1))));
-    float lumaNE = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2( 1,-1))));
-    float lumaSW = HQAAdotgamma(Unmaximize(HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1))));
+    float lumaNW = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1,-1))));
+    float lumaSE = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 1))));
+    float lumaNE = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1,-1))));
+    float lumaSW = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1))));
 	
     bool horzSpan = (abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)))) >= (abs(mad(-2.0, lumaS, lumaSW + lumaSE)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaW + lumaE)), abs(mad(-2.0, lumaN, lumaNW + lumaNE))));	
     float lengthSign = horzSpan ? BUFFER_RCP_HEIGHT : BUFFER_RCP_WIDTH;
@@ -1703,8 +1705,8 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float2 posN = posB - offNP;
     float2 posP = posB + offNP;
     
-    float lumaEndN = HQAAdotgamma(Unmaximize(HQAA_Tex2D(ReShade::BackBuffer, posN)));
-    float lumaEndP = HQAAdotgamma(Unmaximize(HQAA_Tex2D(ReShade::BackBuffer, posP)));
+    float lumaEndN = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posN)));
+    float lumaEndP = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posP)));
 	
     float gradientScaled = max(abs(gradientN), abs(gradientS)) * 0.25;
     bool lumaMLTZero = mad(0.5, -lumaNN, lumaMa) < 0.0;
@@ -1733,14 +1735,14 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 		if (!doneN)
 		{
 			posN -= offNP;
-			lumaEndN = HQAAdotgamma(Unmaximize(HQAA_Tex2D(ReShade::BackBuffer, posN)));
+			lumaEndN = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posN)));
 			lumaEndN -= lumaNN;
 			doneN = abs(lumaEndN) >= gradientScaled;
 		}
 		if (!doneP)
 		{
 			posP += offNP;
-			lumaEndP = HQAAdotgamma(Unmaximize(HQAA_Tex2D(ReShade::BackBuffer, posP)));
+			lumaEndP = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posP)));
 			lumaEndP -= lumaNN;
 			doneP = abs(lumaEndP) >= gradientScaled;
 		}
@@ -1766,7 +1768,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	HQAAMovc(bool2(!horzSpan, horzSpan), posM, float2(posM.x + lengthSign * subpixOut, posM.y + lengthSign * subpixOut));
     
 	// Establish result
-	float3 resultAA = HQAA_Tex2D(ReShade::BackBuffer, posM).rgb;
+	float3 resultAA = HQAA_DecodeTex2D(ReShade::BackBuffer, posM).rgb;
 	
 	// output selection
 #if HQAA_COMPILE_DEBUG_CODE
@@ -1797,14 +1799,14 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 
 float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float3 pixel = tex2D(ReShade::BackBuffer, texcoord).rgb;
-	float4 edgedata = tex2D(HQAAsamplerAlphaEdges, texcoord);
+	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float4 edgedata = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord);
 	
 	bool skiphysteresis = (HqaaHysteresisStrength == 0.0) || ((!HqaaDoLumaHysteresis) && (!HqaaDoSaturationHysteresis));
 	if (skiphysteresis) return pixel;
 	
 #if HQAA_TAA_ASSIST_MODE
-	bool lumachange = tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
+	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (!lumachange) return pixel;
 #endif //HQAA_TAA_ASSIST_MODE
 
@@ -1814,8 +1816,8 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	bool modifiedpixel = any(edgedata.rg);
 	float3 AAdot = pixel;
 	if (HqaaDebugMode == 6 && !modifiedpixel) return float(0.0).xxx;
-	if (HqaaDebugMode == 1) return float3(tex2D(HQAAsamplerAlphaEdges, texcoord).rg, 0.0);
-	if (HqaaDebugMode == 2) return tex2D(HQAAsamplerSMweights, texcoord).rgb;
+	if (HqaaDebugMode == 1) return float3(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg, 0.0);
+	if (HqaaDebugMode == 2) return HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rgb;
 	if (HqaaDebugMode == 0 || HqaaDebugMode == 6) {
 #endif
 
@@ -1864,7 +1866,7 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 #if HQAA_OPTIONAL_DEBAND
 float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
-    float3 ori = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb; // Original pixel
+    float3 ori = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb; // Original pixel
 #if HQAA_COMPILE_DEBUG_CODE
 	if (HqaaDebugMode == 0) {
 #endif
@@ -1887,28 +1889,28 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
     // Sample at quarter-turn intervals around the source pixel
 
     // South-east
-    float3 ref = HQAA_Tex2D(ReShade::BackBuffer, (texcoord + dist * angle)).rgb;
+    float3 ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * angle)).rgb;
     float3 diff = abs(ori - ref);
     float3 ref_max_diff = diff;
     float3 ref_avg = ref;
     float3 ref_mid_diff1 = ref;
 
     // North-west
-    ref = HQAA_Tex2D(ReShade::BackBuffer, (texcoord + dist * -angle)).rgb;
+    ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * -angle)).rgb;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     ref_mid_diff1 = abs(((ref_mid_diff1 + ref) * 0.5) - ori);
 
     // North-east
-    ref = HQAA_Tex2D(ReShade::BackBuffer, (texcoord + dist * float2(-angle.y, angle.x))).rgb;
+    ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * float2(-angle.y, angle.x))).rgb;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     float3 ref_mid_diff2 = ref;
 
     // South-west
-    ref = HQAA_Tex2D(ReShade::BackBuffer, (texcoord + dist * float2(angle.y, -angle.x))).rgb;
+    ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * float2(angle.y, -angle.x))).rgb;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
@@ -1936,7 +1938,7 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 // interfere with each other when they're all enabled
 float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	
 #if HQAA_COMPILE_DEBUG_CODE
 	if (HqaaDebugMode == 0) {
@@ -1947,17 +1949,17 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	float sharpening = HqaaSharpenerStrength;
 	
-	if (any(tex2D(HQAAsamplerAlphaEdges, texcoord).rg))
+	if (any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg))
 		sharpening *= (1.0 - HqaaSharpenerClamping);
 	
-    float3 a = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
-    float3 c = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
-    float3 g = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
-    float3 i = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
-    float3 b = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
-    float3 d = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
-    float3 f = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
-    float3 h = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
+    float3 a = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
+    float3 c = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
+    float3 g = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
+    float3 i = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
+    float3 b = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
+    float3 d = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
+    float3 f = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
+    float3 h = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
 	
 	float3 mnRGB = HQAAmin5(d, casdot, f, b, h);
 	float3 mnRGB2 = HQAAmin5(mnRGB, a, c, g, i);
@@ -2013,7 +2015,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 
 #if HQAA_OPTIONAL_TEMPORAL_STABILIZER
 	float3 current = pixel;
-	float3 previous = tex2D(HQAAsamplerLastFrame, texcoord).rgb;
+	float3 previous = HQAA_Tex2D(HQAAsamplerLastFrame, texcoord).rgb;
 	
 	// values above 0.9 can produce artifacts or halt frame advancement entirely
 	float blendweight = min(HqaaPreviousFrameWeight, 0.9);
