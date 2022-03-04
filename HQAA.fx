@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.0
+ *                        v21.0.1
  *
  *                     by lordbean
  *
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.0";
+	ui_label = "Version: 21.0.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1654,14 +1654,14 @@ float2 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	// skip checking neighbors if there's already no detected edge
 	if (!any(edges)) return edges;
 	
-    float2 a = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, -1)).rg;
-    float2 c = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, -1)).rg;
-    float2 g = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 1)).rg;
-    float2 i = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 1)).rg;
-    float2 b = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, -1)).rg;
-    float2 d = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 0)).rg;
-    float2 f = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 0)).rg;
-    float2 h = HQAA_DecodeTex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, 1)).rg;
+    float2 a = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, -1)).rg;
+    float2 c = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, -1)).rg;
+    float2 g = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 1)).rg;
+    float2 i = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 1)).rg;
+    float2 b = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, -1)).rg;
+    float2 d = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 0)).rg;
+    float2 f = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 0)).rg;
+    float2 h = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, 1)).rg;
 	float2 adjacentsum = a + c + g + i + b + d + f + h;
 	
 	// edge requires at least two valid neighbors or it is assumed to be an error and filtered out
