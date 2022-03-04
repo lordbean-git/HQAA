@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v20.2.2
+ *                        v20.3
  *
  *                     by lordbean
  *
@@ -138,68 +138,70 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 20.2.2";
+	ui_label = "Version: 20.3";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
 			"-------------------------------------------------------------------------\n\n"
 			"Currently Compiled Configuration:\n\n"
 			#if HQAA_TARGET_COLOR_SPACE == 1
-				"Color Space:      HDR nits*\n"
+				"Color Space:       HDR nits*\n"
 			#elif HQAA_TARGET_COLOR_SPACE == 2
-				"Color Space: HDR10 / scRGB*\n"
+				"Color Space:    PQ accurate*\n"
+			#elif HQAA_TARGET_COLOR_SPACE == 3
+				"Color Space:      PQ approx*\n"
 			#else
-				"Color Space:      Gamma 2.2\n"
+				"Color Space:       Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_ENABLE_FPS_TARGET
-				"FPS Target Throttling:  ON*\n"
+				"FPS Target Throttling:   ON*\n"
 			#else
-				"FPS Target Throttling:  off\n"
+				"FPS Target Throttling:   off\n"
 			#endif //HQAA_ENABLE_FPS_TARGET
 			#if HQAA_SCREENSHOT_MODE
-				"Screenshot Mode:        ON*\n"
+				"Screenshot Mode:         ON*\n"
 			#else
-				"Screenshot Mode:        off\n"
+				"Screenshot Mode:         off\n"
 			#endif //HQAA_SCREENSHOT_MODE
 			#if HQAA_USE_MULTISAMPLED_FXAA
-				"FXAA Multisampling:      on\n"
+				"FXAA Multisampling:       on\n"
 			#else
-				"FXAA Multisampling:    OFF*\n"
+				"FXAA Multisampling:     OFF*\n"
 			#endif //HQAA_RUN_TWO_FXAA_PASSES
 			#if HQAA_TAA_ASSIST_MODE
-				"TAA Assist Mode:        ON*\n"
+				"TAA Assist Mode:         ON*\n"
 			#else
-				"TAA Assist Mode:        off\n"
+				"TAA Assist Mode:         off\n"
 			#endif //HQAA_TAA_ASSIST_MODE
 			#if HQAA_COMPILE_DEBUG_CODE
-				"Debug Code:             ON*\n"
+				"Debug Code:              ON*\n"
 			#else
-				"Debug Code:             off\n"
+				"Debug Code:              off\n"
 			#endif //HQAA_COMPILE_DEBUG_CODE
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && (HQAA_OPTIONAL_CAS || HQAA_OPTIONAL_TEMPORAL_STABILIZER || HQAA_OPTIONAL_BRIGHTNESS_GAIN || HQAA_OPTIONAL_DEBAND)
-				"Optional Effects:        on\n"
+				"Optional Effects:         on\n"
 			#else
-				"Optional Effects:      OFF*\n"
+				"Optional Effects:       OFF*\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_CAS
-				"Sharpening:              on\n"
+				"Sharpening:               on\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_CAS
-				"Sharpening:            OFF*\n"
+				"Sharpening:             OFF*\n"
 			#endif //HQAA_OPTIONAL_CAS
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_TEMPORAL_STABILIZER
-				"Temporal Stabilizer:    ON*\n"
+				"Temporal Stabilizer:     ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_TEMPORAL_STABILIZER
-				"Temporal Stabilizer:    off\n"
+				"Temporal Stabilizer:     off\n"
 			#endif //HQAA_OPTIONAL_TEMPORAL_STABILIZER
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_BRIGHTNESS_GAIN
-				"Brightness & Vibrance:  ON*\n"
+				"Brightness & Vibrance:   ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_BRIGHTNESS_GAIN
-				"Brightness & Vibrance:  off\n"
+				"Brightness & Vibrance:   off\n"
 			#endif //HQAA_OPTIONAL_BRIGHTNESS_GAIN
 			#if HQAA_ENABLE_OPTIONAL_TECHNIQUES && HQAA_OPTIONAL_DEBAND
-				"Debanding:              ON*\n"
+				"Debanding:               ON*\n"
 			#elif HQAA_ENABLE_OPTIONAL_TECHNIQUES && !HQAA_OPTIONAL_DEBAND
-				"Debanding:              off\n"
+				"Debanding:               off\n"
 			#endif //HQAA_OPTIONAL_DEBAND
 			
 			"\nRemarks:\n"
@@ -240,7 +242,7 @@ uniform int HQAAintroduction <
 				"FXAA pass only.\n"
 			#endif
 			"\n-------------------------------------------------------------------------"
-			"\nSet HQAA_TARGET_COLOR_SPACE to 1 for HDR in Nits, 2 for HDR10/scRGB.\n"
+			"\nSet HQAA_TARGET_COLOR_SPACE to 1 for HDR in Nits, 2 or 3 for HDR10.\n"
 			"See the 'Preprocessor definitions' section for color & feature toggles.\n"
 			"-------------------------------------------------------------------------";
 	ui_tooltip = "Let's just call it a never-ending release candidate";
@@ -685,7 +687,14 @@ float encodePQ(float x)
 	float numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	return 10000.0 * pow(abs(numerator / denominator), 6.277395);
+	float output = pow(abs(numerator / denominator), 6.277395);
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	output *= 500.0;
+#else
+	output *= 10000.0;
+#endif
+
+	return output;
 }
 float2 encodePQ(float2 x)
 {
@@ -700,7 +709,14 @@ float2 encodePQ(float2 x)
 	float2 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float2 denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	return 10000.0 * pow(abs(numerator / denominator), 6.277395);
+	float2 output = pow(abs(numerator / denominator), 6.277395);
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	output *= 500.0;
+#else
+	output *= 10000.0;
+#endif
+
+	return output;
 }
 float3 encodePQ(float3 x)
 {
@@ -715,11 +731,36 @@ float3 encodePQ(float3 x)
 	float3 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float3 denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	return 10000.0 * pow(abs(numerator / denominator), 6.277395);
+	float3 output = pow(abs(numerator / denominator), 6.277395);
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	output *= 500.0;
+#else
+	output *= 10000.0;
+#endif
+
+	return output;
 }
 float4 encodePQ(float4 x)
 {
-	return float4(encodePQ(x.rgb), x.a);
+/*	float nits = 10000.0;
+	float m2rcp = 0.012683; // 1 / (2523/32)
+	float m1rcp = 6.277395; // 1 / (1305/8192)
+	float c1 = 0.8359375; // 107 / 128
+	float c2 = 18.8515625; // 2413 / 128
+	float c3 = 18.6875; // 2392 / 128
+*/
+	float4 xpm2rcp = pow(clamp(x, 0.0, 1.0), 0.012683);
+	float4 numerator = max(xpm2rcp - 0.8359375, 0.0);
+	float4 denominator = 18.8515625 - (18.6875 * xpm2rcp);
+	
+	float4 output = pow(abs(numerator / denominator), 6.277395);
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	output *= 500.0;
+#else
+	output *= 10000.0;
+#endif
+
+	return output;
 }
 
 float decodePQ(float x)
@@ -731,7 +772,11 @@ float decodePQ(float x)
 	float c2 = 18.8515625; // 2413 / 128
 	float c3 = 18.6875; // 2392 / 128
 */
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
+#else
 	float xpm1 = pow(clamp(x / 10000.0, 0.0, 1.0), 0.159302);
+#endif
 	float numerator = 0.8359375 + (18.8515625 * xpm1);
 	float denominator = 1.0 + (18.6875 * xpm1);
 	
@@ -746,7 +791,11 @@ float2 decodePQ(float2 x)
 	float c2 = 18.8515625; // 2413 / 128
 	float c3 = 18.6875; // 2392 / 128
 */
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float2 xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
+#else
 	float2 xpm1 = pow(clamp(x / 10000.0, 0.0, 1.0), 0.159302);
+#endif
 	float2 numerator = 0.8359375 + (18.8515625 * xpm1);
 	float2 denominator = 1.0 + (18.6875 * xpm1);
 	
@@ -761,7 +810,11 @@ float3 decodePQ(float3 x)
 	float c2 = 18.8515625; // 2413 / 128
 	float c3 = 18.6875; // 2392 / 128
 */
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float3 xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
+#else
 	float3 xpm1 = pow(clamp(x / 10000.0, 0.0, 1.0), 0.159302);
+#endif
 	float3 numerator = 0.8359375 + (18.8515625 * xpm1);
 	float3 denominator = 1.0 + (18.6875 * xpm1);
 	
@@ -769,7 +822,102 @@ float3 decodePQ(float3 x)
 }
 float4 decodePQ(float4 x)
 {
-	return float4(decodePQ(x.rgb), x.a);
+/*	float nits = 10000.0;
+	float m2 = 78.84375 // 2523 / 32
+	float m1 = 0.159302; // 1305 / 8192
+	float c1 = 0.8359375; // 107 / 128
+	float c2 = 18.8515625; // 2413 / 128
+	float c3 = 18.6875; // 2392 / 128
+*/
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float4 xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
+#else
+	float4 xpm1 = pow(clamp(x / 10000.0, 0.0, 1.0), 0.159302);
+#endif
+	float4 numerator = 0.8359375 + (18.8515625 * xpm1);
+	float4 denominator = 1.0 + (18.6875 * xpm1);
+	
+	return pow(abs(numerator / denominator), 78.84375);
+}
+#endif //HQAA_TARGET_COLOR_SPACE
+
+#if HQAA_TARGET_COLOR_SPACE == 3
+float fastencodePQ(float x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float y = saturate(x) * 4.728708;
+#else
+	float y = saturate(x) * 10.0;
+#endif
+	y *= y;
+	y *= y;
+	return y;
+}
+float2 fastencodePQ(float2 x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float2 y = saturate(x) * 4.728708;
+#else
+	float2 y = saturate(x) * 10.0;
+#endif
+	y *= y;
+	y *= y;
+	return y;
+}
+float3 fastencodePQ(float3 x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float3 y = saturate(x) * 4.728708;
+#else
+	float3 y = saturate(x) * 10.0;
+#endif
+	y *= y;
+	y *= y;
+	return y;
+}
+float4 fastencodePQ(float4 x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	float4 y = saturate(x) * 4.728708;
+#else
+	float4 y = saturate(x) * 10.0;
+#endif
+	y *= y;
+	y *= y;
+	return y;
+}
+
+float fastdecodePQ(float x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+#else
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
+#endif
+}
+float2 fastdecodePQ(float2 x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+#else
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
+#endif
+}
+float3 fastdecodePQ(float3 x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+#else
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
+#endif
+}
+float4 fastdecodePQ(float4 x)
+{
+#if BUFFER_COLOR_BIT_DEPTH == 10
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+#else
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
+#endif
 }
 #endif //HQAA_TARGET_COLOR_SPACE
 
@@ -815,6 +963,8 @@ float ConditionalEncode(float x)
 	return encodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return encodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastencodePQ(x);
 #else
 	return x;
 #endif
@@ -825,6 +975,8 @@ float2 ConditionalEncode(float2 x)
 	return encodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return encodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastencodePQ(x);
 #else
 	return x;
 #endif
@@ -835,6 +987,8 @@ float3 ConditionalEncode(float3 x)
 	return encodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return encodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastencodePQ(x);
 #else
 	return x;
 #endif
@@ -845,6 +999,8 @@ float4 ConditionalEncode(float4 x)
 	return encodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return encodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastencodePQ(x);
 #else
 	return x;
 #endif
@@ -856,6 +1012,8 @@ float ConditionalDecode(float x)
 	return decodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return decodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastdecodePQ(x);
 #else
 	return x;
 #endif
@@ -866,6 +1024,8 @@ float2 ConditionalDecode(float2 x)
 	return decodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return decodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastdecodePQ(x);
 #else
 	return x;
 #endif
@@ -876,6 +1036,8 @@ float3 ConditionalDecode(float3 x)
 	return decodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return decodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastdecodePQ(x);
 #else
 	return x;
 #endif
@@ -886,6 +1048,8 @@ float4 ConditionalDecode(float4 x)
 	return decodeHDR(x);
 #elif HQAA_TARGET_COLOR_SPACE == 2
 	return decodePQ(x);
+#elif HQAA_TARGET_COLOR_SPACE == 3
+	return fastdecodePQ(x);
 #else
 	return x;
 #endif
@@ -949,27 +1113,6 @@ float3 AdjustSaturation(float3 pixel, float satadjust)
 float4 AdjustSaturation(float4 pixel, float satadjust)
 {
 	return float4(AdjustSaturation(pixel.rgb, satadjust), pixel.a);
-}
-
-float Unmaximize(float color)
-{
-	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
-	return clamp(color, channelstep, 1.0 - channelstep);
-}
-float2 Unmaximize(float2 color)
-{
-	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
-	return clamp(color, channelstep, 1.0 - channelstep);
-}
-float3 Unmaximize(float3 color)
-{
-	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
-	return clamp(color, channelstep, 1.0 - channelstep);
-}
-float4 Unmaximize(float4 color)
-{
-	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
-	return clamp(color, channelstep, 1.0 - channelstep);
 }
 
 ///////////////////////////////////////////////////// SMAA HELPER FUNCTIONS ///////////////////////////////////////////////////////////////
@@ -1643,7 +1786,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 #endif //HQAA_TAA_ASSIST_MODE
 
 	rgbyM = ConditionalDecode(rgbyM);
-	float lumaMa = HQAAdotgamma(Unmaximize(rgbyM));
+	float lumaMa = HQAAdotgamma(rgbyM);
     float basethreshold = __HQAA_FX_THRESHOLD;
 	
 	// calculate the threshold
@@ -1656,10 +1799,10 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 #endif //HQAA_SCREENSHOT_MODE
 
-    float lumaS = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1))));
-    float lumaE = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0))));
-    float lumaN = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1))));
-    float lumaW = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0))));
+    float lumaS = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)));
+    float lumaE = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0)));
+    float lumaN = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1)));
+    float lumaW = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)));
 	
     float rangeMax = HQAAmax5(lumaS, lumaE, lumaN, lumaW, lumaMa);
     float rangeMin = HQAAmin5(lumaS, lumaE, lumaN, lumaW, lumaMa);
@@ -1675,10 +1818,10 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 #endif //HQAA_COMPILE_DEBUG_CODE
 		return ConditionalEncode(rgbyM.rgb);
 	
-    float lumaNW = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1,-1))));
-    float lumaSE = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 1))));
-    float lumaNE = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1,-1))));
-    float lumaSW = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1))));
+    float lumaNW = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1,-1)));
+    float lumaSE = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 1)));
+    float lumaNE = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1,-1)));
+    float lumaSW = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)));
 	
     bool horzSpan = (abs(mad(-2.0, lumaW, lumaNW + lumaSW)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaN + lumaS)), abs(mad(-2.0, lumaE, lumaNE + lumaSE)))) >= (abs(mad(-2.0, lumaS, lumaSW + lumaSE)) + mad(2.0, abs(mad(-2.0, lumaMa, lumaW + lumaE)), abs(mad(-2.0, lumaN, lumaNW + lumaNE))));	
     float lengthSign = horzSpan ? BUFFER_RCP_HEIGHT : BUFFER_RCP_WIDTH;
@@ -1705,8 +1848,8 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float2 posN = posB - offNP;
     float2 posP = posB + offNP;
     
-    float lumaEndN = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posN)));
-    float lumaEndP = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posP)));
+    float lumaEndN = HQAAdotgamma(HQAA_DecodeTex2D(ReShade::BackBuffer, posN));
+    float lumaEndP = HQAAdotgamma(HQAA_DecodeTex2D(ReShade::BackBuffer, posP));
 	
     float gradientScaled = max(abs(gradientN), abs(gradientS)) * 0.25;
     bool lumaMLTZero = mad(0.5, -lumaNN, lumaMa) < 0.0;
@@ -1735,14 +1878,14 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 		if (!doneN)
 		{
 			posN -= offNP;
-			lumaEndN = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posN)));
+			lumaEndN = HQAAdotgamma(HQAA_DecodeTex2D(ReShade::BackBuffer, posN));
 			lumaEndN -= lumaNN;
 			doneN = abs(lumaEndN) >= gradientScaled;
 		}
 		if (!doneP)
 		{
 			posP += offNP;
-			lumaEndP = HQAAdotgamma(Unmaximize(HQAA_DecodeTex2D(ReShade::BackBuffer, posP)));
+			lumaEndP = HQAAdotgamma(HQAA_DecodeTex2D(ReShade::BackBuffer, posP));
 			lumaEndP -= lumaNN;
 			doneP = abs(lumaEndP) >= gradientScaled;
 		}
