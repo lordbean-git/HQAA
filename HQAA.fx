@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.0.1
+ *                        v21.1
  *
  *                     by lordbean
  *
@@ -119,7 +119,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
-	#define HQAA_FXAA_MULTISAMPLING 1
+	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
 #ifndef HQAA_TAA_ASSIST_MODE
@@ -130,23 +130,23 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.0.1";
+	ui_label = "Version: 21.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
 			"-------------------------------------------------------------------------\n\n"
 			"Currently Compiled Configuration:\n\n"
 			#if HQAA_OUTPUT_MODE == 1
-				"Color Space:        HDR nits  *\n"
+				"Output Mode:        HDR nits  *\n"
 			#elif HQAA_OUTPUT_MODE == 2
-				"Color Space:     PQ accurate  *\n"
+				"Output Mode:     PQ accurate  *\n"
 			#elif HQAA_OUTPUT_MODE == 3
-				"Color Space:       PQ approx  *\n"
+				"Output Mode:       PQ approx  *\n"
 			#else
-				"Color Space:       Gamma 2.2\n"
+				"Output Mode:       Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_FXAA_MULTISAMPLING < 2
-				"FXAA Multisampling:      off\n"
+				"FXAA Multisampling:      off  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 7
 				"FXAA Multisampling:       8x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 6
@@ -160,7 +160,7 @@ uniform int HQAAintroduction <
 			#elif HQAA_FXAA_MULTISAMPLING > 2
 				"FXAA Multisampling:       3x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x  *\n"
+				"FXAA Multisampling:       2x\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:          on  *\n"
@@ -1662,10 +1662,13 @@ float2 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float2 d = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 0)).rg;
     float2 f = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 0)).rg;
     float2 h = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, 1)).rg;
-	float2 adjacentsum = a + c + g + i + b + d + f + h;
+    
+    // local edge is counted in the total to account for crossing horiz/vert edges
+	float2 adjacentsum = a + c + g + i + b + d + f + h + edges;
 	
-	// edge requires at least two valid neighbors or it is assumed to be an error and filtered out
-	if (any(saturate(adjacentsum - 1.0))) return edges;
+	// pixel must have at least one and at most five neighbor edges to be valid
+	bool validedge = any(saturate(adjacentsum - 1.0)) && !any(saturate(adjacentsum - 6.0));
+	if (validedge) return edges;
 	else return float2(0.0, 0.0);
 }
 
