@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.2
+ *                        v21.2.1
  *
  *                     by lordbean
  *
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.2";
+	ui_label = "Version: 21.2.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -562,10 +562,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Global      |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 33.3% |    0%  |  High  |  50% |  2.0  |   25% |\n"
-			  "|  Medium|   0.100   | 50.0% |   15%  |  High  |  75% |  1.5  |   50% |\n"
-			  "|    High|   0.060   | 66.7% |   25%  |Balanced| 100% |  1.0  |   67% |\n"
-			  "|   Ultra|   0.040   | 80.0% |   50%  |Balanced| 150% |  0.5  |   75% |\n"
+			  "|     Low|   0.200   | 33.3% |   10%  |  High  |  50% |  2.0  |   25% |\n"
+			  "|  Medium|   0.100   | 50.0% |   25%  |  High  |  75% |  1.5  |   50% |\n"
+			  "|    High|   0.060   | 66.7% |   50%  |Balanced| 100% |  1.0  |   75% |\n"
+			  "|   Ultra|   0.040   | 80.0% |  100%  |Balanced| 150% |  0.5  |  100% |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -573,10 +573,10 @@ uniform int HqaaPresetBreakdown <
 
 static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.1, 0.06, 0.04, 1.0};
 static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.333333, 0.5, 0.666667, 0.8, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.0, 0.15, 0.25, 0.5, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.5, 1.0, 0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
-static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.666667, 0.75, 0.0};
+static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.75, 1.0, 0.0};
 static const float HQAA_ERRORMARGIN_PRESET[5] = {8.0, 8.0, 6.0, 6.0, 10.0};
 static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 8.0};
 
@@ -1890,7 +1890,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	[branch] if (!goodSpan) {
 		// ABC - saturate and abs in original code for entire statement
 		subpixOut = mad(mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW), 0.083333, -lumaMa) * rcp(range);
-		subpixOut = pow(abs(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * maxblending * texelsize * pixelOffset * range; // DEFGH
+		subpixOut = pow(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * maxblending * pixelOffset; // DEFGH
     }
 
     float2 posM = texcoord;
