@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.2.2
+ *                        v21.2.3
  *
  *                     by lordbean
  *
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.2.2";
+	ui_label = "Version: 21.2.3";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -562,18 +562,18 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Global      |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|   0.333   | 50.0% |   10%  |  High  |  50% |  2.0  |   25% |\n"
-			  "|  Medium|   0.200   | 66.7% |   25%  |  High  |  75% |  1.5  |   50% |\n"
-			  "|    High|   0.100   | 80.0% |   50%  |Balanced| 100% |  1.0  |   75% |\n"
-			  "|   Ultra|   0.075   | 90.0% |  100%  |Balanced| 150% |  0.5  |  100% |\n"
+			  "|     Low|   0.200   | 50.0% |   10%  |  High  |  50% |  2.0  |   25% |\n"
+			  "|  Medium|   0.150   | 66.7% |   25%  |  High  |  75% |  1.5  |   50% |\n"
+			  "|    High|   0.075   | 80.0% |   40%  |Balanced| 100% |  1.0  |   75% |\n"
+			  "|   Ultra|   0.050   | 90.0% |   67%  |Balanced| 150% |  0.5  |  100% |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.333333, 0.2, 0.1, 0.075, 1.0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.15, 0.075, 0.05, 1.0};
 static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.5, 0.666667, 0.8, 0.9, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.5, 1.0, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.4, 0.666667, 0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
 static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.75, 1.0, 0.0};
@@ -599,7 +599,7 @@ static const float HQAA_ERRORMARGIN_CUSTOM[3] = {3.0, 5.0, 7.0};
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_LUMA_REF (float(0.25).xxxx)
-#define __HQAA_GAMMA_REF (float(0.333334).xxx)
+#define __HQAA_GAMMA_REF float3(0.34, 0.38, 0.28)
 
 #define __HQAA_FX_RADIUS (10.0 / __HQAA_FX_TEXEL)
 
