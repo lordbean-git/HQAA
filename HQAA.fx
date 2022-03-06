@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.2.1
+ *                        v21.2.2
  *
  *                     by lordbean
  *
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.2.1";
+	ui_label = "Version: 21.2.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -562,23 +562,23 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Global      |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 33.3% |   10%  |  High  |  50% |  2.0  |   25% |\n"
-			  "|  Medium|   0.100   | 50.0% |   25%  |  High  |  75% |  1.5  |   50% |\n"
-			  "|    High|   0.060   | 66.7% |   50%  |Balanced| 100% |  1.0  |   75% |\n"
-			  "|   Ultra|   0.040   | 80.0% |  100%  |Balanced| 150% |  0.5  |  100% |\n"
+			  "|     Low|   0.333   | 50.0% |   10%  |  High  |  50% |  2.0  |   25% |\n"
+			  "|  Medium|   0.200   | 66.7% |   25%  |  High  |  75% |  1.5  |   50% |\n"
+			  "|    High|   0.100   | 80.0% |   50%  |Balanced| 100% |  1.0  |   75% |\n"
+			  "|   Ultra|   0.075   | 90.0% |  100%  |Balanced| 150% |  0.5  |  100% |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.1, 0.06, 0.04, 1.0};
-static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.333333, 0.5, 0.666667, 0.8, 0.0};
+static const float HQAA_THRESHOLD_PRESET[5] = {0.333333, 0.2, 0.1, 0.075, 1.0};
+static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.5, 0.666667, 0.8, 0.9, 0.0};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.25, 0.5, 1.0, 0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
 static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.75, 1.0, 0.0};
-static const float HQAA_ERRORMARGIN_PRESET[5] = {8.0, 8.0, 6.0, 6.0, 10.0};
-static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 8.0};
+static const float HQAA_ERRORMARGIN_PRESET[5] = {7.0, 7.0, 5.0, 5.0, 10.0};
+static const float HQAA_ERRORMARGIN_CUSTOM[3] = {3.0, 5.0, 7.0};
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1569,7 +1569,7 @@ float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	
     float4 outColor = float4(saturate(mad(window, wRGB, casdot.rgb) * rcp(mad(4.0, wRGB, 1.0))), casdot.a);
 
-	return ConditionalEncode(lerp(casdot, outColor, 0.5));
+	return ConditionalEncode(lerp(casdot, outColor, 1.0 - __HQAA_EDGE_THRESHOLD));
 }
 
 /////////////////////////////////////////////////// TEMPORAL STABILIZER FRAME COPY ////////////////////////////////////////////////////////
@@ -1625,14 +1625,14 @@ float2 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	// contrast between pixels becomes low at both the high and low ranges of luma
 //	float contrastmultiplier = abs(0.5 - HQAAdotgamma(middle)) * 2.0;
 	float contrastmultiplier = 1.0 - dotsat(middle);
-	contrastmultiplier = contrastmultiplier * contrastmultiplier;
+	contrastmultiplier = contrastmultiplier * contrastmultiplier * contrastmultiplier;
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
 	// set detection weights
 	float4 weights = float4(__HQAA_GAMMA_REF, 0.0);
 	
 	// contrast adaptation setup
-	float4 dotscalar = __HQAA_LUMA_REF * middle;
+	float4 dotscalar = weights * middle;
 	float scale = log2(rcp(HQAAvec4add(dotscalar)));
 	
 	float2 edges = float(0.0).xx;
@@ -1657,7 +1657,7 @@ float2 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	
 	float finalDelta = max(maxDelta.x, maxDelta.y);
 	
-	edges *= step(finalDelta, scale * contrastmultiplier * delta.xy);
+	edges *= step(finalDelta, scale * (1.0 + contrastmultiplier) * delta.xy);
 	
 	return edges;
 }
@@ -1680,8 +1680,8 @@ float2 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
     float2 f = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 0)).rg;
     float2 h = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, 1)).rg;
     
-    // local edge is counted in the total to account for crossing horiz/vert edges
-	float2 adjacentsum = a + c + g + i + b + d + f + h + edges;
+	float2 adjacentsum = a + c + g + i + b + d + f + h;
+	adjacentsum *= edges; // keep only neighbor count of same type
 
 	bool validedge = any(saturate(adjacentsum - 1.0)) && !any(saturate(adjacentsum - __HQAA_SM_ERRORMARGIN));
 	if (validedge) return edges;
@@ -1785,7 +1785,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
 	// contrast between pixels becomes low at both the high and low ranges of luma
 	float contrastmultiplier = 1.0 - dotsat(rgbyM);
-	contrastmultiplier = contrastmultiplier * contrastmultiplier * contrastmultiplier;
+	contrastmultiplier = contrastmultiplier * contrastmultiplier * contrastmultiplier * contrastmultiplier;
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 
     float lumaS = HQAAdotgamma(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)));
