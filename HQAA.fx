@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.2.3
+ *                        v21.2.4
  *
  *                     by lordbean
  *
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.2.3";
+	ui_label = "Version: 21.2.4";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -578,7 +578,7 @@ static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
 static const float HQAA_SUBPIX_PRESET[5] = {0.25, 0.5, 0.75, 1.0, 0.0};
 static const float HQAA_ERRORMARGIN_PRESET[5] = {7.0, 7.0, 5.0, 5.0, 10.0};
-static const float HQAA_ERRORMARGIN_CUSTOM[3] = {3.0, 5.0, 7.0};
+static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 5.0, 7.0};
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1884,14 +1884,14 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     bool goodSpan = (dstNP.x < dstNP.y) ? ((lumaEndN < 0.0) != lumaMLTZero) : ((lumaEndP < 0.0) != lumaMLTZero);
     float pixelOffset = mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5);
     float maxblending = __HQAA_FX_BLEND;
-	float subpixOut = pixelOffset * maxblending;
+    float subpixOut = pixelOffset * maxblending;
 	
-	// calculating subpix quality is only necessary with a failed span
-	[branch] if (!goodSpan) {
+	[branch] if (!goodSpan)
+	{
 		// ABC - saturate and abs in original code for entire statement
 		subpixOut = mad(mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW), 0.083333, -lumaMa) * rcp(range);
 		subpixOut = pow(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * maxblending * pixelOffset; // DEFGH
-    }
+	}
 
     float2 posM = texcoord;
 	HQAAMovc(bool2(!horzSpan, horzSpan), posM, float2(posM.x + lengthSign * subpixOut, posM.y + lengthSign * subpixOut));
@@ -1942,23 +1942,29 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float4 edgedata = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord);
 	
-	bool skiphysteresis = (HqaaHysteresisStrength == 0.0) || ((!HqaaDoLumaHysteresis) && (!HqaaDoSaturationHysteresis));
-	if (skiphysteresis) return pixel;
-	
 #if HQAA_TAA_ASSIST_MODE
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
-	if (lumachange) {
 #endif //HQAA_TAA_ASSIST_MODE
 
+	bool skiphysteresis = ( (HqaaHysteresisStrength == 0.0) || ((!HqaaDoLumaHysteresis) && (!HqaaDoSaturationHysteresis))
+#if HQAA_TAA_ASSIST_MODE
+	|| (!lumachange)
+#endif //HQAA_TAA_ASSIST_MODE
+#if HQAA_COMPILE_DEBUG_CODE
+	&& (HqaaDebugMode == 0)
+#endif //HQAA_COMPILE_DEBUG_CODE
+	);
+	
+	if (skiphysteresis) return pixel;
+	
 	pixel = ConditionalDecode(pixel);
 
 #if HQAA_COMPILE_DEBUG_CODE
 	bool modifiedpixel = any(edgedata.rg);
-	float3 AAdot = pixel;
 	if (HqaaDebugMode == 6 && !modifiedpixel) return float(0.0).xxx;
 	if (HqaaDebugMode == 1) return float3(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg, 0.0);
 	if (HqaaDebugMode == 2) return HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rgb;
-	if (HqaaDebugMode == 0 || HqaaDebugMode == 6) {
+	float3 AAdot = pixel;
 #endif
 
 	float channelstep = __HQAA_SMALLEST_COLOR_STEP;
@@ -1983,24 +1989,14 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	
 	//output
 #if HQAA_COMPILE_DEBUG_CODE
-	}
 	if (HqaaDebugMode == 6)
 	{
 		// hysteresis pattern
 		return sqrt(abs(pixel - AAdot));
 	}
+	else
 #endif //HQAA_COMPILE_DEBUG_CODE
 	return ConditionalEncode(pixel);
-	
-#if HQAA_TAA_ASSIST_MODE
-	}
-#if HQAA_COMPILE_DEBUG_CODE
-	if (HqaaDebugMode > 0) return float3(0.0, 0.0, 0.0);
-	else
-#endif
-	return pixel;
-#endif //HQAA_TAA_ASSIST_MODE
-
 }
 
 /***************************************************************************************************************************************/
