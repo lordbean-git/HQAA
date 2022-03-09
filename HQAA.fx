@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.3
+ *                        v21.4
  *
  *                     by lordbean
  *
@@ -119,7 +119,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
-	#define HQAA_FXAA_MULTISAMPLING 2
+	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 
 #ifndef HQAA_TAA_ASSIST_MODE
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.3";
+	ui_label = "Version: 21.4";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -158,9 +158,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_FXAA_MULTISAMPLING > 3
 				"FXAA Multisampling:       4x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 2
-				"FXAA Multisampling:       3x  *\n"
+				"FXAA Multisampling:       3x\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x\n"
+				"FXAA Multisampling:       2x  *\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:          on  *\n"
@@ -326,7 +326,7 @@ uniform float HqaaHysteresisFudgeFactor <
 	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
 	ui_category = "Hysteresis Pass Options";
 	ui_category_closed = true;
-> = 5.0;
+> = 2.0;
 
 uniform bool HqaaDoLumaHysteresis <
 	ui_label = "Use Luma Difference Hysteresis?";
@@ -562,10 +562,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Global      |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 75.0% |   10%  |  Low   |  50% |  2.0  |  20%  |\n"
-			  "|  Medium|   0.150   | 73.3% |   15%  |  Low   |  75% |  1.5  |  40%  |\n"
-			  "|    High|   0.100   | 70.0% |   25%  |Balanced| 100% |  1.0  |  60%  |\n"
-			  "|   Ultra|   0.050   | 60.0% |   50%  |  High  | 150% |  0.5  |  80%  |\n"
+			  "|     Low|   0.200   | 75.0% |   13%  |  Low   |  50% |  2.0  |  50%  |\n"
+			  "|  Medium|   0.150   | 73.3% |   20%  |  Low   |  75% |  1.5  |  75%  |\n"
+			  "|    High|   0.100   | 70.0% |   25%  |Balanced| 100% |  1.0  |  90%  |\n"
+			  "|   Ultra|   0.050   | 60.0% |   33%  |  High  | 150% |  0.5  | 100%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -573,12 +573,12 @@ uniform int HqaaPresetBreakdown <
 
 static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.15, 0.1, 0.05, 1.0};
 static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.75, 0.733333, 0.7, 0.6, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.1, 0.15, 0.25, 0.5, 0.0};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.125, 0.20, 0.25, 0.333333, 0.0};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.5, 0.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
-static const float HQAA_SUBPIX_PRESET[5] = {0.2, 0.4, 0.6, 0.8, 0.0};
-static const float HQAA_ERRORMARGIN_PRESET[5] = {4.0, 4.0, 6.0, 8.0, 10.0};
-static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 8.0};
+static const float HQAA_SUBPIX_PRESET[5] = {0.5, 0.75, 0.9, 1.0, 0.0};
+static const float HQAA_ERRORMARGIN_PRESET[5] = {4.0, 4.0, 6.0, 9.0, 10.0};
+static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 9.0};
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -600,12 +600,12 @@ static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 8.0};
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_LUMA_REF (float(0.25).xxxx)
 #define __HQAA_GAMMA_REF float3(0.333333, 0.333334, 0.333333)
-#define __HQAA_WEIGHT_M float4(0.3, 0.4, 0.3, 0.0)
-#define __HQAA_WEIGHT_L float4(0.15, 0.35, 0.5, 0.0)
-#define __HQAA_WEIGHT_R float4(0.5, 0.35, 0.15, 0.0)
+#define __HQAA_WEIGHT_M float4(0.33, 0.4, 0.27, 0.0)
+#define __HQAA_WEIGHT_L float4(0.1, 0.3, 0.6, 0.0)
+#define __HQAA_WEIGHT_R float4(0.6, 0.3, 0.1, 0.0)
 
 #define __HQAA_FX_RADIUS (10.0 / __HQAA_FX_TEXEL)
-#define __HQAA_FX_WEIGHT float4(__HQAA_GAMMA_REF, 0.0)
+#define __HQAA_FX_WEIGHT __HQAA_WEIGHT_M
 
 #define __HQAA_SM_RADIUS (__HQAA_DISPLAY_NUMERATOR * 0.125)
 #define __HQAA_SM_BUFFERINFO float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
@@ -1549,6 +1549,9 @@ float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	float4 casdot = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
 	
 	casdot = ConditionalDecode(casdot);
+	
+	float sharpening = 1.0 - __HQAA_EDGE_THRESHOLD;
+	sharpening *= sharpening;
 
     float3 a = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
     float3 c = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
@@ -1573,7 +1576,7 @@ float4 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	
     float4 outColor = float4(saturate(mad(window, wRGB, casdot.rgb) * rcp(mad(4.0, wRGB, 1.0))), casdot.a);
 
-	return ConditionalEncode(lerp(casdot, outColor, 1.0 - __HQAA_EDGE_THRESHOLD));
+	return ConditionalEncode(lerp(casdot, outColor, sharpening));
 }
 
 /////////////////////////////////////////////////// TEMPORAL STABILIZER FRAME COPY ////////////////////////////////////////////////////////
@@ -1628,12 +1631,11 @@ float2 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	
 	// contrast between pixels becomes low at both the high and low ranges of luma
 //	float contrastmultiplier = abs(0.5 - HQAAdotgamma(middle)) * 2.0;
-	float contrastmultiplier = 1.0 - dotsat(middle);
-	contrastmultiplier = contrastmultiplier * contrastmultiplier * contrastmultiplier;
+	float contrastmultiplier = abs(0.5 - dotsat(middle)) + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
 	// contrast adaptation setup
-	float4 dotscalar = __HQAA_WEIGHT_M * middle;
+	float4 dotscalar = __HQAA_LUMA_REF * middle;
 	float scale = log2(rcp(HQAAvec4add(dotscalar)));
 	
 	float2 edges = float(0.0).xx;
@@ -1785,8 +1787,8 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
 	// contrast between pixels becomes low at both the high and low ranges of luma
-	float contrastmultiplier = 1.0 - dotsat(rgbyM);
-	contrastmultiplier = contrastmultiplier * contrastmultiplier * contrastmultiplier * contrastmultiplier;
+	float contrastmultiplier = abs(0.5 - dotsat(rgbyM)) + abs(0.5 - dot(rgbyM, __HQAA_LUMA_REF));
+	contrastmultiplier *= contrastmultiplier;
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 
     float lumaS = dot(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)), __HQAA_FX_WEIGHT);
