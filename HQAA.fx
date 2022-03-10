@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v21.4
+ *                        v22.0
  *
  *                     by lordbean
  *
@@ -119,7 +119,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
-	#define HQAA_FXAA_MULTISAMPLING 3
+	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
 #ifndef HQAA_TAA_ASSIST_MODE
@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 uniform int HQAAintroduction <
 	ui_type = "radio";
-	ui_label = "Version: 21.4";
+	ui_label = "Version: 22.0";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1631,7 +1631,7 @@ float2 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	
 	// contrast between pixels becomes low at both the high and low ranges of luma
 //	float contrastmultiplier = abs(0.5 - HQAAdotgamma(middle)) * 2.0;
-	float contrastmultiplier = abs(0.5 - dotsat(middle)) + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
+	float contrastmultiplier = abs(0.5 - dotsat(middle)) + abs(0.5 - dot(middle, __HQAA_FX_WEIGHT));
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
 	// contrast adaptation setup
@@ -1787,7 +1787,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
 	// contrast between pixels becomes low at both the high and low ranges of luma
-	float contrastmultiplier = abs(0.5 - dotsat(rgbyM)) + abs(0.5 - dot(rgbyM, __HQAA_LUMA_REF));
+	float contrastmultiplier = abs(0.5 - dotsat(rgbyM)) + abs(0.5 - dot(rgbyM, __HQAA_FX_WEIGHT));
 	contrastmultiplier *= contrastmultiplier;
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 
@@ -1934,6 +1934,61 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 
 /***************************************************************************************************************************************/
 /********************************************************** FXAA SHADER CODE END *******************************************************/
+/***************************************************************************************************************************************/
+
+/***************************************************************************************************************************************/
+/******************************************************* DENOISE SHADER CODE START *****************************************************/
+/***************************************************************************************************************************************/
+
+float3 HQAAResultDenoisePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float2 edges = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
+	if (!any(edges)) return pixel;
+	
+	pixel = ConditionalDecode(pixel);
+	float3 result = pixel;
+	
+	float2 neighboredges[8];
+	float3 neighborpixel[8];
+	int2 offsets[8] = {int2(-1, -1), int2(0, -1), int2(1, -1), int2(-1, 0), int2(1, 0), int2(-1, 1), int2(0, 1), int2(1, 1)};
+	float blendtotal = 1.0;
+	bool offsetmask[8];
+	
+	// horizontal mask
+	if (!any(float2(1.0, 0.0) - edges)) offsetmask = {false, false, false, true, true, false, false, false};
+	// vertical mask
+	else if (!any(float2(0.0, 1.0) - edges)) offsetmask = {false, true, false, false, false, false, true, false};
+	// diagonal mask
+	else offsetmask = {true, false, true, false, false, true, false, true};
+	
+	// scan for matching neighbor edges
+	[unroll] for (int i = 0; i < 8; i++)
+	{
+		neighboredges[i] = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, offsets[i]).rg;
+		float2 testedges = neighboredges[i] * edges;
+		if (any(testedges - neighboredges[i])) neighboredges[i] = float2(0.0, 0.0);
+	}
+	
+	// now we know where and how many matched neighbors there are, fetch and add relevant pixels
+	[unroll] for (int i = 0; i < 8; i++)
+	{
+		if (any(neighboredges[i]) && offsetmask[i])
+		{
+			neighborpixel[i] = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, offsets[i]).rgb;
+			blendtotal += 1.0;
+		}
+		else neighborpixel[i] = float3(0.0, 0.0, 0.0);
+		result += neighborpixel[i];
+	}
+	
+	// normalize and return result
+	result /= blendtotal;
+	return ConditionalEncode(result);
+}
+
+/***************************************************************************************************************************************/
+/******************************************************** DENOISE SHADER CODE END ******************************************************/
 /***************************************************************************************************************************************/
 
 /***************************************************************************************************************************************/
@@ -2250,10 +2305,20 @@ technique HQAA <
 		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
 	}
+	pass ResultDenoiser
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAResultDenoisePS;
+	}
 	pass SMAABlending
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAANeighborhoodBlendingPS;
+	}
+	pass ResultDenoiser
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAResultDenoisePS;
 	}
 	pass FXAA
 	{
@@ -2309,6 +2374,11 @@ technique HQAA <
 #endif //HQAA_USE_MULTISAMPLED_FXAA3
 #endif //HQAA_USE_MULTISAMPLED_FXAA2
 #endif //HQAA_USE_MULTISAMPLED_FXAA1
+	pass ResultDenoiser
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAResultDenoisePS;
+	}
 	pass Hysteresis
 	{
 		VertexShader = PostProcessVS;
