@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v22.0
+ *                        v22.1
  *
  *                     by lordbean
  *
@@ -91,6 +91,10 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 /////////////////////////////////////////////////////// CONFIGURABLE TOGGLES //////////////////////////////////////////////////////////////
 
+#ifndef HQAA_ADVANCED_MODE
+	#define HQAA_ADVANCED_MODE 0
+#endif
+
 #ifndef HQAA_OUTPUT_MODE
 	#define HQAA_OUTPUT_MODE 0
 #endif //HQAA_TARGET_COLOR_SPACE
@@ -129,13 +133,19 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 /////////////////////////////////////////////////////// GLOBAL SETUP OPTIONS //////////////////////////////////////////////////////////////
 
 uniform int HQAAintroduction <
+	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 22.0";
+	ui_label = "Version: 22.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
 			"-------------------------------------------------------------------------\n\n"
 			"Currently Compiled Configuration:\n\n"
+			#if HQAA_ADVANCED_MODE
+				"Advanced Mode:            on  *\n"
+			#else
+				"Advanced Mode:           off\n"
+			#endif
 			#if HQAA_OUTPUT_MODE == 1
 				"Output Mode:        HDR nits  *\n"
 			#elif HQAA_OUTPUT_MODE == 2
@@ -158,9 +168,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_FXAA_MULTISAMPLING > 3
 				"FXAA Multisampling:       4x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 2
-				"FXAA Multisampling:       3x\n"
+				"FXAA Multisampling:       3x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x  *\n"
+				"FXAA Multisampling:       2x\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:          on  *\n"
@@ -233,70 +243,96 @@ uniform int HQAAintroduction <
 	ui_category_closed = true;
 >;
 
+#if HQAA_COMPILE_DEBUG_CODE
+uniform uint HqaaDebugMode <
+	ui_type = "radio";
+	ui_category = "Debug";
+	ui_category_closed = true;
+	ui_spacing = 3;
+	ui_label = " ";
+	ui_text = "Debug Mode:";
+	ui_items = "Off\n\n\0Detected Edges\0SMAA Blend Weights\n\n\0FXAA Results\0FXAA Lumas\0FXAA Metrics\n\n\0Hysteresis Pattern\0";
+> = 0;
+#endif //HQAA_COMPILE_DEBUG_CODE
+
+uniform int HqaaAboutEOF <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n--------------------------------------------------------------------------------";
+>;
+
+#if !HQAA_ADVANCED_MODE
 uniform uint HqaaPreset <
 	ui_type = "combo";
 	ui_spacing = 3;
 	ui_label = "Quality Preset\n\n";
-	ui_tooltip = "For quick start use, pick a preset. If you'd prefer to fine tune, select Custom.";
-	ui_items = "Low\0Medium\0High\0Ultra\0Custom\0";
+	ui_tooltip = "Set HQAA_ADVANCED_MODE to 1 to customize all options";
+	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 1.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const bool HqaaDoSaturationHysteresis = true;
+static const float HqaaDenoisingStrength = 50.0;
+
+#else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
+	ui_spacing = 4;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast (luma difference) required to be considered an edge";
-    ui_category = "Custom Preset";
+	ui_category = "Edge Detection";
 	ui_category_closed = true;
-	ui_text = "------------------------------ Global Options ----------------------------------\n ";
 > = 0.1;
 
 uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Dynamic Reduction Range";
+	ui_label = "% Dynamic Reduction Range\n\n";
 	ui_tooltip = "Maximum dynamic reduction of edge threshold (as percentage of base threshold)\n"
 				 "permitted when detecting low-brightness edges.\n"
 				 "Lower = faster, might miss low-contrast edges\n"
 				 "Higher = slower, catches more edges in dark scenes";
-    ui_category = "Custom Preset";
+	ui_category = "Edge Detection";
 	ui_category_closed = true;
 > = 75;
-
-uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
-	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Corner Rounding";
-	ui_tooltip = "Affects the amount of blending performed when SMAA\ndetects crossing edges";
-    ui_category = "Custom Preset";
-	ui_category_closed = true;
-	ui_text = "\n------------------------------- SMAA Options -----------------------------------\n ";
-> = 25;
 
 uniform uint HqaaEdgeErrorMarginCustom <
 	ui_type = "radio";
 	ui_label = "Mouseover for description";
-	ui_spacing = 2;
+	ui_spacing = 3;
 	ui_text = "Detected Edges Margin of Error:";
 	ui_tooltip = "Determines maximum number of neighbor edges allowed before\n"
 				"an edge is considered an erroneous detection. Low preserves\n"
 				"detail, high increases amount of anti-aliasing applied.";
 	ui_items = "Low\0Balanced\0High\0";
-    ui_category = "Custom Preset";
+	ui_category = "SMAA";
 	ui_category_closed = true;
 > = 1;
 
+uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_spacing = 2;
+	ui_label = "% Corner Rounding\n\n";
+	ui_tooltip = "Affects the amount of blending performed when SMAA\ndetects crossing edges";
+	ui_category = "SMAA";
+	ui_category_closed = true;
+> = 25;
+
 uniform float HqaaFxQualityCustom < __UNIFORM_SLIDER_FLOAT1
+	ui_spacing = 3;
 	ui_min = 25; ui_max = 400; ui_step = 1;
 	ui_label = "% Quality";
 	ui_tooltip = "Affects the maximum radius FXAA will search\nalong an edge gradient";
-    ui_category = "Custom Preset";
+	ui_category = "FXAA";
 	ui_category_closed = true;
-	ui_text = "\n------------------------------- FXAA Options -----------------------------------\n ";
 > = 100;
 
 uniform float HqaaFxTexelCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.25; ui_max = 4.0; ui_step = 0.01;
 	ui_label = "Edge Gradient Texel Size";
 	ui_tooltip = "Determines how far along an edge FXAA will move\nfrom one scan iteration to the next.\n\nLower = slower, more accurate\nHigher = faster, more artifacts";
-	ui_category = "Custom Preset";
+	ui_category = "FXAA";
 	ui_category_closed = true;
 > = 1.0;
 
@@ -305,7 +341,17 @@ uniform float HqaaFxBlendCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "% Gradient Blending Strength\n\n";
 	ui_tooltip = "Percentage of blending FXAA will apply to long slopes.\n"
 				 "Lower = sharper image, Higher = more AA effect";
-    ui_category = "Custom Preset";
+	ui_category = "FXAA";
+	ui_category_closed = true;
+> = 50;
+
+uniform float HqaaDenoisingStrength <
+	ui_type = "slider";
+	ui_spacing = 3;
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_label = "% Result Denoising\n\n";
+	ui_tooltip = "Performs denoising along edge gradients to soften the result.";
+	ui_category = "Denoiser";
 	ui_category_closed = true;
 > = 50;
 
@@ -315,48 +361,35 @@ uniform float HqaaHysteresisStrength <
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_label = "% Max Hysteresis";
 	ui_tooltip = "Hysteresis correction adjusts the appearance of anti-aliased\npixels towards their original appearance, which helps\nto preserve detail in the final image.\n\n0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
-	ui_category = "Hysteresis Pass Options";
+	ui_category = "Hysteresis";
 	ui_category_closed = true;
-> = 25;
+> = 33;
 
 uniform float HqaaHysteresisFudgeFactor <
 	ui_type = "slider";
 	ui_min = 0; ui_max = 25; ui_step = 0.1;
 	ui_label = "% Fudge Factor";
 	ui_tooltip = "Ignore up to this much difference between the original pixel\nand the anti-aliasing result";
-	ui_category = "Hysteresis Pass Options";
+	ui_category = "Hysteresis";
 	ui_category_closed = true;
-> = 2.0;
+> = 1.0;
 
 uniform bool HqaaDoLumaHysteresis <
 	ui_label = "Use Luma Difference Hysteresis?";
-	ui_category = "Hysteresis Pass Options";
+	ui_category = "Hysteresis";
 	ui_category_closed = true;
 > = true;
 
 uniform bool HqaaDoSaturationHysteresis <
-	ui_label = "Use Saturation Difference Hysteresis?\n\n";
-	ui_category = "Hysteresis Pass Options";
+	ui_label = "Use Saturation Difference Hysteresis?\n";
+	ui_category = "Hysteresis";
 	ui_category_closed = true;
 > = true;
-
-/////////////////////////////////////////////////////// CONDITIONAL OPTIONS ///////////////////////////////////////////////////////////////
-
-#if HQAA_COMPILE_DEBUG_CODE
-uniform uint HqaaDebugMode <
-	ui_type = "radio";
-	ui_category = "Debug";
-	ui_category_closed = true;
-	ui_spacing = 2;
-	ui_label = " ";
-	ui_text = "Debug Mode:";
-	ui_items = "Off\n\n\0Detected Edges\0SMAA Blend Weights\n\n\0FXAA Results\0FXAA Lumas\0FXAA Metrics\n\n\0Hysteresis Pattern\0";
-> = 0;
-#endif //HQAA_COMPILE_DEBUG_CODE
+#endif //HQAA_ADVANCED_MODE
 
 #if HQAA_OUTPUT_MODE == 1
 uniform float HqaaHdrNits < 
-	ui_spacing = 2;
+	ui_spacing = 3;
 	ui_type = "slider";
 	ui_min = 500.0; ui_max = 10000.0; ui_step = 100.0;
 	ui_label = "HDR Nits";
@@ -368,7 +401,7 @@ uniform float HqaaHdrNits <
 uniform int HqaaOptionsEOF <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n-------------------------------------------------------------------------";
+	ui_text = "\n--------------------------------------------------------------------------------";
 >;
 
 #if HQAA_OPTIONAL_EFFECTS
@@ -456,7 +489,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 2;
 	ui_label = "% Vibrance";
 	ui_tooltip = "50% means no modification is performed and this option is skipped.";
-	ui_text = "-------------------------------------------------------------------------\n ";
+	ui_text = "--------------------------------------------------------------------------------\n";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
 > = 50;
@@ -519,13 +552,14 @@ uniform int optionalmesg <
 uniform int HqaaOptionalsEOF <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n-------------------------------------------------------------------------";
+	ui_text = "\n--------------------------------------------------------------------------------";
 >;
 #endif //HQAA_OPTIONAL_EFFECTS
 
 #if HQAA_COMPILE_DEBUG_CODE
 uniform int HqaaDebugExplainer <
 	ui_type = "radio";
+	ui_spacing = 3;
 	ui_label = " ";
 	ui_text = "----------------------------------------------------------------\n"
 			  "When viewing the detected edges, the colors shown in the texture\n"
@@ -554,12 +588,13 @@ uniform int HqaaDebugExplainer <
 
 ///////////////////////////////////////////////// HUMAN+MACHINE PRESET REFERENCE //////////////////////////////////////////////////////////
 
+#if HQAA_ADVANCED_MODE
 uniform int HqaaPresetBreakdown <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n"
 			  "-----------------------------------------------------------------------\n"
-			  "|        |       Global      |      SMAA       |        FXAA          |\n"
+			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
 			  "|     Low|   0.200   | 75.0% |   13%  |  Low   |  50% |  2.0  |  50%  |\n"
@@ -570,14 +605,15 @@ uniform int HqaaPresetBreakdown <
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
+#endif //HQAA_ADVANCED_MODE
 
-static const float HQAA_THRESHOLD_PRESET[5] = {0.2, 0.15, 0.1, 0.05, 1.0};
-static const float HQAA_DYNAMIC_RANGE_PRESET[5] = {0.75, 0.733333, 0.7, 0.6, 0.0};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[5] = {0.125, 0.20, 0.25, 0.333333, 0.0};
-static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[5] = {0.5, 0.75, 1.0, 1.5, 0.0};
-static const float HQAA_FXAA_TEXEL_SIZE_PRESET[5] = {2.0, 1.5, 1.0, 0.5, 4.0};
-static const float HQAA_SUBPIX_PRESET[5] = {0.5, 0.75, 0.9, 1.0, 0.0};
-static const float HQAA_ERRORMARGIN_PRESET[5] = {4.0, 4.0, 6.0, 9.0, 10.0};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.75, 0.733333, 0.7, 0.6};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.125, 0.20, 0.25, 0.333333};
+static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 0.75, 1.0, 1.5};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.5, 1.0, 0.5};
+static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.9, 1.0};
+static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 6.0, 9.0};
 static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 9.0};
 
 /*****************************************************************************************************************************************/
@@ -588,13 +624,23 @@ static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 9.0};
 /******************************************************** SYNTAX SETUP START *************************************************************/
 /*****************************************************************************************************************************************/
 
-#define __HQAA_EDGE_THRESHOLD (HqaaPreset == 4 ? (HqaaEdgeThresholdCustom) : (HQAA_THRESHOLD_PRESET[HqaaPreset]))
-#define __HQAA_DYNAMIC_RANGE (HqaaPreset == 4 ? (HqaaDynamicThresholdCustom / 100.0) : (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset]))
-#define __HQAA_SM_CORNERS (HqaaPreset == 4 ? (HqaaSmCorneringCustom / 100.0) : (HQAA_SMAA_CORNER_ROUNDING_PRESET[HqaaPreset]))
-#define __HQAA_FX_QUALITY (HqaaPreset == 4 ? (HqaaFxQualityCustom / 100.0) : (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[HqaaPreset]))
-#define __HQAA_FX_TEXEL (HqaaPreset == 4 ? (HqaaFxTexelCustom) : (HQAA_FXAA_TEXEL_SIZE_PRESET[HqaaPreset]))
-#define __HQAA_FX_BLEND (HqaaPreset == 4 ? (HqaaFxBlendCustom / 100.0) : (HQAA_SUBPIX_PRESET[HqaaPreset]))
-#define __HQAA_SM_ERRORMARGIN (HqaaPreset == 4 ? (HQAA_ERRORMARGIN_CUSTOM[HqaaEdgeErrorMarginCustom]) : (HQAA_ERRORMARGIN_PRESET[HqaaPreset]))
+#if !HQAA_ADVANCED_MODE
+#define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
+#define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
+#define __HQAA_SM_CORNERS (HQAA_SMAA_CORNER_ROUNDING_PRESET[HqaaPreset])
+#define __HQAA_FX_QUALITY (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[HqaaPreset])
+#define __HQAA_FX_TEXEL (HQAA_FXAA_TEXEL_SIZE_PRESET[HqaaPreset])
+#define __HQAA_FX_BLEND (HQAA_SUBPIX_PRESET[HqaaPreset])
+#define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_PRESET[HqaaPreset])
+#else
+#define __HQAA_EDGE_THRESHOLD (HqaaEdgeThresholdCustom)
+#define __HQAA_DYNAMIC_RANGE (HqaaDynamicThresholdCustom / 100.0)
+#define __HQAA_SM_CORNERS (HqaaSmCorneringCustom / 100.0)
+#define __HQAA_FX_QUALITY (HqaaFxQualityCustom / 100.0)
+#define __HQAA_FX_TEXEL (HqaaFxTexelCustom)
+#define __HQAA_FX_BLEND (HqaaFxBlendCustom / 100.0)
+#define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_CUSTOM[HqaaEdgeErrorMarginCustom])
+#endif //HQAA_ADVANCED_MODE
 
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
@@ -1944,7 +1990,7 @@ float3 HQAAResultDenoisePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 {
 	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float2 edges = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
-	if (!any(edges)) return pixel;
+	if (!any(edges) || HqaaDenoisingStrength == 0.0) return pixel;
 	
 	pixel = ConditionalDecode(pixel);
 	float3 result = pixel;
@@ -1984,7 +2030,7 @@ float3 HQAAResultDenoisePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	
 	// normalize and return result
 	result /= blendtotal;
-	return ConditionalEncode(result);
+	return ConditionalEncode(lerp(pixel, result, HqaaDenoisingStrength / 100.0));
 }
 
 /***************************************************************************************************************************************/
