@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v22.2
+ *                        v22.2.1
  *
  *                     by lordbean
  *
@@ -135,7 +135,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 22.2";
+	ui_label = "Version: 22.2.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -607,7 +607,17 @@ uniform int HqaaPresetBreakdown <
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
 >;
+
+#define __HQAA_EDGE_THRESHOLD (HqaaEdgeThresholdCustom)
+#define __HQAA_DYNAMIC_RANGE (HqaaDynamicThresholdCustom / 100.0)
+#define __HQAA_SM_CORNERS (HqaaSmCorneringCustom / 100.0)
+#define __HQAA_FX_QUALITY (HqaaFxQualityCustom / 100.0)
+#define __HQAA_FX_TEXEL (HqaaFxTexelCustom)
+#define __HQAA_FX_BLEND (HqaaFxBlendCustom / 100.0)
+#define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_CUSTOM[HqaaEdgeErrorMarginCustom])
+
 #else
+
 static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
 static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.75, 0.733333, 0.7, 0.6};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.125, 0.20, 0.25, 0.333333};
@@ -615,6 +625,15 @@ static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 0.75, 1.0, 1.
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.5, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.9, 1.0};
 static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 6.0, 9.0};
+
+#define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
+#define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
+#define __HQAA_SM_CORNERS (HQAA_SMAA_CORNER_ROUNDING_PRESET[HqaaPreset])
+#define __HQAA_FX_QUALITY (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[HqaaPreset])
+#define __HQAA_FX_TEXEL (HQAA_FXAA_TEXEL_SIZE_PRESET[HqaaPreset])
+#define __HQAA_FX_BLEND (HQAA_SUBPIX_PRESET[HqaaPreset])
+#define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_PRESET[HqaaPreset])
+
 #endif //HQAA_ADVANCED_MODE
 
 /*****************************************************************************************************************************************/
@@ -625,24 +644,6 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 6.0, 9.0};
 /******************************************************** SYNTAX SETUP START *************************************************************/
 /*****************************************************************************************************************************************/
 
-#if !HQAA_ADVANCED_MODE
-#define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
-#define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
-#define __HQAA_SM_CORNERS (HQAA_SMAA_CORNER_ROUNDING_PRESET[HqaaPreset])
-#define __HQAA_FX_QUALITY (HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[HqaaPreset])
-#define __HQAA_FX_TEXEL (HQAA_FXAA_TEXEL_SIZE_PRESET[HqaaPreset])
-#define __HQAA_FX_BLEND (HQAA_SUBPIX_PRESET[HqaaPreset])
-#define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_PRESET[HqaaPreset])
-#else
-#define __HQAA_EDGE_THRESHOLD (HqaaEdgeThresholdCustom)
-#define __HQAA_DYNAMIC_RANGE (HqaaDynamicThresholdCustom / 100.0)
-#define __HQAA_SM_CORNERS (HqaaSmCorneringCustom / 100.0)
-#define __HQAA_FX_QUALITY (HqaaFxQualityCustom / 100.0)
-#define __HQAA_FX_TEXEL (HqaaFxTexelCustom)
-#define __HQAA_FX_BLEND (HqaaFxBlendCustom / 100.0)
-#define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_CUSTOM[HqaaEdgeErrorMarginCustom])
-#endif //HQAA_ADVANCED_MODE
-
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_CONST_E 2.718282
@@ -651,7 +652,12 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 6.0, 9.0};
 #define __HQAA_WEIGHT_L float3(0.1, 0.3, 0.6)
 #define __HQAA_WEIGHT_R float3(0.6, 0.3, 0.1)
 
+#if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
+#define __HQAA_FX_RADIUS 10.0
+#else
 #define __HQAA_FX_RADIUS (10.0 / __HQAA_FX_TEXEL)
+#endif
+
 #define __HQAA_FX_WEIGHT __HQAA_WEIGHT_M
 
 #define __HQAA_SM_RADIUS (__HQAA_DISPLAY_NUMERATOR * 0.125)
@@ -2120,9 +2126,16 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	ori = ConditionalDecode(ori);
 	
     // Settings
+#if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
+	float avgdiff, maxdiff, middiff;
+	if (HqaaDebandPreset == 0) { avgdiff = 0.002353; maxdiff = 0.007451; middiff = 0.004706; }
+	else if (HqaaDebandPreset == 1) { avgdiff = 0.007059; maxdiff = 0.015686; middiff = 0.007843; }
+	else { avgdiff = 0.013333; maxdiff = 0.026667; middiff = 0.012941; }
+#else
     float avgdiff[3] = {0.002353, 0.007059, 0.013333}; // 0.6/255, 1.8/255, 3.4/255
     float maxdiff[3] = {0.007451, 0.015686, 0.026667}; // 1.9/255, 4.0/255, 6.8/255
     float middiff[3] = {0.004706, 0.007843, 0.012941}; // 1.2/255, 2.0/255, 3.3/255
+#endif
 
     // Initialize the PRNG
     float randomseed = HqaaDebandSeed / 32767.0;
@@ -2169,10 +2182,17 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
     float3 ref_avg_diff = abs(ori - ref_avg);
     
     // Fuzzy logic based pixel selection
+#if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
+    float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / avgdiff)) *
+                            saturate(3.0 * (1.0 - ref_max_diff  / maxdiff)) *
+                            saturate(3.0 * (1.0 - ref_mid_diff1 / middiff)) *
+                            saturate(3.0 * (1.0 - ref_mid_diff2 / middiff)), 0.1);
+#else
     float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / avgdiff[HqaaDebandPreset])) *
                             saturate(3.0 * (1.0 - ref_max_diff  / maxdiff[HqaaDebandPreset])) *
                             saturate(3.0 * (1.0 - ref_mid_diff1 / middiff[HqaaDebandPreset])) *
                             saturate(3.0 * (1.0 - ref_mid_diff2 / middiff[HqaaDebandPreset])), 0.1);
+#endif
 
     return ConditionalEncode(lerp(ori, ref_avg, factor));
 #if HQAA_COMPILE_DEBUG_CODE
