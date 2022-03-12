@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v22.3
+ *                        v22.3.1
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 22.3";
+	ui_label = "Version: 22.3.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1400,6 +1400,11 @@ float permute(float3 x)
 #endif //HQAA_OPTIONAL__DEBANDING
 #endif //HQAA_OPTIONAL_EFFECTS
 
+float squared(float x)
+{
+	return x * x;
+}
+
 /***************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE END *************************************************************/
 /***************************************************************************************************************************************/
@@ -1939,7 +1944,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	[branch] if (!goodSpan)
 	{
 		subpixOut = mad(mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW), 0.083333, -lumaMa) * rcp(range); //ABC
-		subpixOut = pow(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * maxblending * pixelOffset; // DEFGH
+		subpixOut = squared(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut))) * maxblending * pixelOffset; // DEFGH
 	}
 
     float2 posM = texcoord;
