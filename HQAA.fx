@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v22.3.1
+ *                        v23.0
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 22.3.1";
+	ui_label = "Version: 23.0";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -592,10 +592,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 50.0% |   13%  |  Low   |  50% | 2.000 |  30%  |\n"
-			  "|  Medium|   0.150   | 66.7% |   20%  |  Low   | 100% | 1.000 |  50%  |\n"
-			  "|    High|   0.100   | 75.0% |   25%  |Balanced| 150% | 0.500 |  67%  |\n"
-			  "|   Ultra|   0.050   | 80.0% |   33%  |  High  | 200% | 0.250 |  75%  |\n"
+			  "|     Low|   0.200   | 37.5% |   13%  |  Low   |  50% | 2.000 |  30%  |\n"
+			  "|  Medium|   0.150   | 50.0% |   20%  |  Low   | 100% | 1.000 |  50%  |\n"
+			  "|    High|   0.100   | 66.7% |   25%  |Balanced| 150% | 0.500 |  67%  |\n"
+			  "|   Ultra|   0.050   | 75.0% |   33%  |  High  | 200% | 0.250 |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -612,7 +612,7 @@ uniform int HqaaPresetBreakdown <
 #else
 
 static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.8};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.375, 0.5, 0.666667, 0.75};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.125, 0.20, 0.25, 0.333333};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 0.5, 0.25};
@@ -1673,7 +1673,7 @@ float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 
 //////////////////////////////////////////////////////// EDGE DETECTION ///////////////////////////////////////////////////////////////////
 
-float2 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
+float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
 {
 	float3 middle = HQAA_DecodeTex2D(HQAAsamplerSMweights, texcoord).rgb;
 	
@@ -1694,20 +1694,38 @@ float2 HQAALumaEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : 
 	float2 edges = float(0.0).xx;
 	
     float L = dot(middle, __HQAA_WEIGHT_M);
-
-    float Lleft = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].xy).rgb, __HQAA_WEIGHT_L);
-    float Ltop  = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].zw).rgb, __HQAA_WEIGHT_M);
-	float Lright = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].xy).rgb, __HQAA_WEIGHT_R);
-	float Lbottom  = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].zw).rgb, __HQAA_WEIGHT_M);
-    float4 delta = float4(abs(L - float2(Lleft, Ltop)), abs(L - float2(Lright, Lbottom)));
+	
+	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].xy).rgb;
+    float Lleft = dot(dotscalar, __HQAA_WEIGHT_L);
+    float Cleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+    
+	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].zw).rgb;
+    float Ltop = dot(dotscalar, __HQAA_WEIGHT_M);
+    float Ctop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+    
+    dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].xy).rgb;
+	float Lright = dot(dotscalar, __HQAA_WEIGHT_R);
+	float Cright = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+	
+	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].zw).rgb;
+	float Lbottom = dot(dotscalar, __HQAA_WEIGHT_M);
+	float Cbottom = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+	
+    float4 delta = float4(max(abs(L - Lleft), Cleft), max(abs(L - Ltop), Ctop), max(abs(L - Lright), Cright), max(abs(L - Lbottom), Cbottom));
     
     edges = step(threshold, delta.xy);
     
 	float2 maxDelta = max(delta.xy, delta.zw);
-
-	float Lleftleft = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].xy).rgb, __HQAA_WEIGHT_L);
-	float Ltoptop = dot(HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].zw).rgb, __HQAA_WEIGHT_M);
-	delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
+	
+	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].xy).rgb;
+	float Lleftleft = dot(dotscalar, __HQAA_WEIGHT_L);
+	float Cleftleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+	
+	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].zw).rgb;
+	float Ltoptop = dot(dotscalar, __HQAA_WEIGHT_M);
+	float Ctoptop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+	
+	delta.zw = abs(float2(max(Lleft, Cleft), max(Ltop, Ctop)) - float2(max(Lleftleft, Cleftleft), max(Ltoptop, Ctoptop)));
 
 	maxDelta = max(maxDelta, delta.zw);
 	
@@ -2350,7 +2368,7 @@ technique HQAA <
 	pass EdgeDetection
 	{
 		VertexShader = HQAAEdgeDetectionVS;
-		PixelShader = HQAALumaEdgeDetectionPS;
+		PixelShader = HQAAHybridEdgeDetectionPS;
 		RenderTarget = HQAAedgesTex;
 		ClearRenderTargets = true;
 	}
