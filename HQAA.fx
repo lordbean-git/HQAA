@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v23.0
+ *                        v24.0
  *
  *                     by lordbean
  *
@@ -117,7 +117,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
-	#define HQAA_FXAA_MULTISAMPLING 2
+	#define HQAA_FXAA_MULTISAMPLING 1
 #endif
 
 #ifndef HQAA_TAA_ASSIST_MODE
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 23.0";
+	ui_label = "Version: 24.0";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -150,21 +150,13 @@ uniform int HQAAintroduction <
 				"Output Mode:       Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_FXAA_MULTISAMPLING < 2
-				"FXAA Multisampling:      off  *\n"
-			#elif HQAA_FXAA_MULTISAMPLING > 7
-				"FXAA Multisampling:       8x  *\n"
-			#elif HQAA_FXAA_MULTISAMPLING > 6
-				"FXAA Multisampling:       7x  *\n"
-			#elif HQAA_FXAA_MULTISAMPLING > 5
-				"FXAA Multisampling:       6x  *\n"
-			#elif HQAA_FXAA_MULTISAMPLING > 4
-				"FXAA Multisampling:       5x  *\n"
+				"FXAA Multisampling:      off\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 3
 				"FXAA Multisampling:       4x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 2
 				"FXAA Multisampling:       3x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x\n"
+				"FXAA Multisampling:       2x  *\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:          on  *\n"
@@ -220,7 +212,7 @@ uniform int HQAAintroduction <
 			"\nFXAA Multisampling can be used to increase correction strength\n"
 			"when encountering edges with more than one color gradient or\n"
 			"irregular geometry. Costs some performance for each extra pass.\n"
-			"Valid range: 1 to 8. Higher values are ignored.\n"
+			"Valid range: 1 to 4. Higher values are ignored.\n"
 			"\nValid Output Modes (HQAA_OUTPUT_MODE):\n"
 			"0: Gamma 2.2 (default)\n"
 			"1: HDR, direct nits scale\n"
@@ -261,11 +253,10 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaHysteresisStrength = 20.0;
-static const float HqaaHysteresisFudgeFactor = 2.0;
+static const float HqaaHysteresisStrength = 12.5;
+static const float HqaaHysteresisFudgeFactor = 1.0;
 static const bool HqaaDoLumaHysteresis = true;
-static const bool HqaaDoSaturationHysteresis = true;
-static const float HqaaDenoisingStrength = 12.5;
+static const bool HqaaDoSaturationHysteresis = false;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -301,7 +292,7 @@ uniform uint HqaaEdgeErrorMarginCustom <
 	ui_category_closed = true;
 > = 1;
 
-static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 6.0, 9.0};
+static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 5.0, 7.0};
 
 uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -338,16 +329,6 @@ uniform float HqaaFxBlendCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 50;
 
-uniform float HqaaDenoisingStrength <
-	ui_type = "slider";
-	ui_spacing = 3;
-	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Result Denoising\n\n";
-	ui_tooltip = "Performs denoising along edge gradients to soften the result.";
-	ui_category = "Denoiser";
-	ui_category_closed = true;
-> = 50;
-
 uniform float HqaaHysteresisStrength <
 	ui_type = "slider";
 	ui_spacing = 3;
@@ -376,7 +357,7 @@ uniform bool HqaaDoLumaHysteresis <
 uniform bool HqaaDoSaturationHysteresis <
 	ui_label = "Use Saturation Difference Hysteresis?\n";
 	ui_category = "Hysteresis";
-	ui_category_closed = true;
+	ui_category_closed = false;
 > = true;
 #endif //HQAA_ADVANCED_MODE
 
@@ -407,12 +388,12 @@ uniform bool HqaaEnableSharpening <
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
-	ui_min = 0; ui_max = 2; ui_step = 0.01;
+	ui_min = 0; ui_max = 1; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.666667;
+> = 0.8;
 
 uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
@@ -421,7 +402,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.25;
 
 uniform int HqaaSharpenerIntro <
 	ui_type = "radio";
@@ -447,7 +428,7 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Brightness Gain";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.0;
 
 uniform bool HqaaGainLowLumaCorrection <
 	ui_label = "Contrast Washout Correction";
@@ -455,7 +436,7 @@ uniform bool HqaaGainLowLumaCorrection <
 				 "to reduce perceived contrast washout.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = true;
+> = false;
 
 uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -488,7 +469,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
-> = 0.333333;
+> = 0.25;
 
 uniform bool HqaaTemporalClamp <
 	ui_label = "Clamp Maximum Weight?";
@@ -498,7 +479,7 @@ uniform bool HqaaTemporalClamp <
 	ui_tooltip = "When enabled the maximum amount of weight given to the previous\n"
 				 "frame will be equal to the largest change in contrast in any\n"
 				 "single color channel between the past frame and the current frame.";
-> = true;
+> = false;
 
 uniform int HqaaStabilizerIntro <
 	ui_type = "radio";
@@ -528,7 +509,7 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_label = "Scan Radius";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 32.0;
+> = 16.0;
 
 uniform int HqaaDebandIntro <
 	ui_type = "radio";
@@ -592,10 +573,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|   0.200   | 37.5% |   13%  |  Low   |  50% | 2.000 |  30%  |\n"
-			  "|  Medium|   0.150   | 50.0% |   20%  |  Low   | 100% | 1.000 |  50%  |\n"
-			  "|    High|   0.100   | 66.7% |   25%  |Balanced| 150% | 0.500 |  67%  |\n"
-			  "|   Ultra|   0.050   | 75.0% |   33%  |  High  | 200% | 0.250 |  75%  |\n"
+			  "|     Low|   0.200   | 62.5% |   20%  |  Low   |  50% |  2.0  |  50%  |\n"
+			  "|  Medium|   0.150   | 66.7% |   25%  |  Low   | 100% |  1.0  |  75%  |\n"
+			  "|    High|   0.100   | 70.0% |   33%  |Balanced| 150% |  1.0  |  88%  |\n"
+			  "|   Ultra|   0.075   | 75.0% |   50%  |  High  | 200% |  0.5  | 100%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -611,13 +592,13 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.375, 0.5, 0.666667, 0.75};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.125, 0.20, 0.25, 0.333333};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.075};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.625, 0.666667, 0.7, 0.75};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.2, 0.25, 0.333333, 0.5};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
-static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 0.5, 0.25};
-static const float HQAA_SUBPIX_PRESET[4] = {0.3, 0.5, 0.666667, 0.75};
-static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 6.0, 9.0};
+static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
+static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.875, 1.0};
+static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 5.0, 7.0};
 
 #define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
 #define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
@@ -646,9 +627,9 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 6.0, 9.0};
 #define __HQAA_WEIGHT_R float3(0.6, 0.3, 0.1)
 
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
-#define __HQAA_FX_RADIUS 4.0
+#define __HQAA_FX_RADIUS 16.0
 #else
-#define __HQAA_FX_RADIUS (4.0 / __HQAA_FX_TEXEL)
+#define __HQAA_FX_RADIUS (16.0 / __HQAA_FX_TEXEL)
 #endif
 
 #define __HQAA_FX_WEIGHT __HQAA_WEIGHT_M
@@ -1592,48 +1573,6 @@ void HQAANeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position : 
 /****************************************************** SUPPORT SHADER CODE START ********************************************************/
 /*****************************************************************************************************************************************/
 
-/////////////////////////////////////////////////////////// CAS-TO-TEXTURE ////////////////////////////////////////////////////////////////
-float3 HQAAPresharpenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float3 casdot = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
-	
-	float sharpening = 1.0 - __HQAA_EDGE_THRESHOLD;
-	sharpening *= sharpening;
-
-    float3 a = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
-    float3 c = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
-    float3 g = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
-    float3 i = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
-    float3 b = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
-    float3 d = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
-    float3 f = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
-    float3 h = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
-	
-	float3 mnRGB = HQAAmin5(d, casdot, f, b, h);
-	float3 mnRGB2 = HQAAmin5(mnRGB, a, c, g, i);
-
-	float3 mxRGB = HQAAmax5(d, casdot, f, b, h);
-	float3 mxRGB2 = HQAAmax5(mxRGB,a,c,g,i);
-	
-	// not safe to perform the addition before decoding however this approach still drops 4 decode calls vs individual dots
-	casdot = ConditionalDecode(casdot);
-	mxRGB = ConditionalDecode(mxRGB);
-	mnRGB = ConditionalDecode(mnRGB);
-	mxRGB2 = ConditionalDecode(mxRGB2);
-	mnRGB2 = ConditionalDecode(mnRGB2);
-	
-    mnRGB += mnRGB2;
-    mxRGB += mxRGB2;
-	
-    float3 ampRGB = rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)));    
-    float3 wRGB = -rcp(ampRGB * 8.0);
-    float3 window = (b + d) + (f + h);
-	
-    float3 outColor = saturate(mad(window, wRGB, casdot) * rcp(mad(4.0, wRGB, 1.0)));
-
-	return ConditionalEncode(lerp(casdot, outColor, sharpening));
-}
-
 /////////////////////////////////////////////////// TEMPORAL STABILIZER FRAME COPY ////////////////////////////////////////////////////////
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
@@ -1672,10 +1611,9 @@ float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 /*****************************************************************************************************************************************/
 
 //////////////////////////////////////////////////////// EDGE DETECTION ///////////////////////////////////////////////////////////////////
-
 float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
 {
-	float3 middle = HQAA_DecodeTex2D(HQAAsamplerSMweights, texcoord).rgb;
+	float3 middle = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	
 #if HQAA_TAA_ASSIST_MODE
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
@@ -1695,19 +1633,19 @@ float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	
     float L = dot(middle, __HQAA_WEIGHT_M);
 	
-	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].xy).rgb;
+	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].xy).rgb;
     float Lleft = dot(dotscalar, __HQAA_WEIGHT_L);
     float Cleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
     
-	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[0].zw).rgb;
+	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].zw).rgb;
     float Ltop = dot(dotscalar, __HQAA_WEIGHT_M);
     float Ctop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
     
-    dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].xy).rgb;
+    dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].xy).rgb;
 	float Lright = dot(dotscalar, __HQAA_WEIGHT_R);
 	float Cright = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
-	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[1].zw).rgb;
+	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].zw).rgb;
 	float Lbottom = dot(dotscalar, __HQAA_WEIGHT_M);
 	float Cbottom = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
@@ -1717,11 +1655,11 @@ float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     
 	float2 maxDelta = max(delta.xy, delta.zw);
 	
-	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].xy).rgb;
+	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
 	float Lleftleft = dot(dotscalar, __HQAA_WEIGHT_L);
 	float Cleftleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
-	dotscalar = HQAA_DecodeTex2D(HQAAsamplerSMweights, offset[2].zw).rgb;
+	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
 	float Ltoptop = dot(dotscalar, __HQAA_WEIGHT_M);
 	float Ctoptop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
@@ -1737,40 +1675,33 @@ float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 }
 
 /////////////////////////////////////////////////////// ERROR REDUCTION ///////////////////////////////////////////////////////////////////
-
-float2 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float2 edges = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
+	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
+	float2 bufferdata = float2(dot(pixel, __HQAA_LUMA_REF), dotsat(pixel));
+	float2 edges = HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg;
 	
 	// skip checking neighbors if there's already no detected edge
-	if (!any(edges)) return edges;
+	if (!any(edges)) return float4(edges, bufferdata);
 	
-    float2 a = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, -1)).rg;
-    float2 c = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, -1)).rg;
-    float2 g = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 1)).rg;
-    float2 i = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 1)).rg;
-    float2 b = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, -1)).rg;
-    float2 d = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(-1, 0)).rg;
-    float2 f = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(1, 0)).rg;
-    float2 h = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, int2(0, 1)).rg;
+    float2 a = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg;
+    float2 c = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg;
+    float2 g = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg;
+    float2 i = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg;
+    float2 b = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg;
+    float2 d = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg;
+    float2 f = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg;
+    float2 h = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg;
     
 	float2 adjacentsum = a + c + g + i + b + d + f + h;
 	adjacentsum *= edges; // keep only neighbor count of same type
 
 	bool validedge = any(saturate(adjacentsum - 1.0)) && !any(saturate(adjacentsum - __HQAA_SM_ERRORMARGIN));
-	if (validedge) return edges;
-	else return float2(0.0, 0.0);
-}
-
-float4 HQAAFinalEdgesCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float2 edges = HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg;
-	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
-	return float4(edges, dot(pixel, __HQAA_LUMA_REF), dotsat(pixel));
+	if (validedge) return float4(edges, bufferdata);
+	else return float4(0.0, 0.0, bufferdata);
 }
 
 /////////////////////////////////////////////////// BLEND WEIGHT CALCULATION //////////////////////////////////////////////////////////////
-
 float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float2 pixcoord : TEXCOORD1, float4 offset[3] : TEXCOORD2) : SV_Target
 {
 #if HQAA_TAA_ASSIST_MODE
@@ -1810,7 +1741,6 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 }
 
 //////////////////////////////////////////////////// NEIGHBORHOOD BLENDING ////////////////////////////////////////////////////////////////
-
 float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
     float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
@@ -2002,57 +1932,6 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 
 /***************************************************************************************************************************************/
 /********************************************************** FXAA SHADER CODE END *******************************************************/
-/***************************************************************************************************************************************/
-
-/***************************************************************************************************************************************/
-/******************************************************* DENOISE SHADER CODE START *****************************************************/
-/***************************************************************************************************************************************/
-
-float3 HQAAResultDenoisePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
-	float2 edges = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
-	
-	if (!any(edges) || HqaaDenoisingStrength == 0.0) return pixel;
-	
-	pixel = ConditionalDecode(pixel);
-	float3 result = pixel;
-	float2 neighboredges[8];
-	int2 offsets[8] = {int2(-1, -1), int2(0, -1), int2(1, -1), int2(-1, 0), int2(1, 0), int2(-1, 1), int2(0, 1), int2(1, 1)};
-	float blendtotal = 1.0;
-	
-	// initialize mask as horizontal
-	bool offsetmask[8] = {false, false, false, true, true, false, false, false};
-	// vertical mask
-	if (!any(float2(0.0, 1.0) - edges)) offsetmask = {false, true, false, false, false, false, true, false};
-	// diagonal mask
-	else if (!any(float2(1.0, 1.0) - edges)) offsetmask = {true, false, true, false, false, true, false, true};
-	
-	// scan for matching neighbor edges
-	[unroll] for (int i = 0; i < 8; i++)
-	{
-		neighboredges[i] = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, texcoord, offsets[i]).rg;
-		float2 testedges = neighboredges[i] * edges;
-		if (any(testedges - neighboredges[i])) neighboredges[i] = float2(0.0, 0.0);
-	}
-	
-	// now we know where and how many matched neighbors there are, fetch and add relevant pixels
-	[unroll] for (int i = 0; i < 8; i++)
-	{
-		if (any(neighboredges[i]) && offsetmask[i])
-		{
-			result += HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, offsets[i]).rgb;
-			blendtotal += 1.0;
-		}
-	}
-	
-	// normalize and return result
-	result /= blendtotal;
-	return ConditionalEncode(lerp(pixel, result, HqaaDenoisingStrength / 100.0));
-}
-
-/***************************************************************************************************************************************/
-/******************************************************** DENOISE SHADER CODE END ******************************************************/
 /***************************************************************************************************************************************/
 
 /***************************************************************************************************************************************/
@@ -2358,31 +2237,17 @@ technique HQAA <
 		ClearRenderTargets = true;
 	}
 #endif //HQAA_TAA_ASSIST_MODE
-	pass GenerateTemporarySharpen
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAPresharpenPS;
-		RenderTarget = HQAAblendTex;
-		ClearRenderTargets = true;
-	}
 	pass EdgeDetection
 	{
 		VertexShader = HQAAEdgeDetectionVS;
 		PixelShader = HQAAHybridEdgeDetectionPS;
-		RenderTarget = HQAAedgesTex;
+		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
 	}
 	pass EdgeErrorReduction
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAEdgeErrorReductionPS;
-		RenderTarget = HQAAblendTex;
-		ClearRenderTargets = true;
-	}
-	pass FinalizeEdgeData
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAFinalEdgesCopyPS;
 		RenderTarget = HQAAedgesTex;
 		ClearRenderTargets = true;
 	}
@@ -2393,20 +2258,10 @@ technique HQAA <
 		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
 	}
-	pass ResultDenoiser
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAResultDenoisePS;
-	}
 	pass SMAABlending
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAANeighborhoodBlendingPS;
-	}
-	pass ResultDenoiser
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAResultDenoisePS;
 	}
 	pass FXAA
 	{
@@ -2431,34 +2286,6 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAFXPS;
 	}
-#if HQAA_FXAA_MULTISAMPLING > 4
-	pass FXAA
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAFXPS;
-	}
-#if HQAA_FXAA_MULTISAMPLING > 5
-	pass FXAA
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAFXPS;
-	}
-#if HQAA_FXAA_MULTISAMPLING > 6
-	pass FXAA
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAFXPS;
-	}
-#if HQAA_FXAA_MULTISAMPLING > 7
-	pass FXAA
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAFXPS;
-	}
-#endif //HQAA_USE_MULTISAMPLED_FXAA7
-#endif //HQAA_USE_MULTISAMPLED_FXAA6
-#endif //HQAA_USE_MULTISAMPLED_FXAA5
-#endif //HQAA_USE_MULTISAMPLED_FXAA4
 #endif //HQAA_USE_MULTISAMPLED_FXAA3
 #endif //HQAA_USE_MULTISAMPLED_FXAA2
 #endif //HQAA_USE_MULTISAMPLED_FXAA1
