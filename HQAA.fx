@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v24.0
+ *                        v25.0
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 24.0";
+	ui_label = "Version: 25.0";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1409,6 +1409,16 @@ texture HQAAedgesTex
 	Format = RGBA8;
 };
 
+texture HQAAlastedgesTex
+#if __RESHADE__ < 50000
+< pooled = false; >
+#endif
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	Format = RG8;
+};
+
 texture HQAAblendTex
 #if __RESHADE__ >= 50000
 < pooled = true; >
@@ -1487,6 +1497,11 @@ texture HQAAlumaMaskTex
 sampler HQAAsamplerAlphaEdges
 {
 	Texture = HQAAedgesTex;
+};
+
+sampler HQAAsamplerLastEdges
+{
+	Texture = HQAAlastedgesTex;
 };
 
 sampler HQAAsamplerSMweights
@@ -1611,7 +1626,7 @@ float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 /*****************************************************************************************************************************************/
 
 //////////////////////////////////////////////////////// EDGE DETECTION ///////////////////////////////////////////////////////////////////
-float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
+float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
 {
 	float3 middle = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	
@@ -1671,7 +1686,7 @@ float2 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	
 	edges *= step(finalDelta, scale * (1.0 + contrastmultiplier) * delta.xy);
 	
-	return edges;
+	return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 }
 
 /////////////////////////////////////////////////////// ERROR REDUCTION ///////////////////////////////////////////////////////////////////
@@ -1679,19 +1694,19 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 {
 	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	float2 bufferdata = float2(dot(pixel, __HQAA_LUMA_REF), dotsat(pixel));
-	float2 edges = HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg;
+	float2 edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba);
 	
 	// skip checking neighbors if there's already no detected edge
 	if (!any(edges)) return float4(edges, bufferdata);
 	
-    float2 a = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg;
-    float2 c = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg;
-    float2 g = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg;
-    float2 i = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg;
-    float2 b = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg;
-    float2 d = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg;
-    float2 f = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg;
-    float2 h = HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg;
+    float2 a = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba);
+    float2 c = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba);
+    float2 g = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).ba);
+    float2 i = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).ba);
+    float2 b = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).ba);
+    float2 d = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).ba);
+    float2 f = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).ba);
+    float2 h = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).ba);
     
 	float2 adjacentsum = a + c + g + i + b + d + f + h;
 	adjacentsum *= edges; // keep only neighbor count of same type
@@ -1699,6 +1714,12 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	bool validedge = any(saturate(adjacentsum - 1.0)) && !any(saturate(adjacentsum - __HQAA_SM_ERRORMARGIN));
 	if (validedge) return float4(edges, bufferdata);
 	else return float4(0.0, 0.0, bufferdata);
+}
+
+//////////////////////////////////////////////////////// N-1 EDGES COPY ///////////////////////////////////////////////////////////////////
+float2 HQAASavePreviousEdgesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg;
 }
 
 /////////////////////////////////////////////////// BLEND WEIGHT CALCULATION //////////////////////////////////////////////////////////////
@@ -2249,6 +2270,13 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAEdgeErrorReductionPS;
 		RenderTarget = HQAAedgesTex;
+		ClearRenderTargets = true;
+	}
+	pass SaveEdges
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAASavePreviousEdgesPS;
+		RenderTarget = HQAAlastedgesTex;
 		ClearRenderTargets = true;
 	}
 	pass SMAABlendCalculation
