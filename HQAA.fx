@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v25.0
+ *                        v25.1
  *
  *                     by lordbean
  *
@@ -117,7 +117,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
-	#define HQAA_FXAA_MULTISAMPLING 1
+	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
 #ifndef HQAA_TAA_ASSIST_MODE
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 25.0";
+	ui_label = "Version: 25.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -150,13 +150,13 @@ uniform int HQAAintroduction <
 				"Output Mode:       Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_FXAA_MULTISAMPLING < 2
-				"FXAA Multisampling:      off\n"
+				"FXAA Multisampling:      off  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 3
 				"FXAA Multisampling:       4x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 2
 				"FXAA Multisampling:       3x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x  *\n"
+				"FXAA Multisampling:       2x\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:          on  *\n"
@@ -704,13 +704,6 @@ float encodePQ(float x)
 }
 float2 encodePQ(float2 x)
 {
-/*	float nits = 10000.0;
-	float m2rcp = 0.012683; // 1 / (2523/32)
-	float m1rcp = 6.277395; // 1 / (1305/8192)
-	float c1 = 0.8359375; // 107 / 128
-	float c2 = 18.8515625; // 2413 / 128
-	float c3 = 18.6875; // 2392 / 128
-*/
 	float2 xpm2rcp = pow(clamp(x, 0.0, 1.0), 0.012683);
 	float2 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float2 denominator = 18.8515625 - (18.6875 * xpm2rcp);
@@ -726,13 +719,6 @@ float2 encodePQ(float2 x)
 }
 float3 encodePQ(float3 x)
 {
-/*	float nits = 10000.0;
-	float m2rcp = 0.012683; // 1 / (2523/32)
-	float m1rcp = 6.277395; // 1 / (1305/8192)
-	float c1 = 0.8359375; // 107 / 128
-	float c2 = 18.8515625; // 2413 / 128
-	float c3 = 18.6875; // 2392 / 128
-*/
 	float3 xpm2rcp = pow(clamp(x, 0.0, 1.0), 0.012683);
 	float3 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float3 denominator = 18.8515625 - (18.6875 * xpm2rcp);
@@ -748,13 +734,6 @@ float3 encodePQ(float3 x)
 }
 float4 encodePQ(float4 x)
 {
-/*	float nits = 10000.0;
-	float m2rcp = 0.012683; // 1 / (2523/32)
-	float m1rcp = 6.277395; // 1 / (1305/8192)
-	float c1 = 0.8359375; // 107 / 128
-	float c2 = 18.8515625; // 2413 / 128
-	float c3 = 18.6875; // 2392 / 128
-*/
 	float4 xpm2rcp = pow(clamp(x, 0.0, 1.0), 0.012683);
 	float4 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float4 denominator = 18.8515625 - (18.6875 * xpm2rcp);
@@ -790,13 +769,6 @@ float decodePQ(float x)
 }
 float2 decodePQ(float2 x)
 {
-/*	float nits = 10000.0;
-	float m2 = 78.84375 // 2523 / 32
-	float m1 = 0.159302; // 1305 / 8192
-	float c1 = 0.8359375; // 107 / 128
-	float c2 = 18.8515625; // 2413 / 128
-	float c3 = 18.6875; // 2392 / 128
-*/
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	float2 xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
 #else
@@ -809,13 +781,6 @@ float2 decodePQ(float2 x)
 }
 float3 decodePQ(float3 x)
 {
-/*	float nits = 10000.0;
-	float m2 = 78.84375 // 2523 / 32
-	float m1 = 0.159302; // 1305 / 8192
-	float c1 = 0.8359375; // 107 / 128
-	float c2 = 18.8515625; // 2413 / 128
-	float c3 = 18.6875; // 2392 / 128
-*/
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	float3 xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
 #else
@@ -828,13 +793,6 @@ float3 decodePQ(float3 x)
 }
 float4 decodePQ(float4 x)
 {
-/*	float nits = 10000.0;
-	float m2 = 78.84375 // 2523 / 32
-	float m1 = 0.159302; // 1305 / 8192
-	float c1 = 0.8359375; // 107 / 128
-	float c2 = 18.8515625; // 2413 / 128
-	float c3 = 18.6875; // 2392 / 128
-*/
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	float4 xpm1 = pow(clamp(x / 500.0, 0.0, 1.0), 0.159302);
 #else
@@ -947,19 +905,19 @@ float4 encodeHDR(float4 x)
 
 float decodeHDR(float x)
 {
-	return clamp(x, 0.0, 497.0) / 497.0;
+	return clamp(x, 0.0, HqaaHdrNits) / HqaaHdrNits;
 }
 float2 decodeHDR(float2 x)
 {
-	return clamp(x, 0.0, 497.0) / 497.0;
+	return clamp(x, 0.0, HqaaHdrNits) / HqaaHdrNits;
 }
 float3 decodeHDR(float3 x)
 {
-	return clamp(x, 0.0, 497.0) / 497.0;
+	return clamp(x, 0.0, HqaaHdrNits) / HqaaHdrNits;
 }
 float4 decodeHDR(float4 x)
 {
-	return clamp(x, 0.0, 497.0) / 497.0;
+	return clamp(x, 0.0, HqaaHdrNits) / HqaaHdrNits;
 }
 #endif //HQAA_OUTPUT_MODE == 1
 
@@ -1585,43 +1543,6 @@ void HQAANeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position : 
 /*****************************************************************************************************************************************/
 
 /*****************************************************************************************************************************************/
-/****************************************************** SUPPORT SHADER CODE START ********************************************************/
-/*****************************************************************************************************************************************/
-
-/////////////////////////////////////////////////// TEMPORAL STABILIZER FRAME COPY ////////////////////////////////////////////////////////
-#if HQAA_OPTIONAL_EFFECTS
-#if HQAA_OPTIONAL__TEMPORAL_STABILIZER
-// optional stabilizer - save previous frame
-float3 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	return HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
-}
-#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
-#endif //HQAA_OPTIONAL_EFFECTS
-
-///////////////////////////////////////////////////// TAA ASSIST LUMA HISTOGRAM ///////////////////////////////////////////////////////////
-#if HQAA_TAA_ASSIST_MODE
-float HQAALumaSnapshotPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	return dot(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb, __HQAA_LUMA_REF);
-}
-
-float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
-{
-	float previous = HQAA_Tex2D(HQAAsamplerPreviousLuma, texcoord).r;
-	float current = dot(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb, __HQAA_LUMA_REF);
-	// for some reason this seems to be a good baseline difference
-	float mindiff = __HQAA_SMALLEST_COLOR_STEP * BUFFER_COLOR_BIT_DEPTH;
-	bool outdata = abs(current - previous) > mindiff;
-	return float(outdata);
-}
-#endif //HQAA_TAA_ASSIST_MODE
-
-/*****************************************************************************************************************************************/
-/******************************************************* SUPPORT SHADER CODE END *********************************************************/
-/*****************************************************************************************************************************************/
-
-/*****************************************************************************************************************************************/
 /********************************************************** SMAA SHADER CODE START *******************************************************/
 /*****************************************************************************************************************************************/
 
@@ -1637,55 +1558,84 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 
 	float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
-	float contrastmultiplier = abs(0.5 - dotsat(middle)) + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
+	float middlesat = abs(0.5 - dotsat(middle));
+	float contrastmultiplier = middlesat + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
-	
-	// contrast adaptation setup
-	float3 dotscalar = __HQAA_LUMA_REF * middle;
-	float scale = log2(rcp(HQAAvec3add(dotscalar)));
 	
 	float2 edges = float(0.0).xx;
 	
     float L = dot(middle, __HQAA_WEIGHT_M);
 	
-	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].xy).rgb;
-    float Lleft = dot(dotscalar, __HQAA_WEIGHT_L);
+	float3 dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].xy).rgb;
+    float Lleft = abs(L - dot(dotscalar, __HQAA_WEIGHT_L));
     float Cleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
     
 	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].zw).rgb;
-    float Ltop = dot(dotscalar, __HQAA_WEIGHT_M);
+    float Ltop = abs(L - dot(dotscalar, __HQAA_WEIGHT_M));
     float Ctop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
     
     dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].xy).rgb;
-	float Lright = dot(dotscalar, __HQAA_WEIGHT_R);
+	float Lright = abs(L - dot(dotscalar, __HQAA_WEIGHT_R));
 	float Cright = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
 	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].zw).rgb;
-	float Lbottom = dot(dotscalar, __HQAA_WEIGHT_M);
+	float Lbottom = abs(L - dot(dotscalar, __HQAA_WEIGHT_M));
 	float Cbottom = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
-    float4 delta = float4(max(abs(L - Lleft), Cleft), max(abs(L - Ltop), Ctop), max(abs(L - Lright), Cright), max(abs(L - Lbottom), Cbottom));
+	bool useluma = max(max(Lleft, Ltop), max(Lright, Lbottom)) > max(max(Cleft, Ctop), max(Cright, Cbottom));
+	float finalDelta;
+	float4 delta;
+	float scale;
+	
+	if (useluma)
+	{
+		// range effectively 1 to a bit under 3
+		dotscalar = __HQAA_LUMA_REF * middle;
+		scale = sqrt(clamp(log2(rcp(HQAAvec3add(dotscalar))), 1.0, 9.0));
+		
+    	delta = float4(Lleft, Ltop, Lright, Lbottom);
     
-    edges = step(threshold, delta.xy);
+   	 edges = step(threshold, delta.xy);
     
-	float2 maxDelta = max(delta.xy, delta.zw);
+		float2 maxDelta = max(delta.xy, delta.zw);
 	
-	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
-	float Lleftleft = dot(dotscalar, __HQAA_WEIGHT_L);
-	float Cleftleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+		dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
+		float Lleftleft = abs(L - dot(dotscalar, __HQAA_WEIGHT_L));
 	
-	dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
-	float Ltoptop = dot(dotscalar, __HQAA_WEIGHT_M);
-	float Ctoptop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+		dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
+		float Ltoptop = abs(L - dot(dotscalar, __HQAA_WEIGHT_M));
 	
-	delta.zw = abs(float2(max(Lleft, Cleft), max(Ltop, Ctop)) - float2(max(Lleftleft, Cleftleft), max(Ltoptop, Ctoptop)));
+		delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
 
-	maxDelta = max(maxDelta, delta.zw);
+		maxDelta = max(maxDelta, delta.zw);
 	
-	float finalDelta = max(maxDelta.x, maxDelta.y);
+		finalDelta = max(maxDelta.x, maxDelta.y);
+	}
+	else
+	{
+		// range 1 to 3
+		scale = 1.0 + (middlesat * 4.0);
+		
+ 	   delta = float4(Cleft, Ctop, Cright, Cbottom);
+    
+	    edges = step(threshold, delta.xy);
+    
+		float2 maxDelta = max(delta.xy, delta.zw);
 	
-	edges *= step(finalDelta, scale * (1.0 + contrastmultiplier) * delta.xy);
+		dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
+		float Cleftleft = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
 	
+		dotscalar = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
+		float Ctoptop = HQAAvec3add(abs(middle - dotscalar)) / 3.0;
+	
+		delta.zw = abs(float2(Cleft, Ctop) - float2(Cleftleft, Ctoptop));
+
+		maxDelta = max(maxDelta, delta.zw);
+	
+		finalDelta = max(maxDelta.x, maxDelta.y);
+	}
+	
+	edges *= step(finalDelta, scale * delta.xy);
 	return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 }
 
@@ -2024,6 +1974,43 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 /******************************************************* HYSTERESIS SHADER CODE END ****************************************************/
 /***************************************************************************************************************************************/
 
+/*****************************************************************************************************************************************/
+/****************************************************** SUPPORT SHADER CODE START ********************************************************/
+/*****************************************************************************************************************************************/
+
+/////////////////////////////////////////////////// TEMPORAL STABILIZER FRAME COPY ////////////////////////////////////////////////////////
+#if HQAA_OPTIONAL_EFFECTS
+#if HQAA_OPTIONAL__TEMPORAL_STABILIZER
+// optional stabilizer - save previous frame
+float3 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
+}
+#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
+#endif //HQAA_OPTIONAL_EFFECTS
+
+///////////////////////////////////////////////////// TAA ASSIST LUMA HISTOGRAM ///////////////////////////////////////////////////////////
+#if HQAA_TAA_ASSIST_MODE
+float HQAALumaSnapshotPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return dot(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb, __HQAA_LUMA_REF);
+}
+
+float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float previous = HQAA_Tex2D(HQAAsamplerPreviousLuma, texcoord).r;
+	float current = dot(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb, __HQAA_LUMA_REF);
+	// for some reason this seems to be a good baseline difference
+	float mindiff = __HQAA_SMALLEST_COLOR_STEP * BUFFER_COLOR_BIT_DEPTH;
+	bool outdata = abs(current - previous) > mindiff;
+	return float(outdata);
+}
+#endif //HQAA_TAA_ASSIST_MODE
+
+/*****************************************************************************************************************************************/
+/******************************************************* SUPPORT SHADER CODE END *********************************************************/
+/*****************************************************************************************************************************************/
+
 /***************************************************************************************************************************************/
 /******************************************************* OPTIONAL SHADER CODE START ****************************************************/
 /***************************************************************************************************************************************/
@@ -2052,51 +2039,41 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
     float middiff[3] = {0.004706, 0.007843, 0.012941}; // 1.2/255, 2.0/255, 3.3/255
 #endif
 
-    // Initialize the PRNG
     float randomseed = HqaaDebandSeed / 32767.0;
     float h = permute(float2(permute(float2(texcoord.x, randomseed)), permute(float2(texcoord.y, randomseed))));
 
-    // Compute a random angle
     float dir = frac(permute(h) / 41.0) * 6.2831853;
     float2 angle = float2(cos(dir), sin(dir));
 
-    // Compute a random distance
     float2 dist = frac(h / 41.0) * HqaaDebandRange * BUFFER_PIXEL_SIZE;
 
-    // Sample at quarter-turn intervals around the source pixel
-
-    // South-east
     float3 ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * angle)).rgb;
     float3 diff = abs(ori - ref);
     float3 ref_max_diff = diff;
     float3 ref_avg = ref;
     float3 ref_mid_diff1 = ref;
 
-    // North-west
     ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * -angle)).rgb;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     ref_mid_diff1 = abs(((ref_mid_diff1 + ref) * 0.5) - ori);
 
-    // North-east
     ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * float2(-angle.y, angle.x))).rgb;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     float3 ref_mid_diff2 = ref;
 
-    // South-west
     ref = HQAA_DecodeTex2D(ReShade::BackBuffer, (texcoord + dist * float2(angle.y, -angle.x))).rgb;
     diff = abs(ori - ref);
     ref_max_diff = max(ref_max_diff, diff);
     ref_avg += ref;
     ref_mid_diff2 = abs(((ref_mid_diff2 + ref) * 0.5) - ori);
 
-    ref_avg *= 0.25; // Normalize avg
+    ref_avg *= 0.25;
     float3 ref_avg_diff = abs(ori - ref_avg);
     
-    // Fuzzy logic based pixel selection
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
     float3 factor = pow(saturate(3.0 * (1.0 - ref_avg_diff  / avgdiff)) *
                             saturate(3.0 * (1.0 - ref_max_diff  / maxdiff)) *
@@ -2117,8 +2094,6 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 }
 #endif //HQAA_OPTIONAL__DEBANDING
 
-// Optional effects main pass. These are sorted in an order that they won't
-// interfere with each other when they're all enabled
 float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
@@ -2169,7 +2144,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 		pixel = casdot;
 	}
-	else pixel = ConditionalDecode(pixel); // initially skipped for performance optimizations
+	else pixel = ConditionalDecode(pixel); // initially skipped for performance optimization
 
 	if (HqaaEnableBrightnessGain)
 	{
