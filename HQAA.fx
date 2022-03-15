@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v25.2
+ *                        v25.2.1
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 25.2";
+	ui_label = "Version: 25.2.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1773,7 +1773,8 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float range = rangeMax - rangeMin;
     
 	// early exit check
-    bool earlyExit = range < fxaaQualityEdgeThreshold;
+	bool SMAAedge = any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
+    bool earlyExit = range < fxaaQualityEdgeThreshold && !SMAAedge;
 	if (earlyExit)
 #if HQAA_DEBUG_MODE
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
