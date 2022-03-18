@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v25.3
+ *                        v25.3.1
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 25.3";
+	ui_label = "Version: 25.3.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -286,13 +286,14 @@ uniform uint HqaaEdgeErrorMarginCustom <
 	ui_text = "Detected Edges Margin of Error:";
 	ui_tooltip = "Determines maximum number of neighbor edges allowed before\n"
 				"an edge is considered an erroneous detection. Low preserves\n"
-				"detail, high increases amount of anti-aliasing applied.";
-	ui_items = "Low\0Balanced\0High\0";
+				"detail, high increases amount of anti-aliasing applied. You\n"
+				"can skip this check entirely by selecting 'Off'.";
+	ui_items = "Low\0Balanced\0High\0Off\0";
 	ui_category = "SMAA";
 	ui_category_closed = true;
 > = 1;
 
-static const float HQAA_ERRORMARGIN_CUSTOM[3] = {4.0, 5.0, 7.0};
+static const float HQAA_ERRORMARGIN_CUSTOM[4] = {4.0, 5.0, 7.0, -1.0};
 
 uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -627,9 +628,9 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 5.0, 7.0};
 #define __HQAA_WEIGHT_R float3(0.6, 0.3, 0.1)
 
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
-#define __HQAA_FX_RADIUS 16.0
+#define __HQAA_FX_RADIUS 10.0
 #else
-#define __HQAA_FX_RADIUS (16.0 / __HQAA_FX_TEXEL)
+#define __HQAA_FX_RADIUS (10.0 / __HQAA_FX_TEXEL)
 #endif
 
 #define __HQAA_FX_WEIGHT __HQAA_WEIGHT_M
@@ -1560,7 +1561,8 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	
 	float middlesat = abs(0.5 - dotsat(middle));
 	float contrastmultiplier = middlesat + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
-	contrastmultiplier = squared(squared(contrastmultiplier));
+	// range compression accounting for different buffer depths
+	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH);
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
 	float2 edges = float(0.0).xx;
@@ -1587,16 +1589,22 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     dotscalar = abs(middle - dotscalar);
 	float Cbottom = HQAAdotmax(dotscalar);
 	
-	bool useluma = max(max(Lleft, Ltop), max(Lright, Lbottom)) > max(max(Cleft, Ctop), max(Cright, Cbottom));
+	float maxL = max(max(Lleft, Ltop), max(Lright, Lbottom));
+	float maxC = max(max(Cleft, Ctop), max(Cright, Cbottom));
+	
+	bool earlyExit = max(maxL, maxC) < threshold.x;
+	if (earlyExit) return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
+	
+	bool useluma = maxL > maxC;
 	float finalDelta;
 	float4 delta;
 	float scale;
 	
 	if (useluma)
 	{
-		// range effectively 1 to a bit under 3
+		// scale always has a range of 1 to e regardless of the bit depth.
 		dotscalar = __HQAA_LUMA_REF * middle;
-		scale = sqrt(clamp(log2(rcp(HQAAvec3add(dotscalar))), 1.0, 9.0));
+		scale = pow(clamp(log(rcp(HQAAvec3add(dotscalar))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
 		
     	delta = float4(Lleft, Ltop, Lright, Lbottom);
     
@@ -1618,8 +1626,8 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	}
 	else
 	{
-		// range 1 to 3
-		scale = 1.0 + (middlesat * 4.0);
+		// range 1 to e
+		scale = 1.0 + ((middlesat * 2.0 * __HQAA_CONST_E) -1.0);
 		
  	   delta = float4(Cleft, Ctop, Cright, Cbottom);
     
@@ -1651,8 +1659,8 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float2 bufferdata = float2(dot(pixel, __HQAA_LUMA_REF), dotsat(pixel));
 	float2 edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba);
 	
-	// skip checking neighbors if there's already no detected edge
-	if (!any(edges)) return float4(edges, bufferdata);
+	// skip checking neighbors if there's already no detected edge or no error margin check is desired
+	if (!any(edges) || (__HQAA_SM_ERRORMARGIN == -1.0)) return float4(edges, bufferdata);
 	
     float2 a = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba);
     float2 c = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba);
@@ -1764,7 +1772,8 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
 	float contrastmultiplier = abs(0.5 - dotsat(rgbyM)) + abs(0.5 - dot(rgbyM, __HQAA_LUMA_REF));
-	contrastmultiplier = squared(squared(contrastmultiplier));
+	// range compression accounting for different buffer depths - FXAA gets more slack
+	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH / 2.0);
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 
     float lumaS = dot(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb, __HQAA_FX_WEIGHT);
@@ -1875,9 +1884,6 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float2 posM = texcoord;
 	HQAAMovc(bool2(!horzSpan, horzSpan), posM, float2(posM.x + lengthSign * subpixOut, posM.y + lengthSign * subpixOut));
     
-	// Establish result
-	float3 resultAA = HQAA_DecodeTex2D(ReShade::BackBuffer, posM).rgb;
-	
 	// output selection
 #if HQAA_DEBUG_MODE
 	if (HqaaDebugMode == 4)
@@ -1894,7 +1900,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	}
 #endif //HQAA_DEBUG_MODE
 	// normal output
-	return ConditionalEncode(resultAA);
+	return HQAA_Tex2D(ReShade::BackBuffer, posM).rgb;
 #if HQAA_TAA_ASSIST_MODE
 	}
 	else {
