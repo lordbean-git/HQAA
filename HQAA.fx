@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v26.0
+ *                        v26.1
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 26.0";
+	ui_label = "Version: 26.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -253,8 +253,8 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaHysteresisStrength = 12.5;
-static const float HqaaHysteresisFudgeFactor = 1.0;
+static const float HqaaHysteresisStrength = 37.5;
+static const float HqaaHysteresisFudgeFactor = 0.5;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaDoSaturationHysteresis = false;
 
@@ -576,10 +576,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|    0.15   | 66.7% |   20%  |  Low   |  50% |  2.0  |  50%  |\n"
-			  "|  Medium|    0.10   | 60.0% |   25%  |  Low   | 100% |  1.0  |  75%  |\n"
-			  "|    High|    0.06   | 50.0% |   33%  |Balanced| 150% |  1.0  |  88%  |\n"
-			  "|   Ultra|    0.04   | 50.0% |   50%  |  High  | 200% |  0.5  | 100%  |\n"
+			  "|     Low|    0.15   | 66.7% |   10%  |  Low   |  50% |  2.0  |  50%  |\n"
+			  "|  Medium|    0.10   | 60.0% |   20%  |  Low   | 100% |  1.0  |  75%  |\n"
+			  "|    High|    0.06   | 50.0% |   25%  |Balanced| 150% |  1.0  |  88%  |\n"
+			  "|   Ultra|    0.04   | 50.0% |   33%  |  High  | 200% |  0.5  | 100%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -597,7 +597,7 @@ uniform int HqaaPresetBreakdown <
 
 static const float HQAA_THRESHOLD_PRESET[4] = {0.15, 0.1, 0.06, 0.04};
 static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.666667, 0.6, 0.5, 0.5};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.2, 0.25, 0.333333, 0.5};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.1, 0.2, 0.25, 0.333333};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.875, 1.0};
@@ -685,7 +685,7 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 5.0, 7.0};
 float dotweight(float3 middle, float3 neighbor, bool useluma, float3 weights)
 {
 	if (useluma) return dot(neighbor, weights);
-	else return HQAAdotmax(abs(middle - neighbor));
+	else { float3 diff = abs(middle - neighbor); return HQAAvec3add(diff); }
 }
 
 /////////////////////////////////////////////////////// TRANSFER FUNCTIONS ////////////////////////////////////////////////////////////////
