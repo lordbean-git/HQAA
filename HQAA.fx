@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v26.1
+ *                        v26.2
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 26.1";
+	ui_label = "Version: 26.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1572,7 +1572,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	float middlesat = abs(0.5 - dotsat(middle));
 	float contrastmultiplier = middlesat + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
 	// range compression accounting for different buffer depths
-	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH);
+	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH / 2.0);
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
 	float2 edges = float(0.0).xx;
@@ -1580,25 +1580,25 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dotweight(0, middle, true, __HQAA_WEIGHT_M);
 	
 	float3 neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].xy).rgb;
-    float Lleft = abs(L - dotweight(0, neighbor, true, __HQAA_WEIGHT_L));
+    float Lleft = dotweight(0, neighbor, true, __HQAA_WEIGHT_L);
     float Cleft = dotweight(middle, neighbor, false, 0);
     
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].zw).rgb;
-    float Ltop = abs(L - dotweight(0, neighbor, true, __HQAA_WEIGHT_M));
+    float Ltop = dotweight(0, neighbor, true, __HQAA_WEIGHT_M);
     float Ctop = dotweight(middle, neighbor, false, 0);
     
     neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].xy).rgb;
-    float Lright = abs(L - dotweight(0, neighbor, true, __HQAA_WEIGHT_R));
+    float Lright = dotweight(0, neighbor, true, __HQAA_WEIGHT_R);
     float Cright = dotweight(middle, neighbor, false, 0);
 	
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].zw).rgb;
-	float Lbottom = abs(L - dotweight(0, neighbor, true, __HQAA_WEIGHT_M));
+	float Lbottom = dotweight(0, neighbor, true, __HQAA_WEIGHT_M);
 	float Cbottom = dotweight(middle, neighbor, false, 0);
 	
 	float maxL = HQAAmax4(Lleft, Ltop, Lright, Lbottom);
 	float maxC = HQAAmax4(Cleft, Ctop, Cright, Cbottom);
 	
-	bool earlyExit = max(maxL, maxC) < threshold.x;
+	bool earlyExit = max(abs(L - maxL), maxC) < threshold.x;
 	if (earlyExit) return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 	
 	bool useluma = maxL > maxC;
@@ -1612,17 +1612,17 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 		neighbor = __HQAA_LUMA_REF * middle;
 		scale = pow(clamp(log(rcp(HQAAvec3add(neighbor))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
 		
-    	delta = float4(Lleft, Ltop, Lright, Lbottom);
+    	delta = abs(L - float4(Lleft, Ltop, Lright, Lbottom));
     
    	 edges = step(threshold, delta.xy);
     
 		float2 maxDelta = max(delta.xy, delta.zw);
 	
 		neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
-		float Lleftleft = abs(L - dotweight(0, neighbor, true, __HQAA_WEIGHT_L));
+		float Lleftleft = dotweight(0, neighbor, true, __HQAA_WEIGHT_L);
 	
 		neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
-		float Ltoptop = abs(L - dotweight(0, neighbor, true, __HQAA_WEIGHT_M));
+		float Ltoptop = dotweight(0, neighbor, true, __HQAA_WEIGHT_M);
 	
 		delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
 
@@ -1779,7 +1779,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
 	float contrastmultiplier = abs(0.5 - dotsat(middle)) + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
 	// range compression accounting for different buffer depths - FXAA gets more slack
-	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH / 2.0);
+	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 	
 	float3 neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb;
