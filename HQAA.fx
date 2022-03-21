@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v26.3.1
+ *                        v26.4
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 26.3.1";
+	ui_label = "Version: 26.4";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -257,6 +257,7 @@ static const float HqaaHysteresisStrength = 20;
 static const float HqaaHysteresisFudgeFactor = 2.0;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaDoSaturationHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -294,6 +295,20 @@ uniform uint HqaaEdgeErrorMarginCustom <
 > = 1;
 
 static const float HQAA_ERRORMARGIN_CUSTOM[4] = {4.0, 5.0, 7.0, -1.0};
+
+uniform uint HqaaEdgeTemporalAggregation <
+	ui_type = "radio";
+	ui_label = "Mouseover for description";
+	ui_spacing = 3;
+	ui_text = "Temporal Aggregation Mode:";
+	ui_tooltip = "Determines the conditions under which edge detection\n"
+				"temporal aggregation will keep or discard detected\n"
+				"edges. Loose may cause mild ghosting, strict may miss\n"
+				"edges during motion or shimmer slightly.";
+	ui_items = "Loose\0Balanced\0Strict\0";
+	ui_category = "SMAA";
+	ui_category_closed = true;
+> = 1;
 
 uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -1638,19 +1653,19 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 {
 	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	float2 bufferdata = float2(dot(pixel, __HQAA_LUMA_REF), dotsat(pixel));
-	float2 edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba);
+	float2 edges = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba);
 	
 	// skip checking neighbors if there's already no detected edge or no error margin check is desired
 	if (!any(edges) || (__HQAA_SM_ERRORMARGIN == -1.0)) return float4(edges, bufferdata);
 	
-    float2 a = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba);
-    float2 c = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba);
-    float2 g = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 1)).ba);
-    float2 i = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 1)).ba);
-    float2 b = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, -1)).ba);
-    float2 d = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 0)).ba);
-    float2 f = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 0)).ba);
-    float2 h = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, 1)).ba);
+    float2 a = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba);
+    float2 c = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba);
+    float2 g = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 1)).ba);
+    float2 i = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 1)).ba);
+    float2 b = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, -1)).ba);
+    float2 d = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 0)).ba);
+    float2 f = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 0)).ba);
+    float2 h = saturate(-float(HqaaEdgeTemporalAggregation) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, 1)).ba);
     
 	float2 adjacentsum = a + c + g + i + b + d + f + h;
 	adjacentsum *= edges; // keep only neighbor count of same type
