@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v26.3
+ *                        v26.3.1
  *
  *                     by lordbean
  *
@@ -129,7 +129,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 26.3";
+	ui_label = "Version: 26.3.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -253,10 +253,10 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaHysteresisStrength = 37.5;
-static const float HqaaHysteresisFudgeFactor = 0.5;
+static const float HqaaHysteresisStrength = 20;
+static const float HqaaHysteresisFudgeFactor = 2.0;
 static const bool HqaaDoLumaHysteresis = true;
-static const bool HqaaDoSaturationHysteresis = false;
+static const bool HqaaDoSaturationHysteresis = true;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -1541,15 +1541,13 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	
 #if HQAA_TAA_ASSIST_MODE
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
-	if (!lumachange) return float(0.0).xx;
+	if (!lumachange) return float(0.0).xxxx;
 #endif //HQAA_TAA_ASSIST_MODE
 
 	float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
 	float middlesat = abs(0.5 - dotsat(middle));
 	float contrastmultiplier = middlesat + abs(0.5 - dot(middle, __HQAA_LUMA_REF));
-	// range compression accounting for different buffer depths
-	contrastmultiplier = pow(contrastmultiplier, BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float2 threshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
 	float2 edges = float(0.0).xx;
