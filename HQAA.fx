@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v26.4
+ *                        v26.5
  *
  *                     by lordbean
  *
@@ -114,6 +114,9 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#ifndef HQAA_OPTIONAL__DEBANDING
 		#define HQAA_OPTIONAL__DEBANDING 0
 	#endif
+	#ifndef HQAA_OPTIONAL__SOFTENING
+		#define HQAA_OPTIONAL__SOFTENING 0
+	#endif
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
@@ -129,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 26.4";
+	ui_label = "Version: 26.5";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -183,6 +186,11 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
 				"Debanding:               off\n"
 			#endif //HQAA_OPTIONAL__DEBANDING
+			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__SOFTENING
+				"Image Softening:          on  *\n"
+			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
+				"Image Softening:         off\n"
+			#endif
 			
 			"\nRemarks:\n"
 			
@@ -516,6 +524,23 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
 
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 #endif //HQAA_OPTIONAL__DEBANDING
+
+#if HQAA_OPTIONAL__SOFTENING
+uniform float HqaaImageSoftenStrength <
+	ui_type = "slider";
+	ui_spacing = 3;
+	ui_min = 0.0;
+	ui_max = 1.0;
+	ui_step = 0.001;
+	ui_label = "Softening Strength";
+	ui_tooltip = "HQAA image softening measures error-controlled\n"
+				"average differences for the neighborhood around\n"
+				"every pixel to apply a subtle blur effect to the\n"
+				"scene. Warning: may eat stars.";
+	ui_category = "Image Softening";
+	ui_category_closed = true;
+> = 0.1;
+#endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
 	ui_type = "radio";
@@ -2229,6 +2254,55 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	else return pixel;
 #endif
 }
+
+#if HQAA_OPTIONAL__SOFTENING
+float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float3 a, b, c, d;
+	float colorstep = __HQAA_SMALLEST_COLOR_STEP;
+	
+#if __RENDERER__ >= 0xa000
+	float4 cdbared = tex2Dgather(ReShade::BackBuffer, texcoord, 0);
+	float4 cdbagreen = tex2Dgather(ReShade::BackBuffer, texcoord, 1);
+	float4 cdbablue = tex2Dgather(ReShade::BackBuffer, texcoord, 2);
+	a = float3(cdbared.w, cdbagreen.w, cdbablue.w);
+	float3 original = a;
+	a = ConditionalDecode(a);
+	b = ConditionalDecode(float3(cdbared.z, cdbagreen.z, cdbablue.z));
+	c = ConditionalDecode(float3(cdbared.x, cdbagreen.x, cdbablue.x));
+	d = ConditionalDecode(float3(cdbared.y, cdbagreen.y, cdbablue.y));
+#else
+	a = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float3 original = a;
+	a = ConditionalDecode(a);
+	b = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
+	c = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
+	d = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
+#endif
+	float3 e = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
+	float3 f = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
+	float3 g = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
+	float3 h = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
+	float3 i = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
+	
+	float3 bucketavg = (b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 6.0;
+	
+	b = abs(a - b);
+	c = abs(a - c);
+	d = abs(a - d);
+	e = abs(a - e);
+	f = abs(a - f);
+	g = abs(a - g);
+	h = abs(a - h);
+	i = abs(a - i);
+	
+	float3 avgdiff = (b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 6.0;
+	float chromadiff = dot(abs(a - avgdiff), float3(1.0, 1.0, 1.0));
+	
+	if (chromadiff < HqaaImageSoftenStrength) return ConditionalEncode(bucketavg);
+	else return original;
+}
+#endif //HQAA_OPTIONAL__SOFTENING
 #endif //HQAA_OPTIONAL_EFFECTS
 
 /***************************************************************************************************************************************/
@@ -2325,6 +2399,13 @@ technique HQAA <
 		PixelShader = HQAAHysteresisPS;
 	}
 #if HQAA_OPTIONAL_EFFECTS
+#if HQAA_OPTIONAL__SOFTENING
+	pass ImageSoftening
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAImageSoftenerPS;
+	}
+#endif //HQAA_OPTIONAL__SOFTENING
 #if HQAA_OPTIONAL__DEBANDING
 	pass Deband
 	{
