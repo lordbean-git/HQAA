@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v26.5
+ *                        v26.5.1
  *
  *                     by lordbean
  *
@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 26.5";
+	ui_label = "Version: 26.5.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -539,7 +539,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.1;
+> = 0.2;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2285,7 +2285,19 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	float3 h = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
 	float3 i = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
 	
-	float3 bucketavg = (b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 6.0;
+	float3 x1 = (e + f + g) / 3.0;
+	float3 x2 = (h + a + b) / 3.0;
+	float3 x3 = (i + c + d) / 3.0;
+	float3 y1 = (e + h + i) / 3.0;
+	float3 y2 = (f + a + c) / 3.0;
+	float3 y3 = (g + b + d) / 3.0;
+	float3 xy1 = (e + a + d) / 3.0;
+	float3 xy2 = (i + a + g) / 3.0;
+	float3 highterm = HQAAmax9(x1, x2, x3, y1, y2, y3, xy1, xy2, a);
+	float3 lowterm = HQAAmin9(x1, x2, x3, y1, y2, y3, xy1, xy2, a);
+	
+	//float3 localavg = (a + b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 7.0;
+	float3 localavg = ((x1 + x2 + x3 + y1 + y2 + y3 + xy1 + xy2 + a) - (highterm + lowterm)) / 7.0;
 	
 	b = abs(a - b);
 	c = abs(a - c);
@@ -2296,10 +2308,10 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	h = abs(a - h);
 	i = abs(a - i);
 	
-	float3 avgdiff = (b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 6.0;
+	float3 avgdiff = ((b + c + d + e + f + g + h + i) - (HQAAmax8(b, c, d, e, f, g, h, i) + HQAAmin8(b, c, d, e, f, g, h, i))) / 6.0;
 	float chromadiff = dot(abs(a - avgdiff), float3(1.0, 1.0, 1.0));
 	
-	if (chromadiff < HqaaImageSoftenStrength) return ConditionalEncode(bucketavg);
+	if (chromadiff < HqaaImageSoftenStrength) return ConditionalEncode(localavg);
 	else return original;
 }
 #endif //HQAA_OPTIONAL__SOFTENING
