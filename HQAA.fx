@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v27.1
+ *                        v27.2
  *
  *                     by lordbean
  *
@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.1";
+	ui_label = "Version: 27.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -153,13 +153,13 @@ uniform int HQAAintroduction <
 				"Output Mode:       Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_FXAA_MULTISAMPLING < 2
-				"FXAA Multisampling:      off\n"
+				"FXAA Multisampling:      off  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 3
 				"FXAA Multisampling:       4x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 2
 				"FXAA Multisampling:       3x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x  *\n"
+				"FXAA Multisampling:       2x\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
 				"TAA Assist Mode:          on  *\n"
@@ -261,10 +261,10 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaHysteresisStrength = 12.5;
-static const float HqaaHysteresisFudgeFactor = 0.5;
+static const float HqaaHysteresisStrength = 10.0;
+static const float HqaaHysteresisFudgeFactor = 0.0;
 static const bool HqaaDoLumaHysteresis = true;
-static const bool HqaaDoSaturationHysteresis = false;
+static const bool HqaaDoSaturationHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
 
 #else
@@ -606,10 +606,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|    0.25   | 60.0% |   10%  |  Low   |  50% |  2.0  |  50%  |\n"
-			  "|  Medium|    0.20   | 62.5% |   20%  |  Low   | 100% |  1.0  |  75%  |\n"
-			  "|    High|    0.15   | 66.7% |   25%  |Balanced| 150% |  1.0  |  88%  |\n"
-			  "|   Ultra|    0.10   | 75.0% |   33%  |  High  | 200% |  0.5  | 100%  |\n"
+			  "|     Low|    0.25   | 60.0% |   10%  |Balanced|  50% |  2.0  |  50%  |\n"
+			  "|  Medium|    0.20   | 75.0% |   20%  |Balanced| 100% |  1.0  |  75%  |\n"
+			  "|    High|    0.12   | 75.0% |   25%  |  High  | 150% |  1.0  |  88%  |\n"
+			  "|   Ultra|    0.08   | 75.0% |   33%  |  High  | 200% |  0.5  | 100%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -625,13 +625,13 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.25, 0.2, 0.15, 0.1};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.625, 0.666667, 0.75};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.25, 0.2, 0.12, 0.08};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.75, 0.75, 0.75};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.1, 0.2, 0.25, 0.333333};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.875, 1.0};
-static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 5.0, 7.0};
+static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 
 #define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
 #define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
@@ -715,7 +715,6 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {4.0, 4.0, 5.0, 7.0};
 float dotweight(float3 middle, float3 neighbor, bool useluma, float3 weights)
 {
 	if (useluma) return dot(neighbor, weights);
-//	else { float3 diff = abs(middle - neighbor); return HQAAvec3add(diff); }
 	else return dot(abs(middle - neighbor), __HQAA_LUMA_REF);
 }
 
@@ -1602,7 +1601,9 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
 	float satmult = 1.0 - dotsat(middle);
+	satmult = pow(abs(satmult), BUFFER_COLOR_BIT_DEPTH / 2.0);
 	float lumamult = 1.0 - dot(middle, __HQAA_LUMA_REF);
+	lumamult = pow(abs(satmult), BUFFER_COLOR_BIT_DEPTH / 2.0);
 	float2 lumathreshold = mad(lumamult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	float2 satthreshold = mad(satmult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
@@ -1704,17 +1705,33 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	// skip checking neighbors if there's already no detected edge or no error margin check is desired
 	if (!any(edges) || (__HQAA_SM_ERRORMARGIN == -1.0)) return float4(edges, bufferdata);
 	
-    float2 a = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba - HqaaEdgeTemporalAggregation);
-    float2 c = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba - HqaaEdgeTemporalAggregation);
-    float2 g = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 1)).ba - HqaaEdgeTemporalAggregation);
-    float2 i = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 1)).ba - HqaaEdgeTemporalAggregation);
-    float2 b = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, -1)).ba - HqaaEdgeTemporalAggregation);
-    float2 d = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 0)).ba - HqaaEdgeTemporalAggregation);
-    float2 f = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 0)).ba - HqaaEdgeTemporalAggregation);
-    float2 h = saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, 1)).ba - HqaaEdgeTemporalAggregation);
+	float2 mask = float2(0.0, 1.0);
+	if (all(edges)) mask = float2(0.0, 0.0);
+	else if (edges.g > 0.0) mask = float2(1.0, 0.0);
+	
+    float2 a = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 c = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 g = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 1)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 i = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 1)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 b = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 d = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, 0)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 f = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, 0)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, 0)).ba - HqaaEdgeTemporalAggregation) - mask);
+    float2 h = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0, 1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(0, 1)).ba - HqaaEdgeTemporalAggregation) - mask);
+    
+    // this case isn't mathematically handled by the mask value, partials can pass
+    if (all(edges))
+    {
+    	a = all(a) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	c = all(c) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	g = all(g) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	i = all(i) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	b = all(b) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	d = all(d) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	f = all(f) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    	h = all(h) ? float2(1.0, 1.0) : float2(0.0, 0.0);
+    }
     
 	float2 adjacentsum = a + c + g + i + b + d + f + h;
-	adjacentsum *= edges; // keep only neighbor count of same type
 
 	bool validedge = any(saturate(adjacentsum - 1.0)) && !any(saturate(adjacentsum - __HQAA_SM_ERRORMARGIN));
 	if (validedge) return float4(edges, bufferdata);
@@ -1814,6 +1831,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     float basethreshold = __HQAA_EDGE_THRESHOLD;
 	
 	float contrastmultiplier = (0.5 * (1.0 - dotsat(middle))) + (0.5 * (1.0 - dot(middle, __HQAA_LUMA_REF)));
+	contrastmultiplier = pow(abs(contrastmultiplier), BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float fxaaQualityEdgeThreshold = mad(contrastmultiplier, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold);
 	
 	float3 neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb;
@@ -1986,10 +2004,11 @@ float3 HQAAHysteresisPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 #endif //HQAA_TAA_ASSIST_MODE
 
-	bool skiphysteresis = ( (HqaaHysteresisStrength == 0.0) || ((!HqaaDoLumaHysteresis) && (!HqaaDoSaturationHysteresis))
+	bool skiphysteresis = ( ((HqaaHysteresisStrength == 0.0) || ((!HqaaDoLumaHysteresis) && (!HqaaDoSaturationHysteresis))
 #if HQAA_TAA_ASSIST_MODE
 	|| (!lumachange)
 #endif //HQAA_TAA_ASSIST_MODE
+	)
 #if HQAA_DEBUG_MODE
 	&& (HqaaDebugMode == 0)
 #endif //HQAA_DEBUG_MODE
