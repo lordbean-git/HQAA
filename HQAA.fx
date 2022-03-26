@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v27.2.1
+ *                        v27.3
  *
  *                     by lordbean
  *
@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.2.1";
+	ui_label = "Version: 27.3";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -224,6 +224,15 @@ uniform int HQAAintroduction <
 				"only on scenes that are in motion. This both helps to fix\n"
 				"aliasing during high movement and conserves GPU power by\n"
 				"skipping stationary objects.\n"
+			#endif
+			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__SOFTENING
+				"\nImage Softening calculates an error-controlled average gradient\n"
+				"by sampling several basic geometric patterns around every pixel.\n"
+				"This pass runs after the first FXAA pass, which allows you to use\n"
+				"extra FXAA passes via multisampling to blend the softening result\n"
+				"smoothly into the scene. The results behave somewhat like a cross\n"
+				"between a depth of field effect and an NFAA effect due to distant\n"
+				"objects having less viable sample patterns.\n"
 			#endif
 			"\nFXAA Multisampling can be used to increase correction strength\n"
 			"when encountering edges with more than one color gradient or\n"
@@ -547,7 +556,7 @@ uniform float HqaaImageSoftenThreshold <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.08;
+> = 0.05;
 
 uniform float HqaaImageSoftenStrength <
 	ui_type = "slider";
@@ -561,7 +570,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.75;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -699,6 +708,8 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #define HQAAmax10(q,r,s,t,u,v,w,x,y,z) max(max(max(max(q,r),max(s,t)),max(u,v)),max(max(w,x),max(y,z)))
 #define HQAAmax11(p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(p,q),max(r,s)),max(max(t,u),v)),max(max(w,x),max(y,z)))
 #define HQAAmax12(o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(o,p),max(q,r)),max(max(s,t),max(u,v))),max(max(w,x),max(y,z)))
+#define HQAAmax13(n,o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(n,o),max(p,q)),max(max(r,s),max(t,u))),max(max(max(v,w),x),max(y,z)))
+#define HQAAmax14(m,n,o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(m,n),max(o,p)),max(max(q,r),max(s,t))),max(max(max(u,v),max(w,x)),max(y,z)))
 
 #define HQAAmin3(x,y,z) min(min(x,y),z)
 #define HQAAmin4(w,x,y,z) min(min(w,x),min(y,z))
@@ -710,6 +721,8 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #define HQAAmin10(q,r,s,t,u,v,w,x,y,z) min(min(min(min(q,r),min(s,t)),min(u,v)),min(min(w,x),min(y,z)))
 #define HQAAmin11(p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(p,q),min(r,s)),min(min(t,u),v)),min(min(w,x),min(y,z)))
 #define HQAAmin12(o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(o,p),min(q,r)),min(min(s,t),min(u,v))),min(min(w,x),min(y,z)))
+#define HQAAmin13(n,o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(n,o),min(p,q)),min(min(r,s),min(t,u))),min(min(min(v,w),x),min(y,z)))
+#define HQAAmin14(m,n,o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(m,n),min(o,p)),min(min(q,r),min(s,t))),min(min(min(u,v),min(w,x)),min(y,z)))
 
 #define HQAAdotmax(x) max(max((x).r, (x).g), (x).b)
 #define HQAAdotmin(x) min(min((x).r, (x).g), (x).b)
@@ -2354,12 +2367,16 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	float3 xy2 = (i + a + g) / 3.0;
 	float3 diamond = (h + f + c + b) / 4.0;
 	float3 square = (e + g + i + d) / 4.0;
+	float3 cap = (h + e + f + g + b) / 5.0;
+	float3 bucket = (h + i + c + d + b) / 5.0;
+	float3 letter = (f + e + h + i + c) / 5.0;
+	float3 magnet = (f + g + b + d + c) / 5.0;
 	
-	float3 highterm = HQAAmax10(x1, x2, x3, y1, y2, y3, xy1, xy2, diamond, square);
-	float3 lowterm = HQAAmin10(x1, x2, x3, y1, y2, y3, xy1, xy2, diamond, square);
+	float3 highterm = HQAAmax14(x1, x2, x3, y1, y2, y3, xy1, xy2, diamond, square, cap, bucket, letter, magnet);
+	float3 lowterm = HQAAmin14(x1, x2, x3, y1, y2, y3, xy1, xy2, diamond, square, cap, bucket, letter, magnet);
 	
 	//float3 localavg = (a + b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 7.0;
-	float3 localavg = ((a + x1 + x2 + x3 + y1 + y2 + y3 + xy1 + xy2 + diamond + square) - (highterm + lowterm)) / 9.0;
+	float3 localavg = ((a + x1 + x2 + x3 + y1 + y2 + y3 + xy1 + xy2 + diamond + square + cap + bucket + letter + magnet) - (highterm + lowterm)) / 13.0;
 	
 	b = abs(a - x1);
 	c = abs(a - x2);
@@ -2371,9 +2388,13 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	i = abs(a - xy2);
 	float3 j = abs(a - diamond);
 	float3 k = abs(a - square);
+	float3 l = abs(a - cap);
+	float3 m = abs(a - bucket);
+	float3 n = abs(a - letter);
+	float3 o = abs(a - magnet);
 	
-	float3 avgdiff = ((b + c + d + e + f + g + h + i + j + k) - (HQAAmax10(b, c, d, e, f, g, h, i, j, k) + HQAAmin10(b, c, d, e, f, g, h, i, j, k))) / 8.0;
-	float chromadiff = dot(abs(a - avgdiff), float3(1.0, 1.0, 1.0));
+	float3 avgdiff = ((b + c + d + e + f + g + h + i + j + k + l + m + n + o) - (HQAAmax14(b, c, d, e, f, g, h, i, j, k, l, m, n, o) + HQAAmin14(b, c, d, e, f, g, h, i, j, k, l, m, n, o))) / 12.0;
+	float chromadiff = dot(abs(a - avgdiff), __HQAA_LUMA_REF);
 	
 	if (chromadiff < (1.0 - HqaaImageSoftenThreshold)) return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
 	else return original;
@@ -2448,6 +2469,15 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAFXPS;
 	}
+#if HQAA_OPTIONAL_EFFECTS
+#if HQAA_OPTIONAL__SOFTENING
+	pass ImageSoftening
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAImageSoftenerPS;
+	}
+#endif //HQAA_OPTIONAL__SOFTENING
+#endif //HQAA_OPTIONAL_EFFECTS
 #if HQAA_FXAA_MULTISAMPLING > 1
 	pass FXAA
 	{
@@ -2503,13 +2533,6 @@ technique HQAA <
 		PixelShader = HQAAHysteresisPS;
 	}
 #if HQAA_OPTIONAL_EFFECTS
-#if HQAA_OPTIONAL__SOFTENING
-	pass ImageSoftening
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAImageSoftenerPS;
-	}
-#endif //HQAA_OPTIONAL__SOFTENING
 #if HQAA_OPTIONAL__DEBANDING
 	pass Deband
 	{
