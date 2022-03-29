@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v27.4
+ *                        v27.4.1
  *
  *                     by lordbean
  *
@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.4";
+	ui_label = "Version: 27.4.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1667,7 +1667,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	bool earlyExit = (abs(L - maxL) < lumathreshold.x) && (maxC < satthreshold.x);
 	if (earlyExit) return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 	
-	adaptationaverage = dot(__HQAA_LUMA_REF, (adaptationaverage / 5.0));
+	adaptationaverage /= 5.0;
 	
 	bool useluma = abs(L - maxL) > maxC;
 	float finalDelta;
@@ -1716,7 +1716,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	}
 	
 	// scale always has a range of 1 to e regardless of the bit depth.
-	scale = pow(clamp(log(rcp(HQAAvec3add(adaptationaverage))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
+	scale = pow(clamp(log(rcp(dot(adaptationaverage, __HQAA_LUMA_REF))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
 	
 	edges *= step(finalDelta, scale * delta.xy);
 	return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
