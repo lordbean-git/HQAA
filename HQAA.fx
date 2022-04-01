@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v27.B
+ *                        v27.5
  *
  *                     by lordbean
  *
@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.B";
+	ui_label = "Version: 27.5";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -246,7 +246,7 @@ uniform int HQAAintroduction <
 			"\n-------------------------------------------------------------------------"
 			"\nSee the 'Preprocessor definitions' section for color & feature toggles.\n"
 			"-------------------------------------------------------------------------";
-	ui_tooltip = "SMAA nonfunctional in this (and older) versions.";
+	ui_tooltip = "Now with WORKING SMAA (hey, if you can't make fun of yourself...)";
 	ui_category = "About";
 	ui_category_closed = true;
 >;
@@ -1162,7 +1162,7 @@ void HQAAMovc(bool4 cond, inout float4 variable, float4 value)
     HQAAMovc(cond.xy, variable.xy, value.xy);
     HQAAMovc(cond.zw, variable.zw, value.zw);
 }
-/*
+
 float2 HQAADecodeDiagBilinearAccess(float2 e)
 {
     e.r = e.r * abs(5.0 * e.r - 5.0 * 0.75);
@@ -1388,7 +1388,7 @@ void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weight
 
     weights *= saturate(factor);
 }
-*/
+
 /////////////////////////////////////////////////// OPTIONAL HELPER FUNCTIONS /////////////////////////////////////////////////////////////
 
 #if HQAA_OPTIONAL_EFFECTS
@@ -1583,7 +1583,7 @@ void HQAAEdgeDetectionVS(in uint id : SV_VertexID, out float4 position : SV_Posi
     offset[1] = mad(__HQAA_SM_BUFFERINFO.xyxy, float4( 1.0, 0.0, 0.0,  1.0), texcoord.xyxy);
     offset[2] = mad(__HQAA_SM_BUFFERINFO.xyxy, float4(-2.0, 0.0, 0.0, -2.0), texcoord.xyxy);
 }
-/*
+
 void HQAABlendingWeightCalculationVS(in uint id : SV_VertexID, out float4 position : SV_Position, out float2 texcoord : TEXCOORD0, out float2 pixcoord : TEXCOORD1, out float4 offset[3] : TEXCOORD2)
 {
 	texcoord.x = (id == 2) ? 2.0 : 0.0;
@@ -1608,7 +1608,7 @@ void HQAANeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position : 
 	position = float4(texcoord * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
     offset = mad(__HQAA_SM_BUFFERINFO.xyxy, float4( 1.0, 0.0, 0.0,  1.0), texcoord.xyxy);
 }
-*/
+
 /*****************************************************************************************************************************************/
 /*********************************************************** SHADER SETUP END ************************************************************/
 /*****************************************************************************************************************************************/
@@ -1667,12 +1667,12 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	bool earlyExit = (abs(L - maxL) < lumathreshold.x) && (maxC < satthreshold.x);
 	if (earlyExit) return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 	
-	adaptationaverage /= 5.0;
-	
 	bool useluma = abs(L - maxL) > maxC;
 	float finalDelta;
 	float4 delta;
 	float scale;
+	
+	adaptationaverage /= 5.0;
 	
 	if (useluma)
 	{
@@ -1683,9 +1683,11 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 		float2 maxDelta = max(delta.xy, delta.zw);
 	
 		neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
+		adaptationaverage += neighbor;
 		float Lleftleft = dotweight(0, neighbor, true, __HQAA_LUMA_REF);
 	
 		neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
+		adaptationaverage += neighbor;
 		float Ltoptop = dotweight(0, neighbor, true, __HQAA_LUMA_REF);
 	
 		delta.zw = abs(float2(Lleft, Ltop) - float2(Lleftleft, Ltoptop));
@@ -1703,9 +1705,11 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 		float2 maxDelta = max(delta.xy, delta.zw);
 	
 		neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
+		adaptationaverage += neighbor;
 		float Cleftleft = dotweight(middle, neighbor, false, 0);
 	
 		neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].zw).rgb;
+		adaptationaverage += neighbor;
 		float Ctoptop = dotweight(middle, neighbor, false, 0);
 	
 		delta.zw = abs(float2(Cleft, Ctop) - float2(Cleftleft, Ctoptop));
@@ -1715,8 +1719,10 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 		finalDelta = max(maxDelta.x, maxDelta.y);
 	}
 	
+	adaptationaverage /= 3.0;
+	
 	// scale always has a range of 1 to e regardless of the bit depth.
-	scale = pow(clamp(log(rcp(dot(adaptationaverage, __HQAA_LUMA_REF))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
+	scale = 0.5 + pow(clamp(log(rcp(dot(adaptationaverage, __HQAA_LUMA_REF))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
 	
 	edges *= step(finalDelta, scale * delta.xy);
 	return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
@@ -1760,7 +1766,7 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
     
 	float2 adjacentsum = a + c + g + i + b + d + f + h;
 
-	bool validedge = any(saturate(adjacentsum - 1.0)) && !any(saturate(adjacentsum - __HQAA_SM_ERRORMARGIN));
+	bool validedge = !any(saturate(adjacentsum - __HQAA_SM_ERRORMARGIN));
 	if (validedge) return float4(edges, bufferdata);
 	else return float4(0.0, 0.0, bufferdata);
 }
@@ -1772,7 +1778,7 @@ float4 HQAASavePreviousEdgesPS(float4 vpos : SV_Position, float2 texcoord : TEXC
 }
 
 /////////////////////////////////////////////////// BLEND WEIGHT CALCULATION //////////////////////////////////////////////////////////////
-/*
+
 float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float2 pixcoord : TEXCOORD1, float4 offset[3] : TEXCOORD2) : SV_Target
 {
 #if HQAA_TAA_ASSIST_MODE
@@ -1786,14 +1792,19 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 	
 	[branch] if (edges.g) 
 	{
-        float3 coords = float3(HQAASearchXLeft(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].xy, offset[2].x), offset[1].y, HQAASearchXRight(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].zw, offset[2].y));
-        float e1 = HQAA_Tex2D(HQAAsamplerAlphaEdges, coords.xy).r;
-		float2 d = coords.xz;
-        d = abs(round(mad(__HQAA_SM_BUFFERINFO.zz, d, -pixcoord.xx)));
-        float e2 = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, coords.zy, int2(1, 0)).r;
-        weights.rg = HQAAArea(HQAAsamplerSMarea, sqrt(d), e1, e2, 0.0);
-        coords.y = texcoord.y;
-        HQAADetectHorizontalCornerPattern(HQAAsamplerAlphaEdges, weights.rg, coords.xyzy, d);
+        weights.rg = HQAACalculateDiagWeights(HQAAsamplerAlphaEdges, HQAAsamplerSMarea, texcoord, e, 0);
+        [branch] if (weights.r == -weights.g)
+        {
+       	 float3 coords = float3(HQAASearchXLeft(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].xy, offset[2].x), offset[1].y, HQAASearchXRight(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].zw, offset[2].y));
+      	  float e1 = HQAA_Tex2D(HQAAsamplerAlphaEdges, coords.xy).r;
+			float2 d = coords.xz;
+       	 d = abs(round(mad(__HQAA_SM_BUFFERINFO.zz, d, -pixcoord.xx)));
+      	  float e2 = HQAA_Tex2DOffset(HQAAsamplerAlphaEdges, coords.zy, int2(1, 0)).r;
+     	   weights.rg = HQAAArea(HQAAsamplerSMarea, sqrt(d), e1, e2, 0.0);
+      	  coords.y = texcoord.y;
+     	   HQAADetectHorizontalCornerPattern(HQAAsamplerAlphaEdges, weights.rg, coords.xyzy, d);
+        }
+        else edges.r = false;
     }
 	
 	[branch] if (edges.r) 
@@ -1810,9 +1821,9 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 
     return weights;
 }
-*/
+
 //////////////////////////////////////////////////// NEIGHBORHOOD BLENDING ////////////////////////////////////////////////////////////////
-/*
+
 float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
     float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
@@ -1836,7 +1847,7 @@ float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
     
 	return resultAA;
 }
-*/
+
 /***************************************************************************************************************************************/
 /********************************************************** SMAA SHADER CODE END *******************************************************/
 /***************************************************************************************************************************************/
@@ -2448,7 +2459,6 @@ technique HQAA <
 		RenderTarget = HQAAlastedgesTex;
 		ClearRenderTargets = true;
 	}
-	/*
 	pass SMAABlendCalculation
 	{
 		VertexShader = HQAABlendingWeightCalculationVS;
@@ -2461,7 +2471,6 @@ technique HQAA <
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAANeighborhoodBlendingPS;
 	}
-	*/
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
