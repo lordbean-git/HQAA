@@ -9,7 +9,7 @@
  *
  *                  minimize blurring
  *
- *                        v1.1.274
+ *                        v1.1.27B
  *
  *                     by lordbean
  *
@@ -108,7 +108,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAALintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 1.1.274";
+	ui_label = "Version: 1.1.27B";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -151,7 +151,7 @@ uniform int HQAALintroduction <
 			"\n-------------------------------------------------------------------------"
 			"\nSee the 'Preprocessor definitions' section for color & feature toggles.\n"
 			"-------------------------------------------------------------------------";
-	ui_tooltip = "Lite Edition";
+	ui_tooltip = "SMAA correction is presently nonfunctional";
 	ui_category = "About";
 	ui_category_closed = true;
 >;
@@ -755,7 +755,7 @@ void HQAAMovc(bool4 cond, inout float4 variable, float4 value)
     HQAAMovc(cond.xy, variable.xy, value.xy);
     HQAAMovc(cond.zw, variable.zw, value.zw);
 }
-
+/*
 float2 HQAADecodeDiagBilinearAccess(float2 e)
 {
     e.r = e.r * abs(5.0 * e.r - 5.0 * 0.75);
@@ -981,7 +981,7 @@ void HQAADetectVerticalCornerPattern(sampler2D HQAALedgesTex, inout float2 weigh
 
     weights *= saturate(factor);
 }
-
+*/
 //////////////////////////////////////////////////// FXAA HELPER FUNCTIONS //////////////////////////////////////////////////////////////
 
 float squared(float x)
@@ -1080,7 +1080,7 @@ void HQAALEdgeDetectionVS(in uint id : SV_VertexID, out float4 position : SV_Pos
     offset[1] = mad(__HQAAL_SM_BUFFERINFO.xyxy, float4( 1.0, 0.0, 0.0,  1.0), texcoord.xyxy);
     offset[2] = mad(__HQAAL_SM_BUFFERINFO.xyxy, float4(-2.0, 0.0, 0.0, -2.0), texcoord.xyxy);
 }
-
+/*
 void HQAALBlendingWeightCalculationVS(in uint id : SV_VertexID, out float4 position : SV_Position, out float2 texcoord : TEXCOORD0, out float2 pixcoord : TEXCOORD1, out float4 offset[3] : TEXCOORD2)
 {
 	texcoord.x = (id == 2) ? 2.0 : 0.0;
@@ -1105,7 +1105,7 @@ void HQAALNeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position :
 	position = float4(texcoord * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
     offset = mad(__HQAAL_SM_BUFFERINFO.xyxy, float4( 1.0, 0.0, 0.0,  1.0), texcoord.xyxy);
 }
-
+*/
 /*****************************************************************************************************************************************/
 /*********************************************************** SHADER SETUP END ************************************************************/
 /*****************************************************************************************************************************************/
@@ -1249,6 +1249,7 @@ float4 HQAALTemporalEdgeAggregationPS(float4 vpos : SV_Position, float2 texcoord
 }
 
 /////////////////////////////////////////////////// BLEND WEIGHT CALCULATION //////////////////////////////////////////////////////////////
+/*
 float4 HQAALBlendingWeightCalculationPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float2 pixcoord : TEXCOORD1, float4 offset[3] : TEXCOORD2) : SV_Target
 {
     float4 weights = float(0.0).xxxx;
@@ -1281,8 +1282,9 @@ float4 HQAALBlendingWeightCalculationPS(float4 position : SV_Position, float2 te
 
     return weights;
 }
-
+*/
 //////////////////////////////////////////////////// NEIGHBORHOOD BLENDING ////////////////////////////////////////////////////////////////
+/*
 float3 HQAALNeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
     float4 m = float4(HQAAL_Tex2D(HQAALsamplerSMweights, offset.xy).a, HQAAL_Tex2D(HQAALsamplerSMweights, offset.zw).g, HQAAL_Tex2D(HQAALsamplerSMweights, texcoord).zx);
@@ -1306,7 +1308,7 @@ float3 HQAALNeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoor
     
 	return resultAA;
 }
-
+*/
 /***************************************************************************************************************************************/
 /********************************************************** SMAA SHADER CODE END *******************************************************/
 /***************************************************************************************************************************************/
@@ -1470,6 +1472,7 @@ technique HQAA_Lite <
 		RenderTarget = HQAALedgesTex;
 		ClearRenderTargets = true;
 	}
+	/*
 	pass SMAABlendCalculation
 	{
 		VertexShader = HQAALBlendingWeightCalculationVS;
@@ -1482,6 +1485,7 @@ technique HQAA_Lite <
 		VertexShader = HQAALNeighborhoodBlendingVS;
 		PixelShader = HQAALNeighborhoodBlendingPS;
 	}
+	*/
 	pass FXAA
 	{
 		VertexShader = PostProcessVS;
