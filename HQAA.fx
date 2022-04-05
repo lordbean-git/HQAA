@@ -9,8 +9,6 @@
  *
  *                  minimize blurring
  *
- *                        v27.5
- *
  *                     by lordbean
  *
  */
@@ -104,7 +102,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif //HQAA_DEBUG_MODE
 
 #ifndef HQAA_OPTIONAL_EFFECTS
-	#define HQAA_OPTIONAL_EFFECTS 0
+	#define HQAA_OPTIONAL_EFFECTS 1
 #endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #if HQAA_OPTIONAL_EFFECTS
@@ -112,10 +110,10 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 		#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 0
 	#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 	#ifndef HQAA_OPTIONAL__DEBANDING
-		#define HQAA_OPTIONAL__DEBANDING 0
+		#define HQAA_OPTIONAL__DEBANDING 1
 	#endif
 	#ifndef HQAA_OPTIONAL__SOFTENING
-		#define HQAA_OPTIONAL__SOFTENING 0
+		#define HQAA_OPTIONAL__SOFTENING 1
 	#endif
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
@@ -132,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5";
+	ui_label = "Version: 27.5.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -180,9 +178,9 @@ uniform int HQAAintroduction <
 				"Debug Code:              off\n"
 			#endif //HQAA_DEBUG_MODE
 			#if HQAA_OPTIONAL_EFFECTS
-				"Optional Effects:         on  *\n"
+				"Optional Effects:         on\n"
 			#else
-				"Optional Effects:        off\n"
+				"Optional Effects:        off  *\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__TEMPORAL_STABILIZER
 				"Temporal Stabilizer:      on  *\n"
@@ -190,14 +188,14 @@ uniform int HQAAintroduction <
 				"Temporal Stabilizer:     off\n"
 			#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
-				"Debanding:                on  *\n"
+				"Debanding:                on\n"
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
-				"Debanding:               off\n"
+				"Debanding:               off  *\n"
 			#endif //HQAA_OPTIONAL__DEBANDING
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__SOFTENING
-				"Image Softening:          on  *\n"
+				"Image Softening:          on\n"
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
-				"Image Softening:         off\n"
+				"Image Softening:         off  *\n"
 			#endif
 			
 			"\nRemarks:\n"
@@ -276,7 +274,7 @@ uniform uint HqaaPreset <
 	ui_label = "Quality Preset\n\n";
 	ui_tooltip = "Set HQAA_ADVANCED_MODE to 1 to customize all options";
 	ui_items = "Low\0Medium\0High\0Ultra\0";
-> = 2;
+> = 3;
 
 static const float HqaaHysteresisStrength = 10.0;
 static const float HqaaHysteresisFudgeFactor = 0.0;
@@ -431,7 +429,7 @@ uniform bool HqaaEnableSharpening <
 				"in regions containing edges.";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = false;
+> = true;
 
 uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
@@ -440,7 +438,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.8;
+> = 1.0;
 
 uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
@@ -449,14 +447,14 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.5;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
 	ui_label = "Enable Brightness & Vibrance";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = false;
+> = true;
 
 uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -466,7 +464,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				"50% means no modification is performed and this option is skipped.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = 50;
+> = 60;
 
 uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
@@ -537,29 +535,15 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_label = "Scan Radius";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 16.0;
+> = 32.0;
 
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 #endif //HQAA_OPTIONAL__DEBANDING
 
 #if HQAA_OPTIONAL__SOFTENING
-uniform float HqaaImageSoftenThreshold <
-	ui_type = "slider";
-	ui_spacing = 3;
-	ui_min = 0.0;
-	ui_max = 1.0;
-	ui_step = 0.001;
-	ui_label = "Contrast Threshold";
-	ui_tooltip = "HQAA image softening measures error-controlled\n"
-				"average differences for the neighborhood around\n"
-				"every pixel to apply a subtle blur effect to the\n"
-				"scene. Warning: may eat stars.";
-	ui_category = "Image Softening";
-	ui_category_closed = true;
-> = 0.05;
-
 uniform float HqaaImageSoftenStrength <
 	ui_type = "slider";
+	ui_spacing = 3;
 	ui_min = 0.0;
 	ui_max = 1.0;
 	ui_step = 0.001;
@@ -570,7 +554,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.625;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -674,9 +658,9 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #define __HQAA_LUMA_REF float3(0.333333, 0.333334, 0.333333)
 
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
-#define __HQAA_FX_RADIUS 64.0
+#define __HQAA_FX_RADIUS 30.0
 #else
-#define __HQAA_FX_RADIUS (64.0 / __HQAA_FX_TEXEL)
+#define __HQAA_FX_RADIUS (30.0 / __HQAA_FX_TEXEL)
 #endif
 
 #define __HQAA_SM_RADIUS (__HQAA_DISPLAY_NUMERATOR * 0.125)
@@ -1949,9 +1933,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
     bool doneNP;
 	
 	uint iterations = 0;
-	
 	uint maxiterations = trunc(__HQAA_FX_RADIUS * __HQAA_FX_QUALITY);
-	if (HQAA_FXAA_MULTISAMPLING > 0) maxiterations = trunc(maxiterations / HQAA_FXAA_MULTISAMPLING);
 	
 	[loop] while (iterations < maxiterations)
 	{
@@ -1974,7 +1956,6 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 		iterations++;
     }
 	
-	//float dstN, dstP;
 	float2 dstNP = float2(texcoord.y - posN.y, posP.y - texcoord.y);
 	HQAAMovc(bool(horzSpan).xx, dstNP, float2(texcoord.x - posN.x, posP.x - texcoord.x));
 	
@@ -2331,9 +2312,13 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 }
 
 #if HQAA_OPTIONAL__SOFTENING
-float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
 	float3 a, b, c, d;
+	
+    float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
+    bool horiz = max(m.x, m.z) > max(m.y, m.w);
+	bool earlyExit = !any(m);
 	
 // pattern:
 //  e f g
@@ -2346,6 +2331,7 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	float4 cdbablue = tex2Dgather(ReShade::BackBuffer, texcoord, 2);
 	a = float3(cdbared.w, cdbagreen.w, cdbablue.w);
 	float3 original = a;
+	if (earlyExit) return original;
 	a = ConditionalDecode(a);
 	b = ConditionalDecode(float3(cdbared.z, cdbagreen.z, cdbablue.z));
 	c = ConditionalDecode(float3(cdbared.x, cdbagreen.x, cdbablue.x));
@@ -2353,6 +2339,7 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 #else
 	a = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float3 original = a;
+	if (earlyExit) return original;
 	a = ConditionalDecode(a);
 	b = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
 	c = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
@@ -2367,45 +2354,29 @@ float3 HQAAImageSoftenerPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD
 	float3 x1 = (e + f + g) / 3.0;
 	float3 x2 = (h + a + b) / 3.0;
 	float3 x3 = (i + c + d) / 3.0;
-	float3 y1 = (e + h + i) / 3.0;
-	float3 y2 = (f + a + c) / 3.0;
-	float3 y3 = (g + b + d) / 3.0;
+	float3 cap = (h + e + f + g + b) / 5.0;
+	float3 bucket = (h + i + c + d + b) / 5.0;
+	if (!horiz)
+	{
+		x1 = (e + h + i) / 3.0;
+		x2 = (f + a + c) / 3.0;
+		x3 = (g + b + d) / 3.0;
+		cap = (f + e + h + i + c) / 5.0;
+		bucket = (f + g + b + d + c) / 5.0;
+	}
 	float3 xy1 = (e + a + d) / 3.0;
 	float3 xy2 = (i + a + g) / 3.0;
 	float3 diamond = (h + f + c + b) / 4.0;
 	float3 square = (e + g + i + d) / 4.0;
-	float3 cap = (h + e + f + g + b) / 5.0;
-	float3 bucket = (h + i + c + d + b) / 5.0;
-	float3 letter = (f + e + h + i + c) / 5.0;
-	float3 magnet = (f + g + b + d + c) / 5.0;
 	
-	float3 highterm = HQAAmax14(x1, x2, x3, y1, y2, y3, xy1, xy2, diamond, square, cap, bucket, letter, magnet);
-	float3 lowterm = HQAAmin14(x1, x2, x3, y1, y2, y3, xy1, xy2, diamond, square, cap, bucket, letter, magnet);
+	float3 highterm = HQAAmax9(x1, x2, x3, xy1, xy2, diamond, square, cap, bucket);
+	float3 lowterm = HQAAmin9(x1, x2, x3, xy1, xy2, diamond, square, cap, bucket);
 	
-	//float3 localavg = (a + b + c + d + e + f + g + h + i - HQAAmax8(b, c, d, e, f, g, h, i) - HQAAmin8(b, c, d, e, f, g, h, i)) / 7.0;
-	float3 localavg = ((a + x1 + x2 + x3 + y1 + y2 + y3 + xy1 + xy2 + diamond + square + cap + bucket + letter + magnet) - (highterm + lowterm)) / 13.0;
+	float3 localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + diamond + square + cap + bucket) - (highterm + lowterm)) / 8.0;
 	
-	b = abs(a - x1);
-	c = abs(a - x2);
-	d = abs(a - x3);
-	e = abs(a - y1);
-	f = abs(a - y2);
-	g = abs(a - y3);
-	h = abs(a - xy1);
-	i = abs(a - xy2);
-	float3 j = abs(a - diamond);
-	float3 k = abs(a - square);
-	float3 l = abs(a - cap);
-	float3 m = abs(a - bucket);
-	float3 n = abs(a - letter);
-	float3 o = abs(a - magnet);
-	
-	float3 avgdiff = ((b + c + d + e + f + g + h + i + j + k + l + m + n + o) - (HQAAmax14(b, c, d, e, f, g, h, i, j, k, l, m, n, o) + HQAAmin14(b, c, d, e, f, g, h, i, j, k, l, m, n, o))) / 12.0;
-	float chromadiff = dot(abs(a - avgdiff), __HQAA_LUMA_REF);
-	
-	if (chromadiff < (1.0 - HqaaImageSoftenThreshold)) return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
-	else return original;
+	return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
 }
+
 #endif //HQAA_OPTIONAL__SOFTENING
 #endif //HQAA_OPTIONAL_EFFECTS
 
@@ -2480,8 +2451,8 @@ technique HQAA <
 #if HQAA_OPTIONAL__SOFTENING
 	pass ImageSoftening
 	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAImageSoftenerPS;
+		VertexShader = HQAANeighborhoodBlendingVS;
+		PixelShader = HQAASofteningPS;
 	}
 #endif //HQAA_OPTIONAL__SOFTENING
 #endif //HQAA_OPTIONAL_EFFECTS
