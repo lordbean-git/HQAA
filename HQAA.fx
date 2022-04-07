@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.3";
+	ui_label = "Version: 27.5.4";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2378,6 +2378,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	
     float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
     bool horiz = max(m.x, m.z) > max(m.y, m.w);
+    bool diag = any(m.xz) && any(m.yw);
 	bool earlyExit = !any(m);
 	
 // pattern:
@@ -2414,25 +2415,29 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	float3 x1 = (e + f + g) / 3.0;
 	float3 x2 = (h + a + b) / 3.0;
 	float3 x3 = (i + c + d) / 3.0;
-	float3 cap = (h + e + f + g + b) / 5.0;
-	float3 bucket = (h + i + c + d + b) / 5.0;
+	float3 xy1 = (e + f + b) / 3.0;
+	float3 xy2 = (d + c + h) / 3.0;
+	float3 block = (e + f + g + h + a + b + i + c + d) / 9.0;
 	if (!horiz)
 	{
 		x1 = (e + h + i) / 3.0;
 		x2 = (f + a + c) / 3.0;
 		x3 = (g + b + d) / 3.0;
-		cap = (f + e + h + i + c) / 5.0;
-		bucket = (f + g + b + d + c) / 5.0;
+		xy1 = (g + b + c) / 3.0;
+		xy2 = (i + h + f) / 3.0;
 	}
-	float3 xy1 = (e + a + d) / 3.0;
-	float3 xy2 = (i + a + g) / 3.0;
-	float3 diamond = (h + f + c + b) / 4.0;
 	float3 square = (e + g + i + d) / 4.0;
+	if (diag)
+	{
+		square = (h + f + c + b) / 4.0;
+		xy1 = (e + a + d) / 3.0;
+		xy2 = (g + a + i) / 3.0;
+	}
 	
-	float3 highterm = HQAAmax9(x1, x2, x3, xy1, xy2, diamond, square, cap, bucket);
-	float3 lowterm = HQAAmin9(x1, x2, x3, xy1, xy2, diamond, square, cap, bucket);
+	float3 highterm = HQAAmax7(x1, x2, x3, xy1, xy2, square, block);
+	float3 lowterm = HQAAmin7(x1, x2, x3, xy1, xy2, square, block);
 	
-	float3 localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + diamond + square + cap + bucket) - (highterm + lowterm)) / 8.0;
+	float3 localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + square + block) - (highterm + lowterm)) / 6.0;
 	
 	return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
 }
