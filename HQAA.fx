@@ -115,6 +115,9 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#ifndef HQAA_OPTIONAL__SOFTENING
 		#define HQAA_OPTIONAL__SOFTENING 1
 	#endif
+	#ifndef HQAA_OPTIONAL__NV12_SATURATION
+		#define HQAA_OPTIONAL__NV12_SATURATION 0
+	#endif
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
@@ -130,7 +133,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.1";
+	ui_label = "Version: 27.5.2";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -197,6 +200,11 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 				"Image Softening:         off  *\n"
 			#endif
+			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__NV12_SATURATION
+				"YUV Saturation:           on  *\n"
+			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__NV12_SATURATION
+				"YUV Saturation:          off\n"
+			#endif
 			
 			"\nRemarks:\n"
 			
@@ -231,6 +239,10 @@ uniform int HQAAintroduction <
 				"smoothly into the scene. The results behave somewhat like a cross\n"
 				"between a depth of field effect and an NFAA effect due to distant\n"
 				"objects having less viable sample patterns.\n"
+			#endif
+			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__NV12_SATURATION
+				"\nYUV Saturation is designed to balance perceived contrast of a\n"
+				"YCbCr component signal that is being displayed on an ARGB device.\n"
 			#endif
 			"\nFXAA Multisampling can be used to increase correction strength\n"
 			"when encountering edges with more than one color gradient or\n"
@@ -438,7 +450,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.75;
 
 uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
@@ -554,8 +566,23 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.375;
 #endif //HQAA_OPTIONAL__SOFTENING
+
+#if HQAA_OPTIONAL__NV12_SATURATION
+ uniform float HqaaSaturationStrength <
+	ui_type = "slider";
+	ui_spacing = 3;
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
+	ui_label = "Saturation";
+	ui_tooltip = "This pass is designed to try and help\n"
+				 "compensate for contrast washout caused\n"
+				 "by displaying a component YCbCr signal\n"
+				 "on an ARGB display. 0.5 is neutral.";
+	ui_category = "YUV Saturation";
+	ui_category_closed = true;
+ > = 0.5;
+#endif
 
 uniform int HqaaOptionalsEOF <
 	ui_type = "radio";
@@ -2378,6 +2405,47 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 }
 
 #endif //HQAA_OPTIONAL__SOFTENING
+#if HQAA_OPTIONAL__NV12_SATURATION
+/*
+Ey = 0.299R+0.587G+0.114B
+Ecr = 0.713(R - Ey) = 0.500R-0.419G-0.081B
+Ecb = 0.564(B - Ey) = -0.169R-0.331G+0.500B
+
+where Ey, R, G and B are in the range [0,1] and Ecr and Ecb are in the range [-0.5,0.5]
+*/
+float3 HQAAOptionalYUVSaturationPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+	if (HqaaSaturationStrength == 0.5) return original;
+	float3 argb = saturate(ConditionalDecode(original)); // value must be between [0,1]
+	float3 yuv;
+	// access: x=y, y=cr, z=cb
+	// all conversions are clamped to stay within target range - in normal argb use
+	// this should cause some color information loss. if the signal was already
+	// converted from YCbCr the new values should fall within target ranges before
+	// the clamp is applied
+	yuv.x = saturate((0.299 * argb.r) + (0.587 * argb.g) + (0.114 * argb.b));
+	yuv.y = clamp(0.713 * (argb.r - yuv.x), -0.5, 0.5);
+	yuv.z = clamp(0.564 * (argb.b - yuv.x), -0.5, 0.5);
+	
+	float adjustmentrequest = HqaaSaturationStrength - 0.5;
+	float maximumshift = max(abs(yuv.y), abs(yuv.z));
+	float adjustment = adjustmentrequest;
+	if (abs(adjustmentrequest) > maximumshift) adjustment = adjustmentrequest > 0.0 ? maximumshift : -maximumshift;
+	adjustment *= 2.0;
+	
+	//yuv.x = saturate(yuv.x + (adjustment * yuv.x));
+	yuv.y = yuv.y > 0.0 ? clamp(yuv.y + (adjustment * yuv.y), 0.0, 0.5) : clamp(yuv.y - (adjustment * abs(yuv.y)), -0.5, 0.0);
+	yuv.z = yuv.z > 0.0 ? clamp(yuv.z + (adjustment * yuv.z), 0.0, 0.5) : clamp(yuv.z - (adjustment * abs(yuv.z)), -0.5, 0.0);
+	
+	// finally we rebuild each RGB channel from the component info
+	argb.r = (1.402525 * yuv.y) + yuv.x;
+	argb.b = (1.77305 * yuv.z) + yuv.x;
+	argb.g = (1.703578 * yuv.x) - (0.50937 * argb.r) - (0.194208 * argb.b);
+	
+	return ConditionalEncode(saturate(argb));
+}
+#endif //HQAA_OPTIONAL__NV12_SATURATION
 #endif //HQAA_OPTIONAL_EFFECTS
 
 /***************************************************************************************************************************************/
@@ -2537,5 +2605,12 @@ technique HQAA <
 		ClearRenderTargets = true;
 	}
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
+#if HQAA_OPTIONAL__NV12_SATURATION
+	pass Saturation
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAOptionalYUVSaturationPS;
+	}
+#endif //HQAA_OPTIONAL__NV12_SATURATION
 #endif //HQAA_OPTIONAL_EFFECTS
 }
