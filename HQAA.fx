@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.5";
+	ui_label = "Version: 27.5.6";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -487,12 +487,12 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				"produce a grayscale image nor a blown-out one.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = 67;
+> = 20;
 
  uniform float HqaaSaturationStrength <
 	ui_type = "slider";
 	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
-	ui_label = "Saturation\n\n";
+	ui_label = "Saturation";
 	ui_tooltip = "This setting is designed to try and help\n"
 				 "compensate for contrast washout caused\n"
 				 "by displaying a component YCbCr signal\n"
@@ -503,7 +503,16 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "therefore can cause loss of detail.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
- > = 0.5;
+ > = 0.75;
+ 
+uniform uint HqaaTonemapping <
+	ui_spacing = 6;
+	ui_type = "combo";
+	ui_label = "Tonemapping\n\n";
+	ui_items = "None\0Reinhard\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0";
+	ui_category = "Brightness & Vibrance";
+	ui_category_closed = true;
+> = 0;
  
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
 uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
@@ -574,7 +583,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.375;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -676,6 +685,7 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAA_CONST_E 2.718282
 #define __HQAA_LUMA_REF float3(0.333333, 0.333334, 0.333333)
+#define __HQAA_TONEMAP_LUMA float3(0.2126, 0.7152, 0.0722)
 
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
 #define __HQAA_FX_RADIUS 30.0
@@ -1451,6 +1461,76 @@ float squared(float x)
 {
 	return x * x;
 }
+
+////////////////////////////////////////////////////////// TONE MAPPERS ///////////////////////////////////////////////////////////////////
+
+#if HQAA_OPTIONAL_EFFECTS
+float3 tonemap_adjustluma(float3 x, float xl_out)
+{
+	float xl = dot(x, __HQAA_TONEMAP_LUMA);
+	return x * (xl_out / xl);
+}
+
+float3 reinhard_jodie(float3 x)
+{
+	float xl = dot(x, __HQAA_TONEMAP_LUMA);
+	float3 xv = x / (1.0 + x);
+	return lerp(x / (1.0 + xl), xv, xv);
+}
+
+float3 reinhard(float3 x)
+{
+	return x / (1.0 + x);
+}
+
+float3 extended_reinhard(float3 x)
+{
+	float whitepoint = 1.0;
+	float3 numerator = x * (1.0 + (x / (whitepoint * whitepoint)));
+	return numerator / (1.0 + x);
+}
+
+float3 extended_reinhard_luma(float3 x)
+{
+	float whitepoint = 1.0;
+	float xl = dot(x, __HQAA_TONEMAP_LUMA);
+	float numerator = xl * (1.0 + (xl / (whitepoint * whitepoint)));
+	float xl_shift = numerator / (1.0 + xl);
+	return tonemap_adjustluma(x, xl_shift);
+}
+
+float3 uncharted2_partial(float3 x)
+{
+	float A = 0.15;
+	float B = 0.5;
+	float C = 0.1;
+	float D = 0.2;
+	float E = 0.02;
+	float F = 0.3;
+	
+	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
+}
+
+float3 uncharted2_filmic(float3 x)
+{
+	float exposure_bias = 2.0;
+	float3 curr = uncharted2_partial(x * exposure_bias);
+	float3 whitescale = 1.0 / uncharted2_partial(float(11.2).xxx);
+	return curr * whitescale;
+}
+
+float3 aces_approx(float3 x)
+{
+	float3 xout = x * 0.6;
+	float A = 2.51;
+	float B = 0.03;
+	float C = 2.43;
+	float D = 0.59;
+	float E = 0.14;
+	
+	return saturate((xout*(A*xout+B))/(xout*(C*xout+D)+E));
+}
+#endif //HQAA_OPTIONAL_EFFECTS
 
 /***************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE END *************************************************************/
@@ -2341,6 +2421,17 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		{
 			float3 outdot = adjustYUVsaturation(pixel, HqaaSaturationStrength);
 			pixel = outdot;
+		}
+		
+		applygain = HqaaTonemapping > 0;
+		[branch] if (applygain)
+		{
+			if (HqaaTonemapping == 1) pixel = reinhard(pixel);
+			else if (HqaaTonemapping == 2) pixel = extended_reinhard(pixel);
+			else if (HqaaTonemapping == 3) pixel = extended_reinhard_luma(pixel);
+			else if (HqaaTonemapping == 4) pixel = reinhard_jodie(pixel);
+			else if (HqaaTonemapping == 5) pixel = uncharted2_filmic(pixel);
+			else if (HqaaTonemapping == 6) pixel = aces_approx(pixel);
 		}
 	}
 
