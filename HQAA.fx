@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.4";
+	ui_label = "Version: 27.5.5";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -440,7 +440,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.85;
 
 uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
@@ -574,7 +574,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.75;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2412,12 +2412,17 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	float3 h = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
 	float3 i = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
 	
+	float3 highterm;
+	float3 lowterm;
+	
 	float3 x1 = (e + f + g) / 3.0;
 	float3 x2 = (h + a + b) / 3.0;
 	float3 x3 = (i + c + d) / 3.0;
 	float3 xy1 = (e + f + b) / 3.0;
 	float3 xy2 = (d + c + h) / 3.0;
-	float3 block = (e + f + g + h + a + b + i + c + d) / 9.0;
+	float3 xy3 = (g + f + h) / 3.0;
+	float3 xy4 = (i + c + b) / 3.0;
+	float3 box = (e + f + g + h + b + i + c + d) / 8.0;
 	if (!horiz)
 	{
 		x1 = (e + h + i) / 3.0;
@@ -2425,19 +2430,31 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 		x3 = (g + b + d) / 3.0;
 		xy1 = (g + b + c) / 3.0;
 		xy2 = (i + h + f) / 3.0;
+		xy3 = (d + b + f) / 3.0;
+		xy4 = (e + h + c) / 3.0;
 	}
 	float3 square = (e + g + i + d) / 4.0;
+	
+	highterm = HQAAmax8(x1, x2, x3, xy1, xy2, xy3, xy4, box);
+	lowterm = HQAAmin8(x1, x2, x3, xy1, xy2, xy3, xy4, box);
+	
+	float3 diag1;
+	float3 diag2;
 	if (diag)
 	{
 		square = (h + f + c + b) / 4.0;
-		xy1 = (e + a + d) / 3.0;
-		xy2 = (g + a + i) / 3.0;
+		diag1 = (e + a + d) / 3.0;
+		diag2 = (g + a + i) / 3.0;
+		highterm = HQAAmax3(highterm, diag1, diag2);
+		lowterm = HQAAmin3(lowterm, diag1, diag2);
 	}
+	highterm = max(highterm, square);
+	lowterm = min(lowterm, square);
 	
-	float3 highterm = HQAAmax7(x1, x2, x3, xy1, xy2, square, block);
-	float3 lowterm = HQAAmin7(x1, x2, x3, xy1, xy2, square, block);
+	float3 localavg;
 	
-	float3 localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + square + block) - (highterm + lowterm)) / 6.0;
+	if (!diag) localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 8.0;
+	else localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 10.0;
 	
 	return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
 }
