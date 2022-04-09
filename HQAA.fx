@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.10";
+	ui_label = "Version: 27.5.11";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2480,6 +2480,8 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
     bool horiz = max(m.x, m.z) > max(m.y, m.w);
     bool diag = any(m.xz) && any(m.yw);
 	bool lowdetail = !any(m);
+	bool nearbyedge;
+	if (lowdetail) nearbyedge = any(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0,1)) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(0,-1)) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1,0)) + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1,0)));
 	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * HqaaImageSoftenOffset;
 	
 // pattern:
@@ -2488,6 +2490,8 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 //  i c d
 	
 	float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	bool earlyExit = lowdetail && nearbyedge;
+	if (earlyExit) return original;
 	float3 a = ConditionalDecode(original);
 	float3 b = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 1, 0) * pixstep).rgb;
 	float3 c = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 0, 1) * pixstep).rgb;
