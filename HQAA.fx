@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.9";
+	ui_label = "Version: 27.5.10";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -583,7 +583,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.5;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -2509,7 +2509,18 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	float3 xy3 = (g + f + h) / 3.0;
 	float3 xy4 = (i + c + b) / 3.0;
 	float3 box = (e + f + g + h + b + i + c + d) / 8.0;
-	if (!horiz)
+	float3 square = (e + g + i + d) / 4.0;
+	
+	if (lowdetail)
+	{
+		x1 = (f + a + c) / 3.0;
+		x3 = (e + a + d + g + i) / 5.0;
+		xy1 = (e + f + g + b + d) / 5.0;
+		xy2 = (g + b + d + c + i) / 5.0;
+		xy3 = (d + c + i + h + e) / 5.0;
+		xy4 = (i + h + e + f + g) / 5.0;
+	}
+	else if (!horiz)
 	{
 		x1 = (e + h + i) / 3.0;
 		x2 = (f + a + c) / 3.0;
@@ -2519,7 +2530,6 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 		xy3 = (d + b + f) / 3.0;
 		xy4 = (e + h + c) / 3.0;
 	}
-	float3 square = (e + g + i + d) / 4.0;
 	
 	highterm = HQAAmax8(x1, x2, x3, xy1, xy2, xy3, xy4, box);
 	lowterm = HQAAmin8(x1, x2, x3, xy1, xy2, xy3, xy4, box);
