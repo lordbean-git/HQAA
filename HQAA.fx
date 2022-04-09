@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.8";
+	ui_label = "Version: 27.5.9";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -594,7 +594,7 @@ uniform float HqaaImageSoftenOffset <
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.75;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2539,8 +2539,8 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	
 	float3 localavg;
 	
-	if (!diag) localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 8.0;
-	else localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 10.0;
+	if (!diag) localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 7.0;
+	else localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 9.0;
 	
 	return lerp(original, ConditionalEncode(localavg), lowdetail ? (HqaaImageSoftenStrength * 0.5) : HqaaImageSoftenStrength);
 }
