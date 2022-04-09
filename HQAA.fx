@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.7";
+	ui_label = "Version: 27.5.8";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -278,8 +278,8 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 3;
 
-static const float HqaaHysteresisStrength = 10.0;
-static const float HqaaHysteresisFudgeFactor = 0.0;
+static const float HqaaHysteresisStrength = 25.0;
+static const float HqaaHysteresisFudgeFactor = 3.3;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaDoSaturationHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
