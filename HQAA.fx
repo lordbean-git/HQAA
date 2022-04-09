@@ -130,7 +130,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.6";
+	ui_label = "Version: 27.5.7";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -561,7 +561,7 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
     ui_max = 32.0;
     ui_step = 1.0;
-    ui_label = "Scan Radius";
+    ui_label = "Scan Radius\n\n";
 	ui_category = "Debanding";
 	ui_category_closed = true;
 > = 32.0;
@@ -583,7 +583,18 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.75;
+
+uniform float HqaaImageSoftenOffset <
+	ui_type = "slider";
+	ui_min = 0.0; ui_max = 2.0; ui_step = 0.01;
+	ui_label = "Sampling Offset";
+	ui_tooltip = "Adjust this value up or down to expand or\n"
+				 "contract the sampling patterns around the\n"
+				 "central pixel.";
+	ui_category = "Image Softening";
+	ui_category_closed = true;
+> = 0.5;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2465,43 +2476,27 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 #if HQAA_OPTIONAL__SOFTENING
 float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
-	float3 a, b, c, d;
-	
     float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
     bool horiz = max(m.x, m.z) > max(m.y, m.w);
     bool diag = any(m.xz) && any(m.yw);
-	bool earlyExit = !any(m);
+	bool lowdetail = !any(m);
+	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * HqaaImageSoftenOffset;
 	
 // pattern:
 //  e f g
 //  h a b
 //  i c d
-
-#if __RENDERER__ >= 0xa000
-	float4 cdbared = tex2Dgather(ReShade::BackBuffer, texcoord, 0);
-	float4 cdbagreen = tex2Dgather(ReShade::BackBuffer, texcoord, 1);
-	float4 cdbablue = tex2Dgather(ReShade::BackBuffer, texcoord, 2);
-	a = float3(cdbared.w, cdbagreen.w, cdbablue.w);
-	float3 original = a;
-	if (earlyExit) return original;
-	a = ConditionalDecode(a);
-	b = ConditionalDecode(float3(cdbared.z, cdbagreen.z, cdbablue.z));
-	c = ConditionalDecode(float3(cdbared.x, cdbagreen.x, cdbablue.x));
-	d = ConditionalDecode(float3(cdbared.y, cdbagreen.y, cdbablue.y));
-#else
-	a = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
-	float3 original = a;
-	if (earlyExit) return original;
-	a = ConditionalDecode(a);
-	b = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 0)).rgb;
-	c = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, 1)).rgb;
-	d = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, 1)).rgb;
-#endif
-	float3 e = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
-	float3 f = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(0, -1)).rgb;
-	float3 g = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
-	float3 h = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
-	float3 i = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 1)).rgb;
+	
+	float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float3 a = ConditionalDecode(original);
+	float3 b = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 1, 0) * pixstep).rgb;
+	float3 c = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 0, 1) * pixstep).rgb;
+	float3 d = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 1, 1) * pixstep).rgb;
+	float3 e = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1,-1) * pixstep).rgb;
+	float3 f = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 0,-1) * pixstep).rgb;
+	float3 g = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2( 1,-1) * pixstep).rgb;
+	float3 h = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1, 0) * pixstep).rgb;
+	float3 i = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1, 1) * pixstep).rgb;
 	
 	float3 highterm;
 	float3 lowterm;
@@ -2547,7 +2542,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	if (!diag) localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 8.0;
 	else localavg = ((a + x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 10.0;
 	
-	return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
+	return lerp(original, ConditionalEncode(localavg), lowdetail ? (HqaaImageSoftenStrength * 0.5) : HqaaImageSoftenStrength);
 }
 
 #endif //HQAA_OPTIONAL__SOFTENING
