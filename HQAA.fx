@@ -69,6 +69,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
  *
  * Do not distribute without giving credit to the original author(s).
  **/
+ 
+ //* HFRAA from NFAA.fx by Jose Negrete AKA BlueSkyDefender
 
  /*------------------------------------------------------------------------------
  * THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -107,7 +109,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 #if HQAA_OPTIONAL_EFFECTS
 	#ifndef HQAA_OPTIONAL__TEMPORAL_STABILIZER
-		#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 0
+		#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
 	#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 	#ifndef HQAA_OPTIONAL__DEBANDING
 		#define HQAA_OPTIONAL__DEBANDING 1
@@ -130,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.11";
+	ui_label = "Version: 27.5.12";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -183,9 +185,9 @@ uniform int HQAAintroduction <
 				"Optional Effects:        off  *\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__TEMPORAL_STABILIZER
-				"Temporal Stabilizer:      on  *\n"
+				"Temporal Stabilizer:      on\n"
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__TEMPORAL_STABILIZER
-				"Temporal Stabilizer:     off\n"
+				"Temporal Stabilizer:     off  *\n"
 			#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
 				"Debanding:                on\n"
@@ -272,8 +274,7 @@ uniform int HqaaAboutEOF <
 #if !HQAA_ADVANCED_MODE
 uniform uint HqaaPreset <
 	ui_type = "combo";
-	ui_spacing = 3;
-	ui_label = "Quality Preset\n\n";
+	ui_label = "Quality Preset";
 	ui_tooltip = "Set HQAA_ADVANCED_MODE to 1 to customize all options";
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 3;
@@ -396,7 +397,7 @@ uniform bool HqaaDoLumaHysteresis <
 > = true;
 
 uniform bool HqaaDoSaturationHysteresis <
-	ui_label = "Use Saturation Hysteresis\n";
+	ui_label = "Use Saturation Hysteresis\n\n";
 	ui_tooltip = ""
 	"Increases quality when used with luma hysteresis\n"
 	"but requires more time to compute.";
@@ -410,7 +411,7 @@ uniform float HqaaHdrNits <
 	ui_spacing = 3;
 	ui_type = "slider";
 	ui_min = 500.0; ui_max = 10000.0; ui_step = 100.0;
-	ui_label = "HDR Nits";
+	ui_label = "HDR Nits\n\n";
 	ui_tooltip = "If the scene brightness changes after HQAA runs, try\n"
 				 "adjusting this value up or down until it looks right.";
 > = 1000.0;
@@ -517,32 +518,40 @@ uniform uint HqaaTonemapping <
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
 uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
-	ui_min = 0; ui_max = 1.0; ui_step = 0.001;
+	ui_min = 0; ui_max = 0.75; ui_step = 0.001;
 	ui_label = "Previous Frame Weight";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-	ui_tooltip = "Blends the previous frame with the current frame to stabilize results.";
+	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
 > = 0.5;
 
-uniform bool HqaaTemporalEdgesOnly <
-	ui_label = "Only Process Edges";
+uniform bool HqaaTemporalClamp <
 	ui_spacing = 3;
+	ui_label = "Clamp Weight";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-	ui_tooltip = ""
-	"When enabled, checks the SMAA data for each pixel\n"
-	"and runs only where edges were detected. Disable\n"
-	"to process entire scene.";
+	ui_tooltip = "Adjusts the weight given to the past\n"
+				 "frame using the chroma change between\n"
+				 "frames as the reference.";
 > = true;
 
-uniform bool HqaaTemporalClamp <
-	ui_label = "Clamp Maximum Weight\n\n";
+uniform bool HqaaTemporalEdgeHinting <
+	ui_label = "Use SMAA Blend Hinting";
+	ui_tooltip = "Adaptively adjusts previous frame weight\nby referencing SMAA blending weights.";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-	ui_tooltip = "Clamps the maximum weight per pixel to\n"
-				"either the luma delta or the chroma\n"
-				"delta, whichever is smaller.";
 > = true;
+
+uniform bool HqaaHighFramerateAssist <
+	ui_label = "High Framerate Assist Enhancement\n\n";
+	ui_tooltip = "Combines HFRAA with the temporal stabilizer\nto enhance the effect. Your framerate must be\ncapped to the monitor refresh rate for this to work well.";
+	ui_category = "Temporal Stabilizer";
+	ui_category_closed = true;
+> = true;
+
+uniform uint HqaaFramecounter < source = "framecount"; >;
+#define __HQAA_ALT_FRAME (HqaaFramecounter % 2 == 0)
+
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 
 #if HQAA_OPTIONAL__DEBANDING
@@ -583,18 +592,18 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.625;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
-	ui_min = 0.0; ui_max = 2.0; ui_step = 0.01;
+	ui_min = 0.0; ui_max = 2.0; ui_step = 0.001;
 	ui_label = "Sampling Offset";
 	ui_tooltip = "Adjust this value up or down to expand or\n"
 				 "contract the sampling patterns around the\n"
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.625;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2233,6 +2242,13 @@ float3 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXC
 {
 	return HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 }
+// optional stabilizer - HFRAA enhancement
+float4 HQAAFrameFlipPS(float4 position : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float Shift = 0.0;
+	if(__HQAA_ALT_FRAME && HqaaHighFramerateAssist) Shift = BUFFER_RCP_WIDTH;
+    return HQAA_Tex2D(ReShade::BackBuffer, texcoord + float2(Shift, 0.0));
+}
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 #endif //HQAA_OPTIONAL_EFFECTS
 
@@ -2447,23 +2463,25 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	}
 
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
-	if ((!HqaaTemporalEdgesOnly) || (HqaaTemporalEdgesOnly && any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord) + HQAA_Tex2D(HQAAsamplerSMweights, texcoord))))
+	float3 current = pixel;
+	float3 previous = HQAA_Tex2D(HQAAsamplerLastFrame, texcoord).rgb;
+	
+	// values above 0.9 can produce artifacts or halt frame advancement entirely
+	float blendweight = min(HqaaPreviousFrameWeight, 0.9);
+	
+	if (HqaaTemporalClamp)
 	{
-		float3 current = pixel;
-		float3 previous = HQAA_Tex2D(HQAAsamplerLastFrame, texcoord).rgb;
-	
-		// values above 0.9 can produce artifacts or halt frame advancement entirely
-		float blendweight = min(HqaaPreviousFrameWeight, 0.9);
-	
-		if (HqaaTemporalClamp) {
-			float lumadelta = abs(dot(current, __HQAA_LUMA_REF) - dot(previous, __HQAA_LUMA_REF));
-			float3 chromadiff = abs(current - previous);
-			float chromadelta = HQAAvec3add(chromadiff);
-			blendweight = min(min(lumadelta, chromadelta), blendweight);
-		}
-	
-		pixel = lerp(current, previous, blendweight);
+		float chromadiff = dotweight(current, previous, false, 0);
+		blendweight *= chromadiff;
 	}
+	if (HqaaTemporalEdgeHinting)
+	{
+		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
+		float blendingoffset = (-0.5 + HQAAmax4(blendingdata.r, blendingdata.g, blendingdata.b, blendingdata.a)) / 2.0;
+		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
+	}
+	
+	pixel = lerp(current, previous, blendweight);
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 
 	return ConditionalEncode(pixel);
@@ -2711,6 +2729,11 @@ technique HQAA <
 		PixelShader = HQAAOptionalEffectPassPS;
 	}
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
+	pass HFRAA
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAFrameFlipPS;
+	}
 	pass SaveCurrentFrame
 	{
 		VertexShader = PostProcessVS;
