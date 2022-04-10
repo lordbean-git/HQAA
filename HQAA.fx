@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.12";
+	ui_label = "Version: 27.5.13";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -543,11 +543,20 @@ uniform bool HqaaTemporalEdgeHinting <
 > = true;
 
 uniform bool HqaaHighFramerateAssist <
-	ui_label = "High Framerate Assist Enhancement\n\n";
+	ui_label = "High Framerate Assist Enhancement";
+	ui_spacing = 3;
 	ui_tooltip = "Combines HFRAA with the temporal stabilizer\nto enhance the effect. Your framerate must be\ncapped to the monitor refresh rate for this to work well.";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 > = true;
+
+uniform float HqaaHFRJitterStrength <
+	ui_label = "HFRAA Jitter Strength\n\n";
+	ui_type = "slider";
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
+	ui_category = "Temporal Stabilizer";
+	ui_category_closed = true;
+> = 0.25;
 
 uniform uint HqaaFramecounter < source = "framecount"; >;
 #define __HQAA_ALT_FRAME (HqaaFramecounter % 2 == 0)
@@ -2246,7 +2255,7 @@ float3 HQAAGenerateImageCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXC
 float4 HQAAFrameFlipPS(float4 position : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float Shift = 0.0;
-	if(__HQAA_ALT_FRAME && HqaaHighFramerateAssist) Shift = BUFFER_RCP_WIDTH;
+	if(__HQAA_ALT_FRAME && HqaaHighFramerateAssist) Shift = BUFFER_RCP_WIDTH * HqaaHFRJitterStrength;
     return HQAA_Tex2D(ReShade::BackBuffer, texcoord + float2(Shift, 0.0));
 }
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
@@ -2467,7 +2476,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	float3 previous = HQAA_Tex2D(HQAAsamplerLastFrame, texcoord).rgb;
 	
 	// values above 0.9 can produce artifacts or halt frame advancement entirely
-	float blendweight = min(HqaaPreviousFrameWeight, 0.9);
+	float blendweight = HqaaPreviousFrameWeight;
 	
 	if (HqaaTemporalClamp)
 	{
