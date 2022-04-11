@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.5.13";
+	ui_label = "Version: 27.6";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -284,6 +284,7 @@ static const float HqaaHysteresisFudgeFactor = 3.3;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaDoSaturationHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
+static const bool HqaaFxEarlyExit = true;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -364,12 +365,22 @@ uniform float HqaaFxTexelCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform float HqaaFxBlendCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Gradient Blending Strength\n\n";
+	ui_label = "% Gradient Blending Strength";
 	ui_tooltip = "Percentage of blending FXAA will apply to long slopes.\n"
 				 "Lower = sharper image, Higher = more AA effect";
 	ui_category = "FXAA";
 	ui_category_closed = true;
 > = 50;
+
+uniform bool HqaaFxEarlyExit <
+	ui_label = "Allow Early Exit\n\n";
+	ui_tooltip = "Normally, FXAA will early-exit when the\n"
+				 "local contrast doesn't exceed the edge\n"
+				 "threshold. Uncheck this to force FXAA to\n"
+				 "process the entire scene.";
+	ui_category = "FXAA";
+	ui_category_closed = true;
+> = true;
 
 uniform float HqaaHysteresisStrength <
 	ui_type = "slider";
@@ -441,7 +452,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.85;
+> = 0.9;
 
 uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
@@ -488,7 +499,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				"produce a grayscale image nor a blown-out one.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
-> = 20;
+> = 57;
 
  uniform float HqaaSaturationStrength <
 	ui_type = "slider";
@@ -504,7 +515,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "therefore can cause loss of detail.";
 	ui_category = "Brightness & Vibrance";
 	ui_category_closed = true;
- > = 0.75;
+ > = 0.525;
  
 uniform uint HqaaTonemapping <
 	ui_spacing = 6;
@@ -523,7 +534,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.5;
+> = 0.75;
 
 uniform bool HqaaTemporalClamp <
 	ui_spacing = 3;
@@ -548,15 +559,16 @@ uniform bool HqaaHighFramerateAssist <
 	ui_tooltip = "Combines HFRAA with the temporal stabilizer\nto enhance the effect. Your framerate must be\ncapped to the monitor refresh rate for this to work well.";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-> = true;
+> = false;
 
 uniform float HqaaHFRJitterStrength <
 	ui_label = "HFRAA Jitter Strength\n\n";
 	ui_type = "slider";
 	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
+	ui_tooltip = "Size (in pixels) of the jitter applied\nto the scene every second frame";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.5;
 
 uniform uint HqaaFramecounter < source = "framecount"; >;
 #define __HQAA_ALT_FRAME (HqaaFramecounter % 2 == 0)
@@ -665,10 +677,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|    0.25   | 60.0% |   10%  |Balanced|  50% |  2.0  |  50%  |\n"
-			  "|  Medium|    0.20   | 75.0% |   20%  |Balanced| 100% |  1.0  |  75%  |\n"
-			  "|    High|    0.12   | 75.0% |   25%  |  High  | 150% |  1.0  |  88%  |\n"
-			  "|   Ultra|    0.08   | 75.0% |   33%  |  High  | 200% |  0.5  | 100%  |\n"
+			  "|     Low|    0.25   | 60.0% |   10%  |Balanced|  50% |  2.0  |  33%  |\n"
+			  "|  Medium|    0.20   | 75.0% |   20%  |Balanced| 100% |  1.0  |  50%  |\n"
+			  "|    High|    0.12   | 75.0% |   25%  |  High  | 150% |  1.0  |  67%  |\n"
+			  "|   Ultra|    0.08   | 75.0% |   33%  |  High  | 200% |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -689,7 +701,7 @@ static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.75, 0.75, 0.75};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.1, 0.2, 0.25, 0.333333};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
-static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.875, 1.0};
+static const float HQAA_SUBPIX_PRESET[4] = {0.333333, 0.5, 0.666667, 0.75};
 static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 
 #define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
@@ -2004,14 +2016,14 @@ float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
 
 float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
  {
-    float3 middle = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+    float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	
 #if HQAA_TAA_ASSIST_MODE
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (lumachange) {
 #endif //HQAA_TAA_ASSIST_MODE
 
-	middle = ConditionalDecode(middle);
+	float3 middle = ConditionalDecode(original);
 	float lumaM = dot(middle, __HQAA_LUMA_REF);
 	
 	float3 neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb;
@@ -2042,12 +2054,12 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	// early exit check
 	bool SMAAedge = any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
     bool earlyExit = (range < __HQAA_EDGE_THRESHOLD) && (!SMAAedge);
-	if (earlyExit)
+	if (earlyExit && HqaaFxEarlyExit)
 #if HQAA_DEBUG_MODE
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
 		else
 #endif //HQAA_DEBUG_MODE
-		return ConditionalEncode(middle);
+		return original;
 	
     float lumaNW = dotweight(middle, HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1,-1)).rgb, useluma, __HQAA_LUMA_REF);
     float lumaSE = dotweight(middle, HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 1)).rgb, useluma, __HQAA_LUMA_REF);
@@ -2160,7 +2172,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
 		else
 #endif
-		return middle;
+		return original;
 	}
 #endif //HQAA_TAA_ASSIST_MODE
 }
