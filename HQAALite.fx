@@ -9,8 +9,6 @@
  *
  *                  minimize blurring
  *
- *                        v1.1.275
- *
  *                     by lordbean
  *
  */
@@ -108,7 +106,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAALintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 1.1.275";
+	ui_label = "Version: 1.1.276";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -165,11 +163,12 @@ uniform int HqaalAboutEOF <
 #if !HQAAL_ADVANCED_MODE
 uniform uint HqaalPreset <
 	ui_type = "combo";
-	ui_spacing = 3;
-	ui_label = "Quality Preset\n\n";
+	ui_label = "Quality Preset";
 	ui_tooltip = "Set HQAAL_ADVANCED_MODE to 1 to customize all options";
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
+
+static const bool HqaalFxEarlyExit = true;
 
 #else
 uniform float HqaalEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -236,12 +235,22 @@ uniform float HqaalFxTexelCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform float HqaalFxBlendCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Gradient Blending Strength\n\n";
+	ui_label = "% Gradient Blending Strength";
 	ui_tooltip = "Percentage of blending FXAA will apply to long slopes.\n"
 				 "Lower = sharper image, Higher = more AA effect";
 	ui_category = "FXAA";
 	ui_category_closed = true;
 > = 50;
+
+uniform bool HqaalFxEarlyExit <
+	ui_label = "Allow Early Exit\n\n";
+	ui_tooltip = "Normally, FXAA will early-exit when the\n"
+				 "local contrast doesn't exceed the edge\n"
+				 "threshold. Uncheck this to force FXAA to\n"
+				 "process the entire scene.";
+	ui_category = "FXAA";
+	ui_category_closed = true;
+> = true;
 #endif //HQAAL_ADVANCED_MODE
 
 #if HQAAL_OUTPUT_MODE == 1
@@ -272,10 +281,10 @@ uniform int HqaalPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|    0.25   | 60.0% |   20%  |Balanced|  50% |  2.0  |  50%  |\n"
-			  "|  Medium|    0.20   | 75.0% |   25%  |Balanced| 100% |  1.0  |  75%  |\n"
-			  "|    High|    0.12   | 75.0% |   33%  |  High  | 150% |  1.0  |  88%  |\n"
-			  "|   Ultra|    0.08   | 75.0% |   50%  |  High  | 200% |  0.5  | 100%  |\n"
+			  "|     Low|    0.25   | 60.0% |   10%  |Balanced|  50% |  2.0  |  33%  |\n"
+			  "|  Medium|    0.20   | 75.0% |   20%  |Balanced| 100% |  1.0  |  50%  |\n"
+			  "|    High|    0.12   | 75.0% |   25%  |  High  | 150% |  1.0  |  67%  |\n"
+			  "|   Ultra|    0.08   | 75.0% |   33%  |  High  | 200% |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -293,10 +302,10 @@ uniform int HqaalPresetBreakdown <
 
 static const float HQAAL_THRESHOLD_PRESET[4] = {0.25, 0.2, 0.12, 0.08};
 static const float HQAAL_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.75, 0.75, 0.75};
-static const float HQAAL_SMAA_CORNER_ROUNDING_PRESET[4] = {0.2, 0.25, 0.333333, 0.5};
+static const float HQAAL_SMAA_CORNER_ROUNDING_PRESET[4] = {0.1, 0.2, 0.25, 0.333333};
 static const float HQAAL_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAAL_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
-static const float HQAAL_SUBPIX_PRESET[4] = {0.5, 0.75, 0.875, 1.0};
+static const float HQAAL_SUBPIX_PRESET[4] = {0.333333, 0.5, 0.666667, 0.75};
 static const float HQAAL_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 
 #define __HQAAL_EDGE_THRESHOLD (HQAAL_THRESHOLD_PRESET[HqaalPreset])
@@ -1330,10 +1339,8 @@ float3 HQAALNeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoor
 
 float3 HQAALFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
  {
-    float3 middle = HQAAL_Tex2D(ReShade::BackBuffer, texcoord).rgb;
-	float3 eedot = middle;
-	
-	middle = ConditionalDecode(middle);
+    float3 original = HQAAL_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	float3 middle = ConditionalDecode(original);
 	float lumaM = dot(middle, __HQAAL_LUMA_REF);
 	
 	float3 neighbor = HQAAL_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb;
@@ -1364,7 +1371,7 @@ float3 HQAALFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Tar
 	// early exit check
 	bool SMAAedge = any(HQAAL_Tex2D(HQAALsamplerEdges, texcoord).rg);
     bool earlyExit = (range < __HQAAL_EDGE_THRESHOLD) && (!SMAAedge);
-	if (earlyExit) return eedot;
+	if (earlyExit && HqaalFxEarlyExit) return original;
 	
     float lumaNW = dotweight(middle, HQAAL_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1,-1)).rgb, useluma, __HQAAL_LUMA_REF);
     float lumaSE = dotweight(middle, HQAAL_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 1)).rgb, useluma, __HQAAL_LUMA_REF);
