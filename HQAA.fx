@@ -132,7 +132,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.6";
+	ui_label = "Version: 27.6.1";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -285,11 +285,12 @@ static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaDoSaturationHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
-	ui_spacing = 4;
+	ui_spacing = 3;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast (luma difference) required to be considered an edge";
 	ui_category = "Edge Detection";
@@ -298,7 +299,7 @@ uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Dynamic Reduction Range\n\n";
+	ui_label = "% Dynamic Reduction Range";
 	ui_tooltip = "Maximum dynamic reduction of edge threshold (as percentage of base threshold)\n"
 				 "permitted when detecting low-brightness edges.\n"
 				 "Lower = faster, might miss low-contrast edges\n"
@@ -306,6 +307,22 @@ uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
 > = 75;
+
+uniform uint HqaaSourceInterpolation <
+	ui_type = "combo";
+	ui_spacing = 3;
+	ui_label = "Edge Detection Interpolation\n\n";
+	ui_tooltip = "Offsets edge detection passes by either\n"
+				 "two or four frames when enabled. This is\n"
+				 "intended for specific usage cases where\n"
+				 "the game's framerate is interpolated from\n"
+				 "a low value to a higher one (eg capped 30\n"
+				 "interpolated to 60fps). For the vast\n"
+				 "majority of games, leave this setting off.";
+	ui_items = "Off\0Single Interpolation\0Double Interpolation\0";
+	ui_category = "Edge Detection";
+	ui_category_closed = true;
+> = 0;
 
 uniform uint HqaaEdgeErrorMarginCustom <
 	ui_type = "radio";
@@ -569,10 +586,6 @@ uniform float HqaaHFRJitterStrength <
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 > = 0.5;
-
-uniform uint HqaaFramecounter < source = "framecount"; >;
-#define __HQAA_ALT_FRAME (HqaaFramecounter % 2 == 0)
-
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 
 #if HQAA_OPTIONAL__DEBANDING
@@ -713,6 +726,10 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #define __HQAA_SM_ERRORMARGIN (HQAA_ERRORMARGIN_PRESET[HqaaPreset])
 
 #endif //HQAA_ADVANCED_MODE
+
+uniform uint HqaaFramecounter < source = "framecount"; >;
+#define __HQAA_ALT_FRAME (HqaaFramecounter % 2 == 0)
+#define __HQAA_QUAD_FRAME (HqaaFramecounter % 4 == 1)
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1778,6 +1795,9 @@ void HQAANeighborhoodBlendingVS(in uint id : SV_VertexID, out float4 position : 
 //////////////////////////////////////////////////////// EDGE DETECTION ///////////////////////////////////////////////////////////////////
 float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset[3] : TEXCOORD1) : SV_Target
 {
+	if ((HqaaSourceInterpolation == 1) && __HQAA_ALT_FRAME) discard;
+	if ((HqaaSourceInterpolation == 2) && !__HQAA_QUAD_FRAME) discard;
+	
 	float3 middle = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	float3 adaptationaverage = middle;
 	
@@ -1889,6 +1909,9 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 /////////////////////////////////////////////////////// ERROR REDUCTION ///////////////////////////////////////////////////////////////////
 float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	if ((HqaaSourceInterpolation == 1) && __HQAA_ALT_FRAME) discard;
+	if ((HqaaSourceInterpolation == 2) && !__HQAA_QUAD_FRAME) discard;
+	
 	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	float2 bufferdata = float2(dot(pixel, __HQAA_LUMA_REF), dotsat(pixel));
 	float2 edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba - HqaaEdgeTemporalAggregation);
@@ -1932,6 +1955,9 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 //////////////////////////////////////////////////////// N-1 EDGES COPY ///////////////////////////////////////////////////////////////////
 float4 HQAASavePreviousEdgesPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	if ((HqaaSourceInterpolation == 1) && __HQAA_ALT_FRAME) discard;
+	if ((HqaaSourceInterpolation == 2) && !__HQAA_QUAD_FRAME) discard;
+	
 	return HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
 }
 
@@ -2635,21 +2661,18 @@ technique HQAA <
 		VertexShader = HQAAEdgeDetectionVS;
 		PixelShader = HQAAHybridEdgeDetectionPS;
 		RenderTarget = HQAAblendTex;
-		ClearRenderTargets = true;
 	}
 	pass EdgeErrorReduction
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAEdgeErrorReductionPS;
 		RenderTarget = HQAAedgesTex;
-		ClearRenderTargets = true;
 	}
 	pass SaveEdges
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAASavePreviousEdgesPS;
 		RenderTarget = HQAAlastedgesTex;
-		ClearRenderTargets = true;
 	}
 	pass SMAABlendCalculation
 	{
