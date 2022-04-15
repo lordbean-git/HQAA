@@ -132,87 +132,85 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7";
-	ui_text = "-------------------------------------------------------------------------\n"
+	ui_label = "Version: 27.7.1";
+	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
-			"-------------------------------------------------------------------------\n\n"
+			"--------------------------------------------------------------------------------\n\n"
 			"Currently Compiled Configuration:\n\n"
 			#if HQAA_ADVANCED_MODE
-				"Advanced Mode:            on  *\n"
+			"Advanced Mode:                                                             on  *\n"
 			#else
-				"Advanced Mode:           off\n"
+			"Advanced Mode:                                                            off\n"
 			#endif
 			#if HQAA_OUTPUT_MODE == 1
-				"Output Mode:        HDR nits  *\n"
+			"Output Mode:                                                         HDR nits  *\n"
 			#elif HQAA_OUTPUT_MODE == 2
-				"Output Mode:     PQ accurate  *\n"
+			"Output Mode:                                                      PQ accurate  *\n"
 			#elif HQAA_OUTPUT_MODE == 3
-				"Output Mode:       PQ approx  *\n"
+			"Output Mode:                                                        PQ approx  *\n"
 			#else
-				"Output Mode:       Gamma 2.2\n"
+			"Output Mode:                                                        Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
 			#if HQAA_FXAA_MULTISAMPLING < 2
-				"FXAA Multisampling:      off  *\n"
+			"FXAA Multisampling:                                                       off  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 3
-				"FXAA Multisampling:       4x  *\n"
+			"FXAA Multisampling:                                                        4x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 2
-				"FXAA Multisampling:       3x  *\n"
+			"FXAA Multisampling:                                                        3x  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 1
-				"FXAA Multisampling:       2x\n"
+			"FXAA Multisampling:                                                        2x\n"
 			#endif //HQAA_FXAA_MULTISAMPLING
 			#if HQAA_TAA_ASSIST_MODE
-				"TAA Assist Mode:          on  *\n"
+			"TAA Assist Mode:                                                           on  *\n"
 			#else
-				"TAA Assist Mode:         off\n"
+			"TAA Assist Mode:                                                          off\n"
 			#endif //HQAA_TAA_ASSIST_MODE
 			#if HQAA_DEBUG_MODE
-				"Debug Code:               on  *\n"
+			"Debug Code:                                                                on  *\n"
 			#else
-				"Debug Code:              off\n"
+			"Debug Code:                                                               off\n"
 			#endif //HQAA_DEBUG_MODE
 			#if HQAA_OPTIONAL_EFFECTS
-				"Optional Effects:         on\n"
+			"Optional Effects:                                                          on\n"
 			#else
-				"Optional Effects:        off  *\n"
+			"Optional Effects:                                                         off  *\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__TEMPORAL_STABILIZER
-				"Temporal Stabilizer:      on\n"
+			"Temporal Stabilizer:                                                       on\n"
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__TEMPORAL_STABILIZER
-				"Temporal Stabilizer:     off  *\n"
+			"Temporal Stabilizer:                                                      off  *\n"
 			#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
-				"Debanding:                on\n"
+			"Debanding:                                                                 on\n"
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
-				"Debanding:               off  *\n"
+			"Debanding:                                                                off  *\n"
 			#endif //HQAA_OPTIONAL__DEBANDING
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__SOFTENING
-				"Image Softening:          on\n"
+			"Image Softening:                                                           on\n"
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
-				"Image Softening:         off  *\n"
+			"Image Softening:                                                          off  *\n"
 			#endif
 			
 			"\nRemarks:\n"
 			
 			#if HQAA_DEBUG_MODE
-				"\nDebug code should be disabled when you are not using it\n"
-				"because it has a small performance penalty while enabled.\n"
+			"\nDebug code should be disabled when you are not using it because it has a small\n"
+			"performance penalty while enabled.\n"
 			#endif
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING && (HQAA_OUTPUT_MODE > 0)
-				"\nPerforming Debanding is not recommended when using\n"
-				"an HDR color format because the randomized noise used\n"
-				"to correct banding tends to be visible.\n"
+			"\nPerforming Debanding is not recommended when using an HDR output format\n"
+			"because the randomized noise used to fix the banding tends to be visible.\n"
 			#endif
 			#if HQAA_TAA_ASSIST_MODE
-				"\nTAA Assist Mode is designed to help the game's internal\n"
-				"Temporal Anti-Aliasing solution by performing corrections\n"
-				"only on scenes that are in motion. This both helps to fix\n"
-				"aliasing during high movement and conserves GPU power by\n"
-				"skipping stationary objects.\n"
+			"\nTAA Assist Mode is designed to help the game's internal Temporal Anti-Aliasing\n"
+			"solution by performing corrections only on scenes that are moving. This helps to\n"
+			"fix aliasing on moving objects and conserves GPU power by skipping parts of the\n"
+			"scene that are not moving.\n"
 			#endif
 			
-			"\nFXAA Multisampling can be used to increase correction strength\n"
-			"when encountering edges with more than one color gradient or\n"
+			"\nFXAA Multisampling can be used to increase correction strength in cases such\n"
+			"as edges with more than one color gradient or along objects that have highly\n"
 			"irregular geometry. Costs some performance for each extra pass.\n"
 			"Valid range: 1 to 4. Higher values are ignored.\n"
 			
@@ -221,10 +219,10 @@ uniform int HQAAintroduction <
 			"1: HDR, direct nits scale\n"
 			"2: HDR10, accurate encoding\n"
 			"3: HDR10, fast encoding\n"
-			"\n-------------------------------------------------------------------------"
-			"\nSee the 'Preprocessor definitions' section for color & feature toggles.\n"
-			"-------------------------------------------------------------------------";
-	ui_tooltip = "Now with WORKING SMAA (hey, if you can't make fun of yourself...)";
+			"\n--------------------------------------------------------------------------------"
+			"\nSee the 'Preprocessor definitions' section for color, feature, and mode toggles.\n"
+			"--------------------------------------------------------------------------------";
+	ui_tooltip = "Interpolate This.";
 	ui_category = "About";
 	ui_category_closed = true;
 >;
@@ -449,43 +447,50 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.4;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
-	ui_label = "Enable Brightness & Vibrance";
-	ui_category = "Brightness & Vibrance";
+	ui_label = "Enable Brightness Booster";
+	ui_category = "Brightness Booster";
 	ui_category_closed = true;
 > = false;
 
 uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
 	ui_spacing = 3;
-	ui_label = "Brightness Gain";
-	ui_category = "Brightness & Vibrance";
+	ui_label = "Boost";
 	ui_tooltip = "Allows to raise overall image brightness\n"
 			  "as a quick fix for dark games or monitors.";
+	ui_category = "Brightness Booster";
 	ui_category_closed = true;
-> = 0.0;
+> = 0.5;
 
 uniform bool HqaaGainLowLumaCorrection <
-	ui_label = "Washout Correction";
+	ui_label = "Washout Correction\n\n";
 	ui_tooltip = "Normalizes contrast ratio of resulting pixels\n"
 				 "to reduce perceived contrast washout.";
-	ui_category = "Brightness & Vibrance";
+	ui_category = "Brightness Booster";
+	ui_category_closed = true;
+> = true;
+
+uniform bool HqaaEnableColorPalette <
+	ui_spacing = 3;
+	ui_label = "Enable Color Palette Manipulation";
+	ui_category = "Color Palette";
 	ui_category_closed = true;
 > = false;
 
 uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_spacing = 6;
+	ui_spacing = 3;
 	ui_label = "% Vibrance";
 	ui_tooltip = "Arbitrarily raises or lowers vibrance of the scene.\n"
 				"Vibrance differs from Saturation in that it\n"
 				"preserves the correct contrast ratio between\n"
 				"color channels after being applied, so it cannot\n"
 				"produce a grayscale image nor a blown-out one.";
-	ui_category = "Brightness & Vibrance";
+	ui_category = "Color Palette";
 	ui_category_closed = true;
 > = 57;
 
@@ -501,16 +506,16 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "vibrance this setting will alter the\n"
 				 "contrast ratio between color channels and\n"
 				 "therefore can cause loss of detail.";
-	ui_category = "Brightness & Vibrance";
+	ui_category = "Color Palette";
 	ui_category_closed = true;
  > = 0.525;
  
 uniform uint HqaaTonemapping <
-	ui_spacing = 6;
+	ui_spacing = 3;
 	ui_type = "combo";
 	ui_label = "Tonemapping\n\n";
 	ui_items = "None\0Reinhard\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0";
-	ui_category = "Brightness & Vibrance";
+	ui_category = "Color Palette";
 	ui_category_closed = true;
 > = 0;
  
@@ -602,13 +607,13 @@ uniform float HqaaImageSoftenStrength <
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
 	ui_min = 0.0; ui_max = 2.0; ui_step = 0.001;
-	ui_label = "Sampling Offset";
+	ui_label = "Sampling Offset\n\n";
 	ui_tooltip = "Adjust this value up or down to expand or\n"
 				 "contract the sampling patterns around the\n"
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.333333;
+> = 0.5;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2425,9 +2430,9 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	}
 	else pixel = ConditionalDecode(pixel); // initially skipped for performance optimization
 
-	if (HqaaEnableBrightnessGain)
+	if (HqaaEnableBrightnessGain || HqaaEnableColorPalette)
 	{
-		bool applygain = HqaaGainStrength > 0.0;
+		bool applygain = (HqaaGainStrength > 0.0) && HqaaEnableBrightnessGain;
 		[branch] if (applygain)
 		{
 			float3 outdot = pixel;
@@ -2451,7 +2456,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			pixel = outdot;
 		}
 	
-		applygain = HqaaVibranceStrength != 50.0;
+		applygain = (HqaaVibranceStrength != 50.0) && HqaaEnableColorPalette;
 		[branch] if (applygain)
 		{
 			float3 outdot = pixel;
@@ -2459,14 +2464,14 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			pixel = outdot;
 		}
 		
-		applygain = HqaaSaturationStrength != 0.5;
+		applygain = (HqaaSaturationStrength != 0.5) && HqaaEnableColorPalette;
 		[branch] if (applygain)
 		{
 			float3 outdot = AdjustSaturation(pixel, HqaaSaturationStrength);
 			pixel = outdot;
 		}
 		
-		applygain = HqaaTonemapping > 0;
+		applygain = (HqaaTonemapping > 0) && HqaaEnableColorPalette;
 		[branch] if (applygain)
 		{
 			if (HqaaTonemapping == 1) pixel = reinhard(pixel);
@@ -2493,7 +2498,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (HqaaTemporalEdgeHinting)
 	{
 		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
-		float blendingoffset = (-0.5 + HQAAmax4(blendingdata.r, blendingdata.g, blendingdata.b, blendingdata.a)) / 2.0;
+		float blendingoffset = (-0.25 + HQAAmax4(blendingdata.r, blendingdata.g, blendingdata.b, blendingdata.a)) / 2.0;
 		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
 	}
 	
@@ -2540,7 +2545,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	float3 lowterm;
 	
 	float3 x1 = (e + f + g) / 3.0;
-	float3 x2 = (h + a + b) / 3.0;
+	float3 x2 = (h + b) / 2.0;
 	float3 x3 = (i + c + d) / 3.0;
 	float3 xy1 = (e + f + b) / 3.0;
 	float3 xy2 = (d + c + h) / 3.0;
@@ -2551,8 +2556,8 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	
 	if (lowdetail)
 	{
-		x1 = (f + a + c) / 3.0;
-		x3 = (e + a + d + g + i) / 5.0;
+		x1 = (f + c) / 2.0;
+		x3 = (a + e + f + g + h + b + i + c + d) / 9.0;
 		xy1 = (e + f + g + b + d) / 5.0;
 		xy2 = (g + b + d + c + i) / 5.0;
 		xy3 = (d + c + i + h + e) / 5.0;
@@ -2561,7 +2566,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	else if (!horiz)
 	{
 		x1 = (e + h + i) / 3.0;
-		x2 = (f + a + c) / 3.0;
+		x2 = (f + c) / 2.0;
 		x3 = (g + b + d) / 3.0;
 		xy1 = (g + b + c) / 3.0;
 		xy2 = (i + h + f) / 3.0;
@@ -2577,8 +2582,8 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	if (diag)
 	{
 		square = (h + f + c + b) / 4.0;
-		diag1 = (e + a + d) / 3.0;
-		diag2 = (g + a + i) / 3.0;
+		diag1 = (e + d) / 2.0;
+		diag2 = (g + i) / 2.0;
 		highterm = HQAAmax3(highterm, diag1, diag2);
 		lowterm = HQAAmin3(lowterm, diag1, diag2);
 	}
