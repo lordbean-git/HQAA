@@ -106,7 +106,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAALintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 1.1.276";
+	ui_label = "Version: 1.1.277";
 	ui_text = "-------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -283,8 +283,8 @@ uniform int HqaalPresetBreakdown <
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
 			  "|     Low|    0.25   | 60.0% |   10%  |Balanced|  50% |  2.0  |  33%  |\n"
 			  "|  Medium|    0.20   | 75.0% |   20%  |Balanced| 100% |  1.0  |  50%  |\n"
-			  "|    High|    0.12   | 75.0% |   25%  |  High  | 150% |  1.0  |  67%  |\n"
-			  "|   Ultra|    0.08   | 75.0% |   33%  |  High  | 200% |  0.5  |  75%  |\n"
+			  "|    High|    0.12   | 82.5% |   25%  |  High  | 150% |  1.0  |  67%  |\n"
+			  "|   Ultra|    0.08   | 87.5% |   33%  |  High  | 200% |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -301,7 +301,7 @@ uniform int HqaalPresetBreakdown <
 #else
 
 static const float HQAAL_THRESHOLD_PRESET[4] = {0.25, 0.2, 0.12, 0.08};
-static const float HQAAL_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.75, 0.75, 0.75};
+static const float HQAAL_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.75, 0.825, 0.875};
 static const float HQAAL_SMAA_CORNER_ROUNDING_PRESET[4] = {0.1, 0.2, 0.25, 0.333333};
 static const float HQAAL_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAAL_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
@@ -329,7 +329,7 @@ static const float HQAAL_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #define __HQAAL_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAAL_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
 #define __HQAAL_CONST_E 2.718282
-#define __HQAAL_LUMA_REF float3(0.333333, 0.333334, 0.333333)
+#define __HQAAL_LUMA_REF float3(0.2126, 0.7152, 0.0722)
 
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
 #define __HQAAL_FX_RADIUS 16.0
@@ -1131,9 +1131,9 @@ float4 HQAALHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord
 	
 	float basethreshold = __HQAAL_EDGE_THRESHOLD;
 	
-	float satmult = 1.0 - dotsat(middle);
+	float satmult = 2.0 * abs(0.5 - dotsat(middle));
 	satmult = pow(abs(satmult), BUFFER_COLOR_BIT_DEPTH / 4.0);
-	float lumamult = 1.0 - dot(middle, __HQAAL_LUMA_REF);
+	float lumamult = 2.0 * abs(0.5 - dot(middle, __HQAAL_LUMA_REF));
 	lumamult = pow(abs(satmult), BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float2 lumathreshold = mad(lumamult, -(__HQAAL_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	float2 satthreshold = mad(satmult, -(__HQAAL_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
@@ -1232,7 +1232,7 @@ float4 HQAALTemporalEdgeAggregationPS(float4 vpos : SV_Position, float2 texcoord
 	
 	float2 mask = float2(0.0, 1.0);
 	if (all(aggregate)) mask = float2(0.0, 0.0);
-	else if (aggregate.g > 0.0) mask = float2(1.0, 0.0);
+	else if (aggregate.r > 0.0) mask = float2(1.0, 0.0);
 	
     float2 a = saturate(saturate(HQAAL_Tex2DOffset(HQAALsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAAL_Tex2DOffset(HQAALsamplerSMweights, texcoord, int2(-1, -1)).ba) - mask);
     float2 c = saturate(saturate(HQAAL_Tex2DOffset(HQAALsamplerSMweights, texcoord, int2(1, -1)).rg + HQAAL_Tex2DOffset(HQAALsamplerSMweights, texcoord, int2(1, -1)).ba) - mask);
