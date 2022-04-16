@@ -117,6 +117,11 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#ifndef HQAA_OPTIONAL__SOFTENING
 		#define HQAA_OPTIONAL__SOFTENING 1
 	#endif
+	#if HQAA_OPTIONAL__DEBANDING
+		#ifndef HQAA_OPTIONAL__DEBANDING_PASSES
+			#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+		#endif //HQAA_OPTIONAL__DEBANDING_PASSES
+	#endif //HQAA_OPTIONAL__DEBANDING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
@@ -132,7 +137,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.1";
+	ui_label = "Version: 27.7.2";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -182,7 +187,16 @@ uniform int HQAAintroduction <
 			"Temporal Stabilizer:                                                      off  *\n"
 			#endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
-			"Debanding:                                                                 on\n"
+			"Debanding:                                                            on"
+			#if HQAA_OPTIONAL__DEBANDING_PASSES < 2
+			" (1x)  *\n"
+			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 3
+			" (4x)  *\n"
+			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 2
+			" (3x)  *\n"
+			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 1
+			" (2x)\n"
+			#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
 			"Debanding:                                                                off  *\n"
 			#endif //HQAA_OPTIONAL__DEBANDING
@@ -201,6 +215,10 @@ uniform int HQAAintroduction <
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING && (HQAA_OUTPUT_MODE > 0)
 			"\nPerforming Debanding is not recommended when using an HDR output format\n"
 			"because the randomized noise used to fix the banding tends to be visible.\n"
+			#endif
+			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
+			"\nYou can set the number of debanding passes performed in the same way as FXAA\n"
+			"multisampling. Its valid range is also 1 to 4.\n"
 			#endif
 			#if HQAA_TAA_ASSIST_MODE
 			"\nTAA Assist Mode is designed to help the game's internal Temporal Anti-Aliasing\n"
@@ -259,6 +277,7 @@ static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -284,7 +303,7 @@ uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
 	ui_spacing = 3;
-	ui_label = "Edge Detection Interpolation\n\n";
+	ui_label = "Edge Detection Interpolation";
 	ui_tooltip = "Offsets edge detection passes by either\n"
 				 "two or four frames when enabled. This is\n"
 				 "intended for specific usage cases where\n"
@@ -293,6 +312,18 @@ uniform uint HqaaSourceInterpolation <
 				 "interpolated to 60fps). For the vast\n"
 				 "majority of games, leave this setting off.";
 	ui_items = "Off\0Single Interpolation\0Double Interpolation\0";
+	ui_category = "Edge Detection";
+	ui_category_closed = true;
+> = 0;
+
+uniform uint HqaaSourceInterpolationOffset <
+	ui_type = "slider";
+	ui_min = 0; ui_max = 3; ui_step = 1;
+	ui_label = "Frame Count Offset\n\n";
+	ui_tooltip = "Arbitrary offset applied when determining whether\n"
+				 "to run or skip edge detection when using interpolation.\n"
+				 "Adjust this if there seems to be synchronization\n"
+				 "problems visible in the output.";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
 > = 0;
@@ -704,8 +735,8 @@ static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
 #endif //HQAA_ADVANCED_MODE
 
 uniform uint HqaaFramecounter < source = "framecount"; >;
-#define __HQAA_ALT_FRAME (HqaaFramecounter % 2 == 0)
-#define __HQAA_QUAD_FRAME (HqaaFramecounter % 4 == 1)
+#define __HQAA_ALT_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 2 == 0)
+#define __HQAA_QUAD_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 4 == 1)
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -2707,11 +2738,27 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAADebandPS;
 	}
+#if HQAA_OPTIONAL__DEBANDING_PASSES > 1
 	pass Deband
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAADebandPS;
 	}
+#if HQAA_OPTIONAL__DEBANDING_PASSES > 2
+	pass Deband
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAADebandPS;
+	}
+#if HQAA_OPTIONAL__DEBANDING_PASSES > 3
+	pass Deband
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAADebandPS;
+	}
+#endif //HQAA_OPTIONAL__DEBANDING_PASSES 3
+#endif //HQAA_OPTIONAL__DEBANDING_PASSES 2
+#endif //HQAA_OPTIONAL__DEBANDING_PASSES 1
 #endif //HQAA_OPTIONAL__DEBANDING
 	pass OptionalEffects
 	{
