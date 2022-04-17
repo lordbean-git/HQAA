@@ -137,7 +137,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.2";
+	ui_label = "Version: 27.7.3";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -605,7 +605,7 @@ uniform uint HqaaDebandPreset <
 			  "to Deband.fx to mitigate color banding.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 1;
+> = 0;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
@@ -614,7 +614,7 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_label = "Scan Radius\n\n";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 32.0;
+> = 16.0;
 
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 #endif //HQAA_OPTIONAL__DEBANDING
@@ -633,7 +633,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.625;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -644,7 +644,7 @@ uniform float HqaaImageSoftenOffset <
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.625;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -1185,7 +1185,9 @@ float3 AdjustVibrance(float3 pixel, float satadjust)
 	float3 outdot = pixel;
 	float refsat = dotsat(pixel);
 	float realadjustment = saturate(refsat + satadjust) - refsat;
-	float2 highlow = float2(HQAAdotmax(outdot), HQAAdotmin(outdot));
+	float2 highlow = float2(HQAAdotmax(pixel), HQAAdotmin(pixel));
+	float maxpositive = 1.0 - highlow.x;
+	float maxnegative = -highlow.y;
 	bool runadjustment = abs(realadjustment) > __HQAA_SMALLEST_COLOR_STEP;
 	[branch] if (runadjustment)
 	{
@@ -1193,32 +1195,32 @@ float3 AdjustVibrance(float3 pixel, float satadjust)
 		float mid = -1.0;
 		
 		// figure out if the low needs to move up or down
-		float lowadjust = ((highlow.y - highlow.x / 2.0) / highlow.x) * realadjustment;
+		float lowadjust = clamp(((highlow.y - highlow.x / 2.0) / highlow.x) * realadjustment, maxnegative, maxpositive);
 		
 		// same calculation used with the high factors to this
-		float highadjust = 0.5 * realadjustment;
+		float highadjust = clamp(0.5 * realadjustment, maxnegative, maxpositive);
 		
 		// method = apply corrections based on matched high or low channel, assign mid if neither
-		if (outdot.r == highlow.x) outdot.r = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.r));
-		else if (outdot.r == highlow.y) outdot.r = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.r));
-		else mid = outdot.r;
-		if (outdot.g == highlow.x) outdot.g = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.g));
-		else if (outdot.g == highlow.y) outdot.g = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.g));
-		else mid = outdot.g;
-		if (outdot.b == highlow.x) outdot.b = pow(abs(1.0 + highadjust) * 2.0, log2(outdot.b));
-		else if (outdot.b == highlow.y) outdot.b = pow(abs(1.0 + lowadjust) * 2.0, log2(outdot.b));
-		else mid = outdot.b;
+		if (pixel.r == highlow.x) outdot.r = pow(abs(1.0 + highadjust) * 2.0, log2(pixel.r));
+		else if (pixel.r == highlow.y) outdot.r = pow(abs(1.0 + lowadjust) * 2.0, log2(pixel.r));
+		else mid = pixel.r;
+		if (pixel.g == highlow.x) outdot.g = pow(abs(1.0 + highadjust) * 2.0, log2(pixel.g));
+		else if (pixel.g == highlow.y) outdot.g = pow(abs(1.0 + lowadjust) * 2.0, log2(pixel.g));
+		else mid = pixel.g;
+		if (pixel.b == highlow.x) outdot.b = pow(abs(1.0 + highadjust) * 2.0, log2(pixel.b));
+		else if (pixel.b == highlow.y) outdot.b = pow(abs(1.0 + lowadjust) * 2.0, log2(pixel.b));
+		else mid = pixel.b;
 		
 		// perform mid channel calculations if a valid mid was found
 		if (mid > 0.0)
 		{
 			// figure out whether it should move up or down
-			float midadjust = ((mid - highlow.x / 2.0) / highlow.x) * realadjustment;
+			float midadjust = clamp(((mid - highlow.x / 2.0) / highlow.x) * realadjustment, maxnegative, maxpositive);
 			
 			// determine which channel is mid and apply correction
-			if (pixel.r == mid) outdot.r = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.r));
-			else if (pixel.g == mid) outdot.g = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.g));
-			else if (pixel.b == mid) outdot.b = pow(abs(1.0 + midadjust) * 2.0, log2(outdot.b));
+			if (pixel.r == mid) outdot.r = pow(abs(1.0 + midadjust) * 2.0, log2(pixel.r));
+			else if (pixel.g == mid) outdot.g = pow(abs(1.0 + midadjust) * 2.0, log2(pixel.g));
+			else if (pixel.b == mid) outdot.b = pow(abs(1.0 + midadjust) * 2.0, log2(pixel.b));
 		}
 	}
 	
@@ -1509,7 +1511,6 @@ float3 AdjustSaturation(float3 input, float requestedadjustment)
 	
 	float adjustment = 2.0 * (saturate(requestedadjustment) - 0.5);
 	
-	//yuv.x = saturate(yuv.x + (adjustment * yuv.x));
 	yuv.y = yuv.y > 0.0 ? clamp(yuv.y + (adjustment * yuv.y), 0.0, 0.5) : clamp(yuv.y - (adjustment * abs(yuv.y)), -0.5, 0.0);
 	yuv.z = yuv.z > 0.0 ? clamp(yuv.z + (adjustment * yuv.z), 0.0, 0.5) : clamp(yuv.z - (adjustment * abs(yuv.z)), -0.5, 0.0);
 	
@@ -1521,6 +1522,40 @@ float3 AdjustSaturation(float3 input, float requestedadjustment)
 	return saturate(argb);
 }
 #endif //HQAA_OPTIONAL_EFFECTS
+
+float3 RGBtoYUV(float3 input)
+{
+	float3 argb = saturate(input); // value must be between [0,1]
+	float3 yuv;
+	
+	yuv.x = saturate((0.299 * argb.r) + (0.587 * argb.g) + (0.114 * argb.b));
+	yuv.y = clamp(0.713 * (argb.r - yuv.x), -0.5, 0.5);
+	yuv.z = clamp(0.564 * (argb.b - yuv.x), -0.5, 0.5);
+	
+	return yuv;
+}
+float4 RGBtoYUV(float4 input)
+{
+	return float4(RGBtoYUV(input.rgb), input.a);
+}
+
+float3 YUVtoRGB(float3 yuv)
+{
+	yuv.x = saturate(yuv.x);
+	yuv.yz = clamp(yuv.yz, -0.5, 0.5);
+	
+	float3 argb;
+	
+	argb.r = (1.402525 * yuv.y) + yuv.x;
+	argb.b = (1.77305 * yuv.z) + yuv.x;
+	argb.g = (1.703578 * yuv.x) - (0.50937 * argb.r) - (0.194208 * argb.b);
+	
+	return argb;
+}
+float4 YUVtoRGB(float4 yuv)
+{
+	return float4(YUVtoRGB(yuv.xyz), yuv.a);
+}
 
 float squared(float x)
 {
@@ -2468,6 +2503,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		{
 			float3 outdot = pixel;
 			float presaturation = dotsat(outdot);
+			float preluma = dot(outdot, __HQAA_LUMA_REF);
 			float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
 			float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
 			outdot = log2(clamp(outdot, channelfloor, 1.0 - channelfloor));
@@ -2477,8 +2513,12 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 				// calculate new black level
 				channelfloor = pow(abs(colorgain), log2(channelfloor));
 				// calculate reduction strength to apply
-				float contrastgain = log(rcp(dot(outdot, __HQAA_LUMA_REF) - channelfloor)) * pow(__HQAA_CONST_E, (1.0 + channelfloor) * __HQAA_CONST_E) * HqaaGainStrength;
-				outdot = pow(abs(10.0 + contrastgain * (1.0 + HqaaGainStrength)), log10(outdot));
+				float contrastgain = log(rcp(dot(outdot, __HQAA_LUMA_REF) - channelfloor)) * pow(__HQAA_CONST_E, (1.0 + channelfloor) * __HQAA_CONST_E) * HqaaGainStrength * HqaaGainStrength;
+				outdot = pow(abs(5.0 + contrastgain) * 2.0, log10(outdot));
+				float lumadelta = dot(outdot, __HQAA_LUMA_REF) - preluma;
+				outdot = RGBtoYUV(outdot);
+				outdot.x = saturate(outdot.x - lumadelta * channelfloor);
+				outdot = YUVtoRGB(outdot);
 				float newsat = dotsat(outdot);
 				float satadjust = newsat - presaturation; // compute difference in before/after saturation
 				bool adjustsat = abs(satadjust) > channelfloor;
