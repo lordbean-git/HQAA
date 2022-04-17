@@ -137,7 +137,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.5";
+	ui_label = "Version: 27.7.6";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -495,7 +495,7 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 			  "as a quick fix for dark games or monitors.";
 	ui_category = "Brightness Booster";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.4;
 
 uniform bool HqaaGainLowLumaCorrection <
 	ui_label = "Washout Correction\n\n";
@@ -2384,7 +2384,7 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	ori = ConditionalDecode(ori);
 	
 	// abort if luma and saturation are both <0.1 - debanding can really wash out dark areas
-	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < 0.1) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
+	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < 0.05) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
 	if (earlyExit) return encodedori;
 	
     // Settings
@@ -2527,15 +2527,15 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 				channelfloor = pow(abs(colorgain), log2(channelfloor));
 				// calculate reduction strength to apply
 				float contrastgain = log(rcp(dot(outdot, __HQAA_LUMA_REF) - channelfloor)) * pow(__HQAA_CONST_E, (1.0 + channelfloor) * __HQAA_CONST_E) * HqaaGainStrength * HqaaGainStrength;
-				outdot = pow(abs(5.0 + contrastgain) * 2.0, log10(outdot));
+				outdot = pow(abs(4.0 + contrastgain) * 2.5, log10(outdot));
 				float lumadelta = dot(outdot, __HQAA_LUMA_REF) - preluma;
 				outdot = RGBtoYUV(outdot);
 				outdot.x = saturate(outdot.x - lumadelta * channelfloor);
 				outdot = YUVtoRGB(outdot);
 				float newsat = dotsat(outdot);
-				float satadjust = newsat - presaturation; // compute difference in before/after saturation
-				bool adjustsat = abs(satadjust) > channelfloor;
-				if (adjustsat) outdot = AdjustVibrance(outdot, -satadjust);
+				float satadjust = abs(((newsat - presaturation) / 2.0) * (1.0 + HqaaGainStrength)); // compute difference in before/after saturation
+				bool adjustsat = satadjust != 0.0;
+				if (adjustsat) outdot = AdjustSaturation(outdot, 0.5 + satadjust);
 			}
 			pixel = outdot;
 		}
