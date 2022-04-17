@@ -137,7 +137,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.3";
+	ui_label = "Version: 27.7.4";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -598,14 +598,16 @@ uniform float HqaaHFRJitterStrength <
 #if HQAA_OPTIONAL__DEBANDING
 uniform uint HqaaDebandPreset <
 	ui_type = "combo";
-	ui_items = "Low\0Medium\0High\0";
+	ui_items = "Low\0Medium\0High\0Very High\0Extreme\0";
 	ui_spacing = 3;
     ui_label = "Strength";
     ui_tooltip = "Performs a fast debanding pass similar\n"
-			  "to Deband.fx to mitigate color banding.";
+			  "to Deband.fx to mitigate color banding.\n"
+			  "Stronger presets catch more banding but\n"
+			  "increase the risk of detail loss.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 0;
+> = 1;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
@@ -2382,11 +2384,13 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	float avgdiff, maxdiff, middiff;
 	if (HqaaDebandPreset == 0) { avgdiff = 0.6 * pixstep; maxdiff = 1.9 * pixstep; middiff = 1.2 * pixstep; }
 	else if (HqaaDebandPreset == 1) { avgdiff = 1.8 * pixstep; maxdiff = 4.0 * pixstep; middiff = 2.0 * pixstep; }
-	else { avgdiff = 3.4 * pixstep; maxdiff = 6.8 * pixstep; middiff = 3.3 * pixstep; }
+	else if (HqaaDebandPreset == 2) { avgdiff = 3.4 * pixstep; maxdiff = 6.8 * pixstep; middiff = 3.3 * pixstep; }
+	else if (HqaaDebandPreset == 3) { avgdiff = 4.9 * pixstep; maxdiff = 9.5 * pixstep; middiff = 4.7 * pixstep; }
+	else { avgdiff = 7.1 * pixstep; maxdiff = 13.3 * pixstep; middiff = 6.3 * pixstep; }
 #else
-    float avgdiff[3] = {1.1 * pixstep, 1.8 * pixstep, 3.4 * pixstep}; // 0.6/255, 1.8/255, 3.4/255
-    float maxdiff[3] = {2.5 * pixstep, 4.0 * pixstep, 6.8 * pixstep}; // 1.9/255, 4.0/255, 6.8/255
-    float middiff[3] = {1.5 * pixstep, 2.0 * pixstep, 3.3 * pixstep}; // 1.2/255, 2.0/255, 3.3/255
+    float avgdiff[5] = {1.1 * pixstep, 1.8 * pixstep, 3.4 * pixstep, 4.9 * pixstep, 7.1 * pixstep}; // 0.6/255, 1.8/255, 3.4/255
+    float maxdiff[5] = {2.5 * pixstep, 4.0 * pixstep, 6.8 * pixstep, 9.5 * pixstep, 13.3 * pixstep}; // 1.9/255, 4.0/255, 6.8/255
+    float middiff[5] = {1.5 * pixstep, 2.0 * pixstep, 3.3 * pixstep, 4.7 * pixstep, 6.3 * pixstep}; // 1.2/255, 2.0/255, 3.3/255
 #endif
 
     float randomseed = HqaaDebandSeed / 32767.0;
