@@ -137,7 +137,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.4";
+	ui_label = "Version: 27.7.5";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -613,10 +613,19 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
     ui_max = 32.0;
     ui_step = 1.0;
-    ui_label = "Scan Radius\n\n";
+    ui_label = "Scan Radius";
 	ui_category = "Debanding";
 	ui_category_closed = true;
 > = 16.0;
+
+uniform bool HqaaDebandIgnoreLowLuma <
+	ui_label = "Skip Dark Pixels\n\n";
+	ui_tooltip = "Skips performing debanding in areas with\n"
+				 "low luma. This can help to preserve detail\n"
+				 "in games that have dark scenes or areas.";
+	ui_category = "Debanding";
+	ui_category_closed = true;
+> = true;
 
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 #endif //HQAA_OPTIONAL__DEBANDING
@@ -2375,7 +2384,7 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	ori = ConditionalDecode(ori);
 	
 	// abort if luma and saturation are both <0.1 - debanding can really wash out dark areas
-	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < 0.125) && (dotsat(ori) < 0.333333);
+	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < 0.1) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
 	if (earlyExit) return encodedori;
 	
     // Settings
