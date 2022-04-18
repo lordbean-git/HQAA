@@ -137,7 +137,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.6";
+	ui_label = "Version: 27.7.7";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -495,7 +495,7 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 			  "as a quick fix for dark games or monitors.";
 	ui_category = "Brightness Booster";
 	ui_category_closed = true;
-> = 0.4;
+> = 0.333333;
 
 uniform bool HqaaGainLowLumaCorrection <
 	ui_label = "Washout Correction\n\n";
@@ -558,7 +558,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.75;
+> = 0.5;
 
 uniform bool HqaaTemporalClamp <
 	ui_spacing = 3;
@@ -607,7 +607,7 @@ uniform uint HqaaDebandPreset <
 			  "increase the risk of detail loss.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 1;
+> = 0;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
@@ -644,7 +644,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.875;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -655,7 +655,7 @@ uniform float HqaaImageSoftenOffset <
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.666667;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2527,7 +2527,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 				channelfloor = pow(abs(colorgain), log2(channelfloor));
 				// calculate reduction strength to apply
 				float contrastgain = log(rcp(dot(outdot, __HQAA_LUMA_REF) - channelfloor)) * pow(__HQAA_CONST_E, (1.0 + channelfloor) * __HQAA_CONST_E) * HqaaGainStrength * HqaaGainStrength;
-				outdot = pow(abs(4.0 + contrastgain) * 2.5, log10(outdot));
+				outdot = pow(abs(3.333333 + contrastgain) * 3.0, log10(outdot));
 				float lumadelta = dot(outdot, __HQAA_LUMA_REF) - preluma;
 				outdot = RGBtoYUV(outdot);
 				outdot.x = saturate(outdot.x - lumadelta * channelfloor);
@@ -2576,13 +2576,13 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	if (HqaaTemporalClamp)
 	{
-		float chromadiff = dotweight(current, previous, false, 0);
-		blendweight *= chromadiff;
+		float chromadiff = 0.5 + dotweight(current, previous, false, 0);
+		blendweight = clamp(blendweight * chromadiff, 0.0, 0.75);
 	}
 	if (HqaaTemporalEdgeHinting)
 	{
 		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
-		float blendingoffset = (-0.25 + HQAAmax4(blendingdata.r, blendingdata.g, blendingdata.b, blendingdata.a)) / 2.0;
+		float blendingoffset = (-0.5 + HQAAmax4(blendingdata.r, blendingdata.g, blendingdata.b, blendingdata.a)) / 2.0;
 		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
 	}
 	
