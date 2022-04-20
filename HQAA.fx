@@ -119,12 +119,12 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif
 	#if HQAA_OPTIONAL__DEBANDING
 		#ifndef HQAA_OPTIONAL__DEBANDING_PASSES
-			#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+			#define HQAA_OPTIONAL__DEBANDING_PASSES 3
 		#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
 		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
-			#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 3
 		#endif
 	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -198,9 +198,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 2
-			" (3x)  *\n"
+			" (3x)\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 1
-			" (2x)\n"
+			" (2x)  *\n"
 			#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
 			"Debanding:                                                                off  *\n"
@@ -212,9 +212,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
-			" (3x)  *\n"
+			" (3x)\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
-			" (2x)\n"
+			" (2x)  *\n"
 			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 			"Image Softening:                                                          off  *\n"
@@ -621,7 +621,7 @@ uniform uint HqaaDebandPreset <
 			  "increase the risk of detail loss.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 2;
+> = 1;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
@@ -630,7 +630,7 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_label = "Scan Radius";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 16.0;
+> = 32.0;
 
 uniform bool HqaaDebandIgnoreLowLuma <
 	ui_label = "Skip Dark Pixels";
@@ -640,7 +640,7 @@ uniform bool HqaaDebandIgnoreLowLuma <
 	ui_spacing = 3;
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = false;
+> = true;
 
 uniform bool HqaaDebandUseSmaaData <
 	ui_label = "SMAA Hinting\n\n";
@@ -669,7 +669,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.625;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -680,7 +680,7 @@ uniform float HqaaImageSoftenOffset <
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.333333;
+> = 0.375;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2409,7 +2409,7 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	ori = ConditionalDecode(ori);
 	
 	// abort if luma and saturation are both <0.1 - debanding can really wash out dark areas
-	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < __HQAA_EDGE_THRESHOLD) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
+	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < (__HQAA_EDGE_THRESHOLD * 0.5)) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
 	if (HqaaDebandUseSmaaData) earlyExit = earlyExit || any(HQAA_Tex2D(HQAAsamplerSMweights, texcoord));
 	if (earlyExit) return encodedori;
 	
