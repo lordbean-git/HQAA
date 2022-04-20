@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.9";
+	ui_label = "Version: 27.7.10";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -621,7 +621,7 @@ uniform uint HqaaDebandPreset <
 			  "increase the risk of detail loss.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 0;
+> = 2;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
@@ -633,10 +633,21 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
 > = 16.0;
 
 uniform bool HqaaDebandIgnoreLowLuma <
-	ui_label = "Skip Dark Pixels\n\n";
+	ui_label = "Skip Dark Pixels";
 	ui_tooltip = "Skips performing debanding in areas with\n"
 				 "low luma. This can help to preserve detail\n"
 				 "in games that have dark scenes or areas.";
+	ui_spacing = 3;
+	ui_category = "Debanding";
+	ui_category_closed = true;
+> = false;
+
+uniform bool HqaaDebandUseSmaaData <
+	ui_label = "SMAA Hinting\n\n";
+	ui_tooltip = "Skips performing debanding where SMAA\n"
+				 "recorded blending weights. Helps to\n"
+				 "preserve detail when using stronger\n"
+				 "debanding settings.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
 > = true;
@@ -2398,7 +2409,8 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	ori = ConditionalDecode(ori);
 	
 	// abort if luma and saturation are both <0.1 - debanding can really wash out dark areas
-	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < 0.05) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
+	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < __HQAA_EDGE_THRESHOLD) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
+	if (HqaaDebandUseSmaaData) earlyExit = earlyExit || any(HQAA_Tex2D(HQAAsamplerSMweights, texcoord));
 	if (earlyExit) return encodedori;
 	
     // Settings
