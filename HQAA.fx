@@ -122,6 +122,11 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 			#define HQAA_OPTIONAL__DEBANDING_PASSES 2
 		#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 	#endif //HQAA_OPTIONAL__DEBANDING
+	#if HQAA_OPTIONAL__SOFTENING
+		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+		#endif
+	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
 
 #ifndef HQAA_FXAA_MULTISAMPLING
@@ -137,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.7";
+	ui_label = "Version: 27.7.8";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -201,7 +206,16 @@ uniform int HQAAintroduction <
 			"Debanding:                                                                off  *\n"
 			#endif //HQAA_OPTIONAL__DEBANDING
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__SOFTENING
-			"Image Softening:                                                           on\n"
+			"Image Softening:                                                      on"
+			#if HQAA_OPTIONAL__SOFTENING_PASSES < 2
+			" (1x)  *\n"
+			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
+			" (4x)  *\n"
+			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
+			" (3x)  *\n"
+			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
+			" (2x)\n"
+			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 			"Image Softening:                                                          off  *\n"
 			#endif
@@ -216,9 +230,9 @@ uniform int HQAAintroduction <
 			"\nPerforming Debanding is not recommended when using an HDR output format\n"
 			"because the randomized noise used to fix the banding tends to be visible.\n"
 			#endif
-			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
-			"\nYou can set the number of debanding passes performed in the same way as FXAA\n"
-			"multisampling. Its valid range is also 1 to 4.\n"
+			#if HQAA_OPTIONAL_EFFECTS && (HQAA_OPTIONAL__DEBANDING || HQAA_OPTIONAL__SOFTENING)
+			"\nYou can set the number of passes performed by debanding/softening in the same\n"
+			"way as FXAA multisampling. Valid range is 1 to 4.\n"
 			#endif
 			#if HQAA_TAA_ASSIST_MODE
 			"\nTAA Assist Mode is designed to help the game's internal Temporal Anti-Aliasing\n"
@@ -558,7 +572,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.5;
+> = 0.625;
 
 uniform bool HqaaTemporalClamp <
 	ui_spacing = 3;
@@ -648,14 +662,14 @@ uniform float HqaaImageSoftenStrength <
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
-	ui_min = 0.0; ui_max = 2.0; ui_step = 0.001;
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
 	ui_label = "Sampling Offset\n\n";
 	ui_tooltip = "Adjust this value up or down to expand or\n"
 				 "contract the sampling patterns around the\n"
 				 "central pixel.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.666667;
+> = 0.375;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2756,6 +2770,27 @@ technique HQAA <
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAASofteningPS;
 	}
+#if HQAA_OPTIONAL__SOFTENING_PASSES > 1
+	pass ImageSoftening
+	{
+		VertexShader = HQAANeighborhoodBlendingVS;
+		PixelShader = HQAASofteningPS;
+	}
+#if HQAA_OPTIONAL__SOFTENING_PASSES > 2
+	pass ImageSoftening
+	{
+		VertexShader = HQAANeighborhoodBlendingVS;
+		PixelShader = HQAASofteningPS;
+	}
+#if HQAA_OPTIONAL__SOFTENING_PASSES > 3
+	pass ImageSoftening
+	{
+		VertexShader = HQAANeighborhoodBlendingVS;
+		PixelShader = HQAASofteningPS;
+	}
+#endif //HQAA_OPTIONAL__SOFTENING_PASSES 3
+#endif //HQAA_OPTIONAL__SOFTENING_PASSES 2
+#endif //HQAA_OPTIONAL__SOFTENING_PASSES 1
 #endif //HQAA_OPTIONAL__SOFTENING
 #endif //HQAA_OPTIONAL_EFFECTS
 #if HQAA_FXAA_MULTISAMPLING > 1
