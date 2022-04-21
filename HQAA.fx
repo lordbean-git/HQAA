@@ -119,12 +119,12 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif
 	#if HQAA_OPTIONAL__DEBANDING
 		#ifndef HQAA_OPTIONAL__DEBANDING_PASSES
-			#define HQAA_OPTIONAL__DEBANDING_PASSES 3
+			#define HQAA_OPTIONAL__DEBANDING_PASSES 2
 		#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
 		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
-			#define HQAA_OPTIONAL__SOFTENING_PASSES 3
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 4
 		#endif
 	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.10";
+	ui_label = "Version: 27.7.11";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -198,9 +198,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 2
-			" (3x)\n"
+			" (3x)  *\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 1
-			" (2x)  *\n"
+			" (2x)\n"
 			#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
 			"Debanding:                                                                off  *\n"
@@ -210,9 +210,9 @@ uniform int HQAAintroduction <
 			#if HQAA_OPTIONAL__SOFTENING_PASSES < 2
 			" (1x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
-			" (4x)  *\n"
+			" (4x)\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
-			" (3x)\n"
+			" (3x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
 			" (2x)  *\n"
 			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
@@ -268,6 +268,8 @@ uniform uint HqaaDebugMode <
 	ui_label = " ";
 	ui_text = "Debug Mode:";
 	ui_items = "Off\n\n\0Detected Edges\0SMAA Blend Weights\n\n\0FXAA Results\0FXAA Lumas\0FXAA Metrics\n\n\0Hysteresis Pattern\0";
+	ui_tooltip = "Useful primarily for learning what everything\n"
+				 "does when using advanced mode setup.";
 > = 0;
 #endif //HQAA_DEBUG_MODE
 
@@ -281,12 +283,15 @@ uniform int HqaaAboutEOF <
 uniform uint HqaaPreset <
 	ui_type = "combo";
 	ui_label = "Quality Preset";
-	ui_tooltip = "Set HQAA_ADVANCED_MODE to 1 to customize all options";
+	ui_tooltip = "Quality of the core Anti-Aliasing effect.\n"
+				 "Higher presets look better but take more\n"
+				 "GPU time to compute. Set HQAA_ADVANCED_MODE\n"
+				 "to 1 to customize all options.";
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 3;
 
-static const float HqaaHysteresisStrength = 25.0;
-static const float HqaaHysteresisFudgeFactor = 3.3;
+static const float HqaaHysteresisStrength = 33.3;
+static const float HqaaHysteresisFudgeFactor = 1.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaFxEarlyExit = true;
@@ -298,15 +303,15 @@ uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.0; ui_max = 1.0;
 	ui_spacing = 3;
 	ui_label = "Edge Detection Threshold";
-	ui_tooltip = "Local contrast (luma difference) required to be considered an edge";
+	ui_tooltip = "Local contrast required to be considered an edge";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
 > = 0.1;
 
 uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Dynamic Reduction Range";
-	ui_tooltip = "Maximum dynamic reduction of edge threshold (as percentage of base threshold)\n"
+	ui_label = "% Dynamic Range";
+	ui_tooltip = "Maximum reduction of edge threshold (% base threshold)\n"
 				 "permitted when detecting low-brightness edges.\n"
 				 "Lower = faster, might miss low-contrast edges\n"
 				 "Higher = slower, catches more edges in dark scenes";
@@ -314,9 +319,24 @@ uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 75;
 
+uniform uint HqaaEdgeErrorMarginCustom <
+	ui_type = "combo";
+	ui_label = "Edge Detection Error Margin";
+	ui_spacing = 3;
+	ui_tooltip = "Determines maximum number of neighbor edges allowed before\n"
+				"an edge is considered an erroneous detection. Low preserves\n"
+				"detail, high increases amount of anti-aliasing applied. You\n"
+				"can skip this check entirely by selecting 'Off'.";
+	ui_items = "Low\0Balanced\0High\0Off\0";
+	ui_category = "Edge Detection";
+	ui_category_closed = true;
+> = 1;
+
+static const float HQAA_ERRORMARGIN_CUSTOM[4] = {4.0, 5.0, 7.0, -1.0};
+
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
-	ui_spacing = 3;
+	ui_spacing = 6;
 	ui_label = "Edge Detection Interpolation";
 	ui_tooltip = "Offsets edge detection passes by either\n"
 				 "two or four frames when enabled. This is\n"
@@ -342,27 +362,11 @@ uniform uint HqaaSourceInterpolationOffset <
 	ui_category_closed = true;
 > = 0;
 
-uniform uint HqaaEdgeErrorMarginCustom <
-	ui_type = "radio";
-	ui_label = "Mouseover for description";
-	ui_spacing = 3;
-	ui_text = "Detected Edges Margin of Error:";
-	ui_tooltip = "Determines maximum number of neighbor edges allowed before\n"
-				"an edge is considered an erroneous detection. Low preserves\n"
-				"detail, high increases amount of anti-aliasing applied. You\n"
-				"can skip this check entirely by selecting 'Off'.";
-	ui_items = "Low\0Balanced\0High\0Off\0";
-	ui_category = "SMAA";
-	ui_category_closed = true;
-> = 1;
-
-static const float HQAA_ERRORMARGIN_CUSTOM[4] = {4.0, 5.0, 7.0, -1.0};
-
 uniform uint HqaaEdgeTemporalAggregation <
 	ui_type = "radio";
 	ui_label = "Mouseover for description";
 	ui_spacing = 3;
-	ui_text = "Temporal Aggregation Mode:";
+	ui_text = "Temporal Edge Aggregation Mode:";
 	ui_tooltip = "Determines the conditions under which edge detection\n"
 				"temporal aggregation will keep or discard detected\n"
 				"edges. Loose may cause mild ghosting, strict may miss\n"
@@ -370,7 +374,7 @@ uniform uint HqaaEdgeTemporalAggregation <
 	ui_items = "Loose\0Balanced\0Strict\0";
 	ui_category = "SMAA";
 	ui_category_closed = true;
-> = 1;
+> = 0;
 
 uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -385,7 +389,7 @@ uniform float HqaaFxQualityCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_spacing = 3;
 	ui_min = 25; ui_max = 400; ui_step = 1;
 	ui_label = "% Quality";
-	ui_tooltip = "Affects the maximum radius FXAA will search\nalong an edge gradient";
+	ui_tooltip = "Affects the maximum radius FXAA will\nsearch along an edge gradient";
 	ui_category = "FXAA";
 	ui_category_closed = true;
 > = 100;
@@ -393,19 +397,19 @@ uniform float HqaaFxQualityCustom < __UNIFORM_SLIDER_FLOAT1
 uniform float HqaaFxTexelCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0.25; ui_max = 4.0; ui_step = 0.01;
 	ui_label = "Edge Gradient Texel Size";
-	ui_tooltip = "Determines how far along an edge FXAA will move\nfrom one scan iteration to the next.\n\nLower = slower, more accurate\nHigher = faster, more artifacts";
+	ui_tooltip = "Determines how far along an edge FXAA will move\nfrom one scan iteration to the next.\n\nLower = slower, more accurate\nHigher = faster, causes more blur";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.5;
 
 uniform float HqaaFxBlendCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Gradient Blending Strength";
-	ui_tooltip = "Percentage of blending FXAA will apply to long slopes.\n"
+	ui_label = "% Blending Strength";
+	ui_tooltip = "Percentage of blending FXAA will apply to edges.\n"
 				 "Lower = sharper image, Higher = more AA effect";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 50;
+> = 75;
 
 uniform bool HqaaFxEarlyExit <
 	ui_label = "Allow Early Exit\n\n";
@@ -413,6 +417,7 @@ uniform bool HqaaFxEarlyExit <
 				 "local contrast doesn't exceed the edge\n"
 				 "threshold. Uncheck this to force FXAA to\n"
 				 "process the entire scene.";
+	ui_spacing = 3;
 	ui_category = "FXAA";
 	ui_category_closed = true;
 > = true;
@@ -492,7 +497,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.4;
+> = 0.25;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -621,13 +626,15 @@ uniform uint HqaaDebandPreset <
 			  "increase the risk of detail loss.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 1;
+> = 2;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
     ui_max = 32.0;
     ui_step = 1.0;
     ui_label = "Scan Radius";
+    ui_tooltip = "Maximum distance from each dot to check\n"
+    			 "for possible color banding artifacts\n";
 	ui_category = "Debanding";
 	ui_category_closed = true;
 > = 32.0;
@@ -669,7 +676,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 1.0;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -677,10 +684,13 @@ uniform float HqaaImageSoftenOffset <
 	ui_label = "Sampling Offset\n\n";
 	ui_tooltip = "Adjust this value up or down to expand or\n"
 				 "contract the sampling patterns around the\n"
-				 "central pixel.";
+				 "central pixel. Effectively, this gives the\n"
+				 "middle dot either less or more weight in\n"
+				 "each sample pattern, causing the overall\n"
+				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.25;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
