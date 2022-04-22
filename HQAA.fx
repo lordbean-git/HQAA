@@ -124,7 +124,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
 		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
-			#define HQAA_OPTIONAL__SOFTENING_PASSES 4
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 3
 		#endif
 	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.12";
+	ui_label = "Version: 27.7.13";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -210,9 +210,9 @@ uniform int HQAAintroduction <
 			#if HQAA_OPTIONAL__SOFTENING_PASSES < 2
 			" (1x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
-			" (4x)\n"
+			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
-			" (3x)  *\n"
+			" (3x)\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
 			" (2x)  *\n"
 			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
@@ -743,10 +743,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Qual---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|    0.25   | 60.0% |   10%  |Balanced|  50% |  2.0  |  33%  |\n"
-			  "|  Medium|    0.20   | 75.0% |   20%  |Balanced| 100% |  1.0  |  50%  |\n"
-			  "|    High|    0.12   | 82.5% |   25%  |  High  | 150% |  1.0  |  67%  |\n"
-			  "|   Ultra|    0.08   | 87.5% |   33%  |  High  | 200% |  0.5  |  75%  |\n"
+			  "|     Low|    0.20   | 50.0% |    0%  |Balanced|  50% |  2.0  |  33%  |\n"
+			  "|  Medium|    0.15   | 66.7% |   10%  |Balanced| 100% |  1.0  |  50%  |\n"
+			  "|    High|    0.10   | 75.0% |   20%  |  High  | 150% |  1.0  |  67%  |\n"
+			  "|   Ultra|    0.05   | 80.0% |   25%  |  High  | 200% |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -762,9 +762,9 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.25, 0.2, 0.12, 0.08};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.75, 0.825, 0.875};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.1, 0.2, 0.25, 0.333333};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.8};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.2, 0.25};
 static const float HQAA_FXAA_SCANNING_MULTIPLIER_PRESET[4] = {0.5, 1.0, 1.5, 2.0};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.333333, 0.5, 0.666667, 0.75};
@@ -1905,8 +1905,8 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 #endif //HQAA_TAA_ASSIST_MODE
 
 	float basethreshold = __HQAA_EDGE_THRESHOLD;
-	float satmult = intpow(abs(2.0 * abs(0.5 - dotsat(middle))), BUFFER_COLOR_BIT_DEPTH / 4.0);
-	float lumamult = intpow(abs(2.0 * abs(0.5 - dot(middle, __HQAA_LUMA_REF))), BUFFER_COLOR_BIT_DEPTH / 4.0);
+	float satmult = 2.0 * abs(0.5 - dotsat(middle));
+	float lumamult = 2.0 * abs(0.5 - dot(middle, __HQAA_LUMA_REF));
 	float2 lumathreshold = mad(lumamult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	float2 satthreshold = mad(satmult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
@@ -1945,7 +1945,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	float4 delta;
 	float scale;
 	
-	adaptationaverage /= 5.0;
+	adaptationaverage *= 2.0;
 	
 	if (useluma)
 	{
@@ -1992,7 +1992,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 		finalDelta = max(maxDelta.x, maxDelta.y);
 	}
 	
-	adaptationaverage /= 3.0;
+	adaptationaverage /= 12.0;
 	
 	// scale always has a range of 1 to e regardless of the bit depth.
 	scale = 0.5 + pow(clamp(log(rcp(dot(adaptationaverage, __HQAA_LUMA_REF))), 1.0, BUFFER_COLOR_BIT_DEPTH), rcp(log(BUFFER_COLOR_BIT_DEPTH)));
@@ -2542,7 +2542,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		mxRGB += mxRGB2;
 	
 		float3 ampRGB = rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)));    
-		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.5), 8.0));
+		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.75), 8.0));
 		float3 window = (b + d) + (f + h);
 	
 		float3 outColor = saturate(mad(window, wRGB, casdot) * rcp(mad(4.0, wRGB, 1.0)));
