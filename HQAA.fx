@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 27.7.11";
+	ui_label = "Version: 27.7.12";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -542,7 +542,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				"produce a grayscale image nor a blown-out one.";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
-> = 57;
+> = 50;
 
  uniform float HqaaSaturationStrength <
 	ui_type = "slider";
@@ -558,7 +558,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "therefore can cause loss of detail.";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
- > = 0.525;
+ > = 0.5;
  
 uniform uint HqaaTonemapping <
 	ui_spacing = 3;
@@ -676,7 +676,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.75;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -690,7 +690,7 @@ uniform float HqaaImageSoftenOffset <
 				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.333333;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -1516,59 +1516,6 @@ void HQAADetectVerticalCornerPattern(sampler2D HQAAedgesTex, inout float2 weight
     weights *= saturate(factor);
 }
 
-/////////////////////////////////////////////////// OPTIONAL HELPER FUNCTIONS /////////////////////////////////////////////////////////////
-
-#if HQAA_OPTIONAL_EFFECTS
-#if HQAA_OPTIONAL__DEBANDING
-float permute(float x)
-{
-    return ((34.0 * x + 1.0) * x) % 289.0;
-}
-float permute(float2 x)
-{
-	float factor = (x.x + x.y) / 2.0;
-    return ((34.0 * factor + 1.0) * factor) % 289.0;
-}
-float permute(float3 x)
-{
-	float factor = (x.x + x.y + x.z) / 3.0;
-    return ((34.0 * factor + 1.0) * factor) % 289.0;
-}
-#endif //HQAA_OPTIONAL__DEBANDING
-/*
-Ey = 0.299R+0.587G+0.114B
-Ecr = 0.713(R - Ey) = 0.500R-0.419G-0.081B
-Ecb = 0.564(B - Ey) = -0.169R-0.331G+0.500B
-
-where Ey, R, G and B are in the range [0,1] and Ecr and Ecb are in the range [-0.5,0.5]
-*/
-float3 AdjustSaturation(float3 input, float requestedadjustment)
-{
-	float3 argb = saturate(input); // value must be between [0,1]
-	float3 yuv;
-	// access: x=y, y=cr, z=cb
-	// all conversions are clamped to stay within target range - in normal argb use
-	// this should cause some color information loss. if the signal was already
-	// converted from YCbCr the new values should fall within target ranges before
-	// the clamp is applied
-	yuv.x = saturate((0.299 * argb.r) + (0.587 * argb.g) + (0.114 * argb.b));
-	yuv.y = clamp(0.713 * (argb.r - yuv.x), -0.5, 0.5);
-	yuv.z = clamp(0.564 * (argb.b - yuv.x), -0.5, 0.5);
-	
-	float adjustment = 2.0 * (saturate(requestedadjustment) - 0.5);
-	
-	yuv.y = yuv.y > 0.0 ? clamp(yuv.y + (adjustment * yuv.y), 0.0, 0.5) : clamp(yuv.y - (adjustment * abs(yuv.y)), -0.5, 0.0);
-	yuv.z = yuv.z > 0.0 ? clamp(yuv.z + (adjustment * yuv.z), 0.0, 0.5) : clamp(yuv.z - (adjustment * abs(yuv.z)), -0.5, 0.0);
-	
-	// finally we rebuild each RGB channel from the component info
-	argb.r = (1.402525 * yuv.y) + yuv.x;
-	argb.b = (1.77305 * yuv.z) + yuv.x;
-	argb.g = (1.703578 * yuv.x) - (0.50937 * argb.r) - (0.194208 * argb.b);
-	
-	return saturate(argb);
-}
-#endif //HQAA_OPTIONAL_EFFECTS
-
 float3 RGBtoYUV(float3 input)
 {
 	float3 argb = saturate(input); // value must be between [0,1]
@@ -1603,9 +1550,72 @@ float4 YUVtoRGB(float4 yuv)
 	return float4(YUVtoRGB(yuv.xyz), yuv.a);
 }
 
-float squared(float x)
+/////////////////////////////////////////////////// OPTIONAL HELPER FUNCTIONS /////////////////////////////////////////////////////////////
+
+#if HQAA_OPTIONAL_EFFECTS
+#if HQAA_OPTIONAL__DEBANDING
+float permute(float x)
 {
-	return x * x;
+    return ((34.0 * x + 1.0) * x) % 289.0;
+}
+float permute(float2 x)
+{
+	float factor = (x.x + x.y) / 2.0;
+    return ((34.0 * factor + 1.0) * factor) % 289.0;
+}
+float permute(float3 x)
+{
+	float factor = (x.x + x.y + x.z) / 3.0;
+    return ((34.0 * factor + 1.0) * factor) % 289.0;
+}
+#endif //HQAA_OPTIONAL__DEBANDING
+/*
+Ey = 0.299R+0.587G+0.114B
+Ecr = 0.713(R - Ey) = 0.500R-0.419G-0.081B
+Ecb = 0.564(B - Ey) = -0.169R-0.331G+0.500B
+
+where Ey, R, G and B are in the range [0,1] and Ecr and Ecb are in the range [-0.5,0.5]
+*/
+float3 AdjustSaturation(float3 input, float requestedadjustment)
+{
+	// change to YCrCb (component) color space
+	// access: x=Y, y=Cr, z=Cb
+	float3 yuv = RGBtoYUV(input);
+	
+	// convert absolute saturation to adjustment delta
+	float adjustment = 2.0 * (saturate(requestedadjustment) - 0.5);
+	
+	// for a positive adjustment, determine ceiling and clamp if necessary
+	if (adjustment > 0.0)
+	{
+		float maxboost = rcp(max(abs(yuv.y), abs(yuv.z)) / 0.5);
+		if (adjustment > maxboost) adjustment = maxboost;
+	}
+	
+	// compute delta Cr,Cb
+	yuv.y = yuv.y > 0.0 ? clamp(yuv.y + (adjustment * yuv.y), 0.0, 0.5) : clamp(yuv.y - (adjustment * abs(yuv.y)), -0.5, 0.0);
+	yuv.z = yuv.z > 0.0 ? clamp(yuv.z + (adjustment * yuv.z), 0.0, 0.5) : clamp(yuv.z - (adjustment * abs(yuv.z)), -0.5, 0.0);
+	
+	// change back to ARGB color space
+	return YUVtoRGB(yuv);
+}
+#endif //HQAA_OPTIONAL_EFFECTS
+
+float intpow(float x, float y)
+{
+	float result = x;
+	uint basepower = 1;
+	uint raisepower = round(abs(y));
+	// power of zero override
+	if (raisepower == 0) return 1.0;
+	// compiler warning dodge
+	else if (raisepower == 2) return x * x;
+	while (basepower < raisepower)
+	{
+		result *= x;
+		basepower++;
+	}
+	return result;
 }
 
 ////////////////////////////////////////////////////////// TONE MAPPERS ///////////////////////////////////////////////////////////////////
@@ -1895,11 +1905,8 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 #endif //HQAA_TAA_ASSIST_MODE
 
 	float basethreshold = __HQAA_EDGE_THRESHOLD;
-	
-	float satmult = 2.0 * abs(0.5 - dotsat(middle));
-	satmult = pow(abs(satmult), BUFFER_COLOR_BIT_DEPTH / 4.0);
-	float lumamult = 2.0 * abs(0.5 - dot(middle, __HQAA_LUMA_REF));
-	lumamult = pow(abs(satmult), BUFFER_COLOR_BIT_DEPTH / 4.0);
+	float satmult = intpow(abs(2.0 * abs(0.5 - dotsat(middle))), BUFFER_COLOR_BIT_DEPTH / 4.0);
+	float lumamult = intpow(abs(2.0 * abs(0.5 - dot(middle, __HQAA_LUMA_REF))), BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float2 lumathreshold = mad(lumamult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	float2 satthreshold = mad(satmult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
 	
@@ -2255,7 +2262,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	[branch] if (!goodSpan)
 	{
 		subpixOut = mad(mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW), 0.083333, -lumaM) * rcp(range); //ABC
-		subpixOut = squared(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut))) * maxblending * pixelOffset; // DEFGH
+		subpixOut = intpow(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * maxblending * pixelOffset; // DEFGH
 	}
 
     float2 posM = texcoord;
