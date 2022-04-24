@@ -578,7 +578,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.5;
+> = 0.333333;
 
 uniform bool HqaaTemporalClamp <
 	ui_spacing = 3;
@@ -677,7 +677,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.875;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
