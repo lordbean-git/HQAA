@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.0.1";
+	ui_label = "Version: 28.0.2";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2153,24 +2153,13 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float rangemult = useluma ? (2.0 * abs(0.5 - lumaM)) : (2.0 * abs(0.5 - satM));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
-	
 	if (!useluma) lumaM = 0.0;
 	
-	float3 neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb;
-    float lumaS = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
-    //float chromaS = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
-	neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0)).rgb;
-    float lumaE = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
-    //float chromaE = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
-	neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1)).rgb;
-    float lumaN = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
-    //float chromaN = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
-	neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
-    float lumaW = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
-    //float chromaW = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
+    float lumaS = dotweight(middle, HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb, useluma, __HQAA_LUMA_REF);
+    float lumaE = dotweight(middle, HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0)).rgb, useluma, __HQAA_LUMA_REF);
+    float lumaN = dotweight(middle, HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1)).rgb, useluma, __HQAA_LUMA_REF);
+    float lumaW = dotweight(middle, HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb, useluma, __HQAA_LUMA_REF);
     
-    //bool useluma = HQAAmax4(abs(lumaS - lumaM), abs(lumaE - lumaM), abs(lumaN - lumaM), abs(lumaW - lumaM)) > HQAAmax4(chromaS, chromaE, chromaN, chromaW);
-    //if (!useluma) { lumaS = chromaS; lumaE = chromaE; lumaN = chromaN; lumaW = chromaW; lumaM = 0.0; }
     float rangeMax = HQAAmax5(lumaS, lumaE, lumaN, lumaW, lumaM);
     float rangeMin = HQAAmin5(lumaS, lumaE, lumaN, lumaW, lumaM);
     float range = rangeMax - rangeMin;
