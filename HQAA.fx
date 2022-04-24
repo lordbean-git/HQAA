@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.0";
+	ui_label = "Version: 28.0.1";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -746,8 +746,8 @@ uniform int HqaaPresetBreakdown <
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
 			  "|     Low|    0.20   | 50.0% |    0%  |Balanced|   8  |  2.0  |  33%  |\n"
 			  "|  Medium|    0.15   | 66.7% |   10%  |Balanced|  16  |  1.0  |  50%  |\n"
-			  "|    High|    0.10   | 75.0% |   20%  |  High  |  16  |  1.0  |  67%  |\n"
-			  "|   Ultra|    0.05   | 80.0% |   25%  |  High  |  32  |  0.5  |  75%  |\n"
+			  "|    High|    0.10   | 75.0% |   20%  |  High  |  24  |  1.0  |  67%  |\n"
+			  "|   Ultra|    0.05   | 80.0% |   25%  |  High  |  64  |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -766,7 +766,7 @@ uniform int HqaaPresetBreakdown <
 static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
 static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.8};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.2, 0.25};
-static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {8, 16, 16, 32};
+static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {8, 16, 24, 64};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.333333, 0.5, 0.666667, 0.75};
 static const float HQAA_ERRORMARGIN_PRESET[4] = {5.0, 5.0, 7.0, 7.0};
@@ -1946,52 +1946,41 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	if (!lumachange) return float(0.0).xxxx;
 #endif //HQAA_TAA_ASSIST_MODE
 
-	float basethreshold = __HQAA_EDGE_THRESHOLD;
-	float satmult = 2.0 * abs(0.5 - dotsat(middle));
-	float lumamult = 2.0 * abs(0.5 - dot(middle, __HQAA_LUMA_REF));
-	float2 lumathreshold = mad(lumamult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
-	float2 satthreshold = mad(satmult, -(__HQAA_DYNAMIC_RANGE * basethreshold), basethreshold).xx;
+    float L = dot(middle, __HQAA_LUMA_REF);
+    float satM = dotsat(middle);
+    bool useluma = L > satM;
+    
+	float rangemult = useluma ? (2.0 * abs(0.5 - L)) : (2.0 * abs(0.5 - satM));
+	float edgethreshold = __HQAA_EDGE_THRESHOLD;
+	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
+    if (!useluma) L = 0.0;
 	
 	float2 edges = float(0.0).xx;
 	
-    float L = dotweight(0, middle, true, __HQAA_LUMA_REF);
-	
 	float3 neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].xy).rgb;
 	adaptationaverage += neighbor;
-    float Lleft = dotweight(0, neighbor, true, __HQAA_LUMA_REF);
-    float Cleft = dotweight(middle, neighbor, false, 0);
+    float Lleft = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
     
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].zw).rgb;
 	adaptationaverage += neighbor;
-    float Ltop = dotweight(0, neighbor, true, __HQAA_LUMA_REF);
-    float Ctop = dotweight(middle, neighbor, false, 0);
+    float Ltop = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
     
     neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].xy).rgb;
 	adaptationaverage += neighbor;
-    float Lright = dotweight(0, neighbor, true, __HQAA_LUMA_REF);
-    float Cright = dotweight(middle, neighbor, false, 0);
+    float Lright = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
 	
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].zw).rgb;
 	adaptationaverage += neighbor;
-	float Lbottom = dotweight(0, neighbor, true, __HQAA_LUMA_REF);
-	float Cbottom = dotweight(middle, neighbor, false, 0);
-	
-	adaptationaverage *= 2.0;
+	float Lbottom = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
 	
 	float maxL = HQAAmax4(Lleft, Ltop, Lright, Lbottom);
-	float maxC = HQAAmax4(Cleft, Ctop, Cright, Cbottom);
 	
-	bool useluma = maxL > maxC;
-	float4 delta;
-	if (!useluma) 
-	{
-		lumathreshold = satthreshold;
-		delta = float4(Cleft, Ctop, Cright, Cbottom);
-	}
-	else delta = abs(L - float4(Lleft, Ltop, Lright, Lbottom));
+	float4 delta = abs(L - float4(Lleft, Ltop, Lright, Lbottom));
+	edges = step(edgethreshold, delta.xy);
+	if (!any(edges)) return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 	
-	edges = step(lumathreshold, delta.xy);
     float2 maxDelta = max(delta.xy, delta.zw);
+	adaptationaverage *= 2.0;
 	
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[2].xy).rgb;
 	adaptationaverage += neighbor;
@@ -2029,7 +2018,7 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	float2 mask = float2(0.0, 1.0);
 	if (all(edges)) mask = float2(0.0, 0.0);
-	else if (edges.r > 0.0) mask = float2(1.0, 0.0);
+	else if (edges.g > 0.0) mask = float2(1.0, 0.0);
 	
     float2 a = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
     float2 c = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
@@ -2156,30 +2145,39 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 #endif //HQAA_TAA_ASSIST_MODE
 
 	float3 middle = ConditionalDecode(original);
+	
 	float lumaM = dot(middle, __HQAA_LUMA_REF);
+	float satM = dotsat(middle);
+	bool useluma = lumaM > satM;
+	
+	float rangemult = useluma ? (2.0 * abs(0.5 - lumaM)) : (2.0 * abs(0.5 - satM));
+	float edgethreshold = __HQAA_EDGE_THRESHOLD;
+	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
+	
+	if (!useluma) lumaM = 0.0;
 	
 	float3 neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0, 1)).rgb;
-    float lumaS = dotweight(middle, neighbor, true, __HQAA_LUMA_REF);
-    float chromaS = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
+    float lumaS = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
+    //float chromaS = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
 	neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 1, 0)).rgb;
-    float lumaE = dotweight(middle, neighbor, true, __HQAA_LUMA_REF);
-    float chromaE = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
+    float lumaE = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
+    //float chromaE = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
 	neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1)).rgb;
-    float lumaN = dotweight(middle, neighbor, true, __HQAA_LUMA_REF);
-    float chromaN = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
+    float lumaN = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
+    //float chromaN = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
 	neighbor = HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb;
-    float lumaW = dotweight(middle, neighbor, true, __HQAA_LUMA_REF);
-    float chromaW = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
+    float lumaW = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
+    //float chromaW = dotweight(middle, neighbor, false, __HQAA_LUMA_REF);
     
-    bool useluma = HQAAmax4(abs(lumaS - lumaM), abs(lumaE - lumaM), abs(lumaN - lumaM), abs(lumaW - lumaM)) > HQAAmax4(chromaS, chromaE, chromaN, chromaW);
-    if (!useluma) { lumaS = chromaS; lumaE = chromaE; lumaN = chromaN; lumaW = chromaW; lumaM = 0.0; }
+    //bool useluma = HQAAmax4(abs(lumaS - lumaM), abs(lumaE - lumaM), abs(lumaN - lumaM), abs(lumaW - lumaM)) > HQAAmax4(chromaS, chromaE, chromaN, chromaW);
+    //if (!useluma) { lumaS = chromaS; lumaE = chromaE; lumaN = chromaN; lumaW = chromaW; lumaM = 0.0; }
     float rangeMax = HQAAmax5(lumaS, lumaE, lumaN, lumaW, lumaM);
     float rangeMin = HQAAmin5(lumaS, lumaE, lumaN, lumaW, lumaM);
     float range = rangeMax - rangeMin;
     
 	// early exit check
 	bool SMAAedge = any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
-    bool earlyExit = (range < __HQAA_EDGE_THRESHOLD) && (!SMAAedge);
+    bool earlyExit = (range < edgethreshold) && (!SMAAedge);
 	if (earlyExit && HqaaFxEarlyExit)
 #if HQAA_DEBUG_MODE
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
