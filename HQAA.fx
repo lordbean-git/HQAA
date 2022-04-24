@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.0.2";
+	ui_label = "Version: 28.0.3";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2732,6 +2732,15 @@ technique HQAA <
 		ClearRenderTargets = true;
 	}
 #endif //HQAA_TAA_ASSIST_MODE
+#if HQAA_OPTIONAL_EFFECTS
+#if HQAA_OPTIONAL__SOFTENING
+	pass ImageSoftening
+	{
+		VertexShader = HQAANeighborhoodBlendingVS;
+		PixelShader = HQAASofteningPS;
+	}
+#endif //HQAA_OPTIONAL_EFFECTS
+#endif //HQAA_OPTIONAL__SOFTENING
 	pass EdgeDetection
 	{
 		VertexShader = HQAAEdgeDetectionVS;
@@ -2769,11 +2778,6 @@ technique HQAA <
 	}
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__SOFTENING
-	pass ImageSoftening
-	{
-		VertexShader = HQAANeighborhoodBlendingVS;
-		PixelShader = HQAASofteningPS;
-	}
 #if HQAA_OPTIONAL__SOFTENING_PASSES > 1
 	pass ImageSoftening
 	{
