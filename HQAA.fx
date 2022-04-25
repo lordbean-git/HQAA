@@ -124,7 +124,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
 		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
-			#define HQAA_OPTIONAL__SOFTENING_PASSES 3
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 2
 		#endif
 	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -212,9 +212,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
-			" (3x)\n"
+			" (3x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
-			" (2x)  *\n"
+			" (2x)\n"
 			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 			"Image Softening:                                                          off  *\n"
