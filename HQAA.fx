@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.1";
+	ui_label = "Version: 28.1.1";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -498,7 +498,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.2;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -577,8 +577,17 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Previous Frame Weight";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.333333;
+	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.\n"
+				 "The default setting matches the\nmaximum reduction SMAA hinting can\n"
+				 "apply when there is no edge.";
+> = 0.375;
+
+uniform bool HqaaTemporalEdgeHinting <
+	ui_label = "Use SMAA Blend Hinting";
+	ui_tooltip = "Adaptively adjusts previous frame weight\nby referencing SMAA blending weights.";
+	ui_category = "Temporal Stabilizer";
+	ui_category_closed = true;
+> = true;
 
 uniform bool HqaaTemporalClamp <
 	ui_spacing = 3;
@@ -587,14 +596,8 @@ uniform bool HqaaTemporalClamp <
 	ui_category_closed = true;
 	ui_tooltip = "Adjusts the weight given to the past\n"
 				 "frame using the chroma change between\n"
-				 "frames as the reference.";
-> = true;
-
-uniform bool HqaaTemporalEdgeHinting <
-	ui_label = "Use SMAA Blend Hinting";
-	ui_tooltip = "Adaptively adjusts previous frame weight\nby referencing SMAA blending weights.";
-	ui_category = "Temporal Stabilizer";
-	ui_category_closed = true;
+				 "frames as the reference. This is done\n"
+				 "after SMAA hinting if it's also enabled.";
 > = true;
 
 uniform bool HqaaHighFramerateAssist <
@@ -677,7 +680,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.875;
+> = 1.0;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -691,7 +694,7 @@ uniform float HqaaImageSoftenOffset <
 				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.333333;
+> = 0.316667;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2399,7 +2402,7 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	
 	// abort if luma and saturation are both <0.1 - debanding can really wash out dark areas
 	bool earlyExit = (dot(ori, __HQAA_LUMA_REF) < (__HQAA_EDGE_THRESHOLD * 0.5)) && (dotsat(ori) < 0.333333) && HqaaDebandIgnoreLowLuma;
-	if (HqaaDebandUseSmaaData) earlyExit = earlyExit || any(HQAA_Tex2D(HQAAsamplerSMweights, texcoord));
+	if (HqaaDebandUseSmaaData) earlyExit = earlyExit || any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
 	if (earlyExit) return encodedori;
 	
     // Settings
@@ -2486,8 +2489,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 		float sharpening = HqaaSharpenerStrength;
 	
-		if (any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg))
-			sharpening *= (1.0 - HqaaSharpenerClamping);
+		if (any(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg)) sharpening *= (1.0 - HqaaSharpenerClamping);
 	
 		float3 a = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, -1)).rgb;
 		float3 c = HQAA_Tex2DOffset(ReShade::BackBuffer, texcoord, int2(1, -1)).rgb;
@@ -2584,19 +2586,17 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	// values above 0.9 can produce artifacts or halt frame advancement entirely
 	float blendweight = HqaaPreviousFrameWeight;
-	
+	if (HqaaTemporalEdgeHinting)
+	{
+		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
+		float blendingoffset = -0.375 + saturate(blendingdata.r + blendingdata.g + blendingdata.b + blendingdata.a);
+		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
+	}
 	if (HqaaTemporalClamp)
 	{
 		float chromadiff = 0.5 + dotweight(current, previous, false, 0);
 		blendweight = clamp(blendweight * chromadiff, 0.0, 0.75);
 	}
-	if (HqaaTemporalEdgeHinting)
-	{
-		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
-		float blendingoffset = (-0.5 + HQAAmax4(blendingdata.r, blendingdata.g, blendingdata.b, blendingdata.a)) / 2.0;
-		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
-	}
-	
 	pixel = lerp(current, previous, blendweight);
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 
