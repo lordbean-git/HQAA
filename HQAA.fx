@@ -119,7 +119,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif
 	#if HQAA_OPTIONAL__DEBANDING
 		#ifndef HQAA_OPTIONAL__DEBANDING_PASSES
-			#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+			#define HQAA_OPTIONAL__DEBANDING_PASSES 1
 		#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.0.3";
+	ui_label = "Version: 28.1";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -194,13 +194,13 @@ uniform int HQAAintroduction <
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING
 			"Debanding:                                                            on"
 			#if HQAA_OPTIONAL__DEBANDING_PASSES < 2
-			" (1x)  *\n"
+			" (1x)\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 2
 			" (3x)  *\n"
 			#elif HQAA_OPTIONAL__DEBANDING_PASSES > 1
-			" (2x)\n"
+			" (2x)  *\n"
 			#endif //HQAA_OPTIONAL__DEBANDING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__DEBANDING
 			"Debanding:                                                                off  *\n"
@@ -1947,10 +1947,9 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 #endif //HQAA_TAA_ASSIST_MODE
 
     float L = dot(middle, __HQAA_LUMA_REF);
-    float satM = dotsat(middle);
-    bool useluma = L > satM;
+    bool useluma = L > dotsat(middle);
     
-	float rangemult = useluma ? (2.0 * abs(0.5 - L)) : (2.0 * abs(0.5 - satM));
+	float rangemult = intpow((1.0 - L), BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2147,10 +2146,9 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float3 middle = ConditionalDecode(original);
 	
 	float lumaM = dot(middle, __HQAA_LUMA_REF);
-	float satM = dotsat(middle);
-	bool useluma = lumaM > satM;
+	bool useluma = lumaM > dotsat(middle);
 	
-	float rangemult = useluma ? (2.0 * abs(0.5 - lumaM)) : (2.0 * abs(0.5 - satM));
+	float rangemult = intpow((1.0 - lumaM), BUFFER_COLOR_BIT_DEPTH / 4.0);
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	if (!useluma) lumaM = 0.0;
