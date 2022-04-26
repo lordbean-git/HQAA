@@ -124,7 +124,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
 		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
-			#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 3
 		#endif
 	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.1.1";
+	ui_label = "Version: 28.1.2";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -212,9 +212,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
-			" (3x)  *\n"
+			" (3x)\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
-			" (2x)\n"
+			" (2x)  *\n"
 			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 			"Image Softening:                                                          off  *\n"
@@ -580,9 +580,10 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.\n"
 				 "The default setting matches the\nmaximum reduction SMAA hinting can\n"
 				 "apply when there is no edge.";
-> = 0.375;
+> = 0.25;
 
 uniform bool HqaaTemporalEdgeHinting <
+	ui_spacing = 3;
 	ui_label = "Use SMAA Blend Hinting";
 	ui_tooltip = "Adaptively adjusts previous frame weight\nby referencing SMAA blending weights.";
 	ui_category = "Temporal Stabilizer";
@@ -590,7 +591,6 @@ uniform bool HqaaTemporalEdgeHinting <
 > = true;
 
 uniform bool HqaaTemporalClamp <
-	ui_spacing = 3;
 	ui_label = "Clamp Weight";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
@@ -680,7 +680,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.8;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -694,7 +694,7 @@ uniform float HqaaImageSoftenOffset <
 				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.316667;
+> = 0.4;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -750,7 +750,7 @@ uniform int HqaaPresetBreakdown <
 			  "|     Low|    0.20   | 50.0% |    0%  |Balanced|   8  |  2.0  |  33%  |\n"
 			  "|  Medium|    0.15   | 66.7% |   10%  |Balanced|  16  |  1.0  |  50%  |\n"
 			  "|    High|    0.10   | 75.0% |   20%  |  High  |  24  |  1.0  |  67%  |\n"
-			  "|   Ultra|    0.05   | 80.0% |   25%  |  High  |  64  |  0.5  |  75%  |\n"
+			  "|   Ultra|    0.05   | 82.5% |   25%  |  High  |  64  |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -767,7 +767,7 @@ uniform int HqaaPresetBreakdown <
 #else
 
 static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.15, 0.1, 0.05};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.8};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.825};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.2, 0.25};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {8, 16, 24, 64};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
@@ -1952,7 +1952,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dot(middle, __HQAA_LUMA_REF);
     bool useluma = L > dotsat(middle);
     
-	float rangemult = intpow((1.0 - L), BUFFER_COLOR_BIT_DEPTH / 4.0);
+	float rangemult = 1.0 - log2(1.0 + sqrt(L));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2151,7 +2151,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float lumaM = dot(middle, __HQAA_LUMA_REF);
 	bool useluma = lumaM > dotsat(middle);
 	
-	float rangemult = intpow((1.0 - lumaM), BUFFER_COLOR_BIT_DEPTH / 4.0);
+	float rangemult = 1.0 - log2(1.0 + sqrt(lumaM));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	if (!useluma) lumaM = 0.0;
@@ -2589,7 +2589,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (HqaaTemporalEdgeHinting)
 	{
 		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
-		float blendingoffset = -0.375 + saturate(blendingdata.r + blendingdata.g + blendingdata.b + blendingdata.a);
+		float blendingoffset = (-0.5 + saturate(saturate(max(blendingdata.r + blendingdata.b, blendingdata.g + blendingdata.a)) / dot(current, __HQAA_NORMAL_REF))) * 0.5;
 		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
 	}
 	if (HqaaTemporalClamp)
@@ -2614,7 +2614,8 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
     bool horiz = max(m.x, m.z) > max(m.y, m.w);
     bool diag = any(m.xz) && any(m.yw);
 	bool lowdetail = !any(m);
-	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * HqaaImageSoftenOffset;
+	float passdivisor = clamp(HQAA_OPTIONAL__SOFTENING_PASSES, 1.0, 4.0);
+	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * (lowdetail ? (HqaaImageSoftenOffset * rcp(passdivisor)) : HqaaImageSoftenOffset);
 	
 // pattern:
 //  e f g
@@ -2695,7 +2696,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	if (!diag) localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 7.0;
 	else localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 9.0;
 	
-	return lerp(original, ConditionalEncode(localavg), lowdetail ? (HqaaImageSoftenStrength * 0.5) : HqaaImageSoftenStrength);
+	return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
 }
 
 #endif //HQAA_OPTIONAL__SOFTENING
