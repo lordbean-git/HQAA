@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.1.2";
+	ui_label = "Version: 28.1.3";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2543,7 +2543,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 				channelfloor = pow(abs(colorgain), log2(channelfloor));
 				// calculate reduction strength to apply
 				float contrastgain = log(rcp(dot(outdot, __HQAA_LUMA_REF) - channelfloor)) * pow(__HQAA_CONST_E, (1.0 + channelfloor) * __HQAA_CONST_E) * HqaaGainStrength * HqaaGainStrength;
-				outdot = pow(abs(3.333333 + contrastgain) * 3.0, log10(outdot));
+				outdot = pow(abs(2.0 + contrastgain) * 5.0, log10(outdot));
 				float lumadelta = dot(outdot, __HQAA_LUMA_REF) - preluma;
 				outdot = RGBtoYUV(outdot);
 				outdot.x = saturate(outdot.x - lumadelta * channelfloor);
