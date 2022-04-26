@@ -1952,7 +1952,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dot(middle, __HQAA_LUMA_REF);
     bool useluma = L > dotsat(middle);
     
-	float rangemult = 1.0 - log2(1.0 + sqrt(L));
+	float rangemult = 1.0 - log2(1.0 + log2(1.0 + L));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2151,7 +2151,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float lumaM = dot(middle, __HQAA_LUMA_REF);
 	bool useluma = lumaM > dotsat(middle);
 	
-	float rangemult = 1.0 - log2(1.0 + sqrt(lumaM));
+	float rangemult = 1.0 - log2(1.0 + log2(1.0 + lumaM));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	if (!useluma) lumaM = 0.0;
