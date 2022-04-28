@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.2";
+	ui_label = "Version: 28.2.1";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2018,7 +2018,7 @@ float4 HQAAEdgeErrorReductionPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	float2 mask = float2(0.0, 1.0);
 	if (all(edges)) mask = float2(0.0, 0.0);
-	else if (edges.g > 0.0) mask = float2(1.0, 0.0);
+	else if (edges.r > 0.0) mask = float2(1.0, 0.0);
 	
     float2 a = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(-1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(-1, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
     float2 c = saturate(saturate(HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).rg + HQAA_Tex2DOffset(HQAAsamplerSMweights, texcoord, int2(1, -1)).ba + HQAA_Tex2DOffset(HQAAsamplerLastEdges, texcoord, int2(1, -1)).ba - HqaaEdgeTemporalAggregation) - mask);
