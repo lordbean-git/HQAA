@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.2.1";
+	ui_label = "Version: 28.3";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -290,8 +290,8 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaHysteresisStrength = 33.3;
-static const float HqaaHysteresisFudgeFactor = 1.25;
+static const float HqaaHysteresisStrength = 40.0;
+static const float HqaaHysteresisFudgeFactor = 1.0;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaFxEarlyExit = true;
@@ -621,16 +621,18 @@ uniform float HqaaHFRJitterStrength <
 #if HQAA_OPTIONAL__DEBANDING
 uniform uint HqaaDebandPreset <
 	ui_type = "combo";
-	ui_items = "Low\0Medium\0High\0Very High\0Extreme\0";
+	ui_items = "Automatic\0Low\0Medium\0High\0Very High\0Extreme\0";
 	ui_spacing = 3;
     ui_label = "Strength";
     ui_tooltip = "Performs a fast debanding pass similar\n"
 			  "to Deband.fx to mitigate color banding.\n"
 			  "Stronger presets catch more banding but\n"
-			  "increase the risk of detail loss.";
+			  "increase the risk of detail loss.\n"
+			  "The automatic setting uses the edge\n"
+			  "threshold to calculate the profile.";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 2;
+> = 0;
 
 uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     ui_min = 4.0;
@@ -680,7 +682,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.75;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -694,7 +696,7 @@ uniform float HqaaImageSoftenOffset <
 				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.4;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -729,7 +731,12 @@ uniform int HqaaDebugExplainer <
 			  "strongly the hysteresis pass is performing corrections, but it\n"
 			  "does not directly indicate the color that it is blending (it is\n"
 			  "the absolute value of a difference calculation, meaning that\n"
-			  "decreases are the visual inversion of the actual blend color).\n"
+			  "decreases are the visual inversion of the actual blend color).\n\n"
+			  "Alpha channel view is for curiosity's sake only. HQAA does not\n"
+			  "use or modify the alpha channel. In most SDR games, this means\n"
+			  "you will simply see a black screen. When there is alpha data in\n"
+			  "the buffer, it displays as a grayscale image, the intensity of\n"
+			  "which represents the value in the channel.\n"
 	          "----------------------------------------------------------------";
 	ui_category = "DEBUG README";
 	ui_category_closed = true;
@@ -747,10 +754,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |      SMAA       |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner---%Error-|-Scan---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|--------|------|-------|-------|\n"
-			  "|     Low|    0.25   | 60.0% |    0%  |Balanced|   8  |  2.0  |  33%  |\n"
-			  "|  Medium|    0.20   | 62.5% |   10%  |Balanced|  16  |  1.0  |  50%  |\n"
-			  "|    High|    0.15   | 66.7% |   15%  |  High  |  24  |  1.0  |  67%  |\n"
-			  "|   Ultra|    0.10   | 75.0% |   20%  |  High  |  64  |  0.5  |  75%  |\n"
+			  "|     Low|    0.20   | 60.0% |    0%  |Balanced|   8  |  2.0  |  33%  |\n"
+			  "|  Medium|    0.16   | 62.5% |   10%  |Balanced|  16  |  1.0  |  50%  |\n"
+			  "|    High|    0.12   | 66.7% |   15%  |  High  |  24  |  1.0  |  67%  |\n"
+			  "|   Ultra|    0.08   | 75.0% |   20%  |  High  |  64  |  0.5  |  75%  |\n"
 			  "-----------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -766,7 +773,7 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.25, 0.2, 0.15, 0.1};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.16, 0.12, 0.08};
 static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.625, 0.666667, 0.75};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.15, 0.2};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {8, 16, 24, 64};
@@ -1951,7 +1958,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dot(middle, __HQAA_LUMA_REF);
     bool useluma = L > dotsat(middle);
     
-	float rangemult = 1.0 - log2(1.0 + log2(1.0 + L));
+	float rangemult = 1.0 - log2(1.0 + log2(1.0 + log2(1.0 + log2(1.0 + (L * L)))));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2405,17 +2412,19 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 	
     // Settings
 	float pixstep = __HQAA_SMALLEST_COLOR_STEP;
+	float edgethreshold = __HQAA_EDGE_THRESHOLD * (4.0 / BUFFER_COLOR_BIT_DEPTH);
 #if (__RENDERER__ >= 0x10000 && __RENDERER__ < 0x20000) || (__RENDERER__ >= 0x09000 && __RENDERER__ < 0x0A000)
 	float avgdiff, maxdiff, middiff;
-	if (HqaaDebandPreset == 0) { avgdiff = 0.6 * pixstep; maxdiff = 1.9 * pixstep; middiff = 1.2 * pixstep; }
-	else if (HqaaDebandPreset == 1) { avgdiff = 1.8 * pixstep; maxdiff = 4.0 * pixstep; middiff = 2.0 * pixstep; }
-	else if (HqaaDebandPreset == 2) { avgdiff = 3.4 * pixstep; maxdiff = 6.8 * pixstep; middiff = 3.3 * pixstep; }
-	else if (HqaaDebandPreset == 3) { avgdiff = 4.9 * pixstep; maxdiff = 9.5 * pixstep; middiff = 4.7 * pixstep; }
-	else { avgdiff = 7.1 * pixstep; maxdiff = 13.3 * pixstep; middiff = 6.3 * pixstep; }
+	if (HqaaDebandPreset == 1) { avgdiff = 0.6 * pixstep; maxdiff = 1.9 * pixstep; middiff = 1.2 * pixstep; }
+	else if (HqaaDebandPreset == 2) { avgdiff = 1.8 * pixstep; maxdiff = 4.0 * pixstep; middiff = 2.0 * pixstep; }
+	else if (HqaaDebandPreset == 3) { avgdiff = 3.4 * pixstep; maxdiff = 6.8 * pixstep; middiff = 3.3 * pixstep; }
+	else if (HqaaDebandPreset == 4) { avgdiff = 4.9 * pixstep; maxdiff = 9.5 * pixstep; middiff = 4.7 * pixstep; }
+	else if (HqaaDebandPreset == 5) { avgdiff = 7.1 * pixstep; maxdiff = 13.3 * pixstep; middiff = 6.3 * pixstep; }
+	else { avgdiff = edgethreshold * 0.26; maxdiff = edgehreshold * 0.5; middiff = edgethreshold * 0.24; }
 #else
-    float avgdiff[5] = {1.1 * pixstep, 1.8 * pixstep, 3.4 * pixstep, 4.9 * pixstep, 7.1 * pixstep}; // 0.6/255, 1.8/255, 3.4/255
-    float maxdiff[5] = {2.5 * pixstep, 4.0 * pixstep, 6.8 * pixstep, 9.5 * pixstep, 13.3 * pixstep}; // 1.9/255, 4.0/255, 6.8/255
-    float middiff[5] = {1.5 * pixstep, 2.0 * pixstep, 3.3 * pixstep, 4.7 * pixstep, 6.3 * pixstep}; // 1.2/255, 2.0/255, 3.3/255
+    float avgdiff[6] = {0.26 * edgethreshold, 1.1 * pixstep, 1.8 * pixstep, 3.4 * pixstep, 4.9 * pixstep, 7.1 * pixstep}; // 0.6/255, 1.8/255, 3.4/255
+    float maxdiff[6] = {0.5 * edgethreshold, 2.5 * pixstep, 4.0 * pixstep, 6.8 * pixstep, 9.5 * pixstep, 13.3 * pixstep}; // 1.9/255, 4.0/255, 6.8/255
+    float middiff[6] = {0.24 * edgethreshold, 1.5 * pixstep, 2.0 * pixstep, 3.3 * pixstep, 4.7 * pixstep, 6.3 * pixstep}; // 1.2/255, 2.0/255, 3.3/255
 #endif
 
     float randomseed = HqaaDebandSeed / 32767.0;
@@ -2514,7 +2523,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		mxRGB += mxRGB2;
 	
 		float3 ampRGB = rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)));    
-		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.75), 8.0));
+		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.5), 8.0));
 		float3 window = (b + d) + (f + h);
 	
 		float3 outColor = saturate(mad(window, wRGB, casdot) * rcp(mad(4.0, wRGB, 1.0)));
@@ -2631,6 +2640,10 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	float3 h = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1, 0) * pixstep).rgb;
 	float3 i = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1, 1) * pixstep).rgb;
 	
+	float3 surroundavg = (b + c + d + e + f + g + h + i) / 8.0;
+	float middledelta = dotweight(a, surroundavg, false, __HQAA_NORMAL_REF);
+	bool highdelta = middledelta > __HQAA_EDGE_THRESHOLD;
+	
 	float3 highterm = float3(0.0, 0.0, 0.0);
 	float3 lowterm = float3(1.0, 1.0, 1.0);
 	
@@ -2694,7 +2707,10 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	if (!diag) localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 7.0;
 	else localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 9.0;
 	
-	return lerp(original, ConditionalEncode(localavg), HqaaImageSoftenStrength);
+	float lerpweight = HqaaImageSoftenStrength;
+	if (highdelta) lerpweight = saturate(lerpweight * (1.0 + log2(1.0 + middledelta)));
+	
+	return lerp(original, ConditionalEncode(localavg), lerpweight);
 }
 
 #endif //HQAA_OPTIONAL__SOFTENING
@@ -2819,11 +2835,6 @@ technique HQAA <
 #endif //HQAA_USE_MULTISAMPLED_FXAA3
 #endif //HQAA_USE_MULTISAMPLED_FXAA2
 #endif //HQAA_USE_MULTISAMPLED_FXAA1
-	pass Hysteresis
-	{
-		VertexShader = PostProcessVS;
-		PixelShader = HQAAHysteresisPS;
-	}
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__DEBANDING
 	pass Deband
@@ -2853,6 +2864,13 @@ technique HQAA <
 #endif //HQAA_OPTIONAL__DEBANDING_PASSES 2
 #endif //HQAA_OPTIONAL__DEBANDING_PASSES 1
 #endif //HQAA_OPTIONAL__DEBANDING
+#endif //HQAA_OPTIONAL_EFFECTS
+	pass Hysteresis
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAHysteresisPS;
+	}
+#if HQAA_OPTIONAL_EFFECTS
 	pass OptionalEffects
 	{
 		VertexShader = PostProcessVS;
