@@ -124,7 +124,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#endif //HQAA_OPTIONAL__DEBANDING
 	#if HQAA_OPTIONAL__SOFTENING
 		#ifndef HQAA_OPTIONAL__SOFTENING_PASSES
-			#define HQAA_OPTIONAL__SOFTENING_PASSES 3
+			#define HQAA_OPTIONAL__SOFTENING_PASSES 2
 		#endif
 	#endif //HQAA_OPTIONAL__SOFTENING
 #endif // HQAA_ENABLE_OPTIONAL_TECHNIQUES
@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.3.1";
+	ui_label = "Version: 28.3.2";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -212,9 +212,9 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 3
 			" (4x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 2
-			" (3x)\n"
+			" (3x)  *\n"
 			#elif HQAA_OPTIONAL__SOFTENING_PASSES > 1
-			" (2x)  *\n"
+			" (2x)\n"
 			#endif //HQAA_OPTIONAL__SOFTENING_PASSES
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 			"Image Softening:                                                          off  *\n"
@@ -293,7 +293,7 @@ uniform uint HqaaPreset <
 static const float HqaaHysteresisStrength = 25.0;
 static const float HqaaHysteresisFudgeFactor = 1.0;
 static const bool HqaaDoLumaHysteresis = true;
-static const uint HqaaEdgeTemporalAggregation = 0;
+static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
@@ -353,13 +353,14 @@ uniform uint HqaaEdgeTemporalAggregation <
 	ui_spacing = 3;
 	ui_text = "Temporal Edge Aggregation Mode:";
 	ui_tooltip = "Determines the conditions under which edge detection\n"
-				"temporal aggregation will keep or discard detected\n"
-				"edges. Loose may cause mild ghosting, strict may miss\n"
-				"edges during motion or shimmer slightly.";
+				"temporal aggregation will keep detected edges.\n"
+				"Loose = Keep any recent detection (possible ghosting)\n"
+				"Balanced = Change false to true if two recent detections\n"
+				"Strict = Only true if all recent frames true (might shimmer)";
 	ui_items = "Loose\0Balanced\0Strict\0";
 	ui_category = "SMAA";
 	ui_category_closed = true;
-> = 0;
+> = 1;
 
 uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
@@ -1999,7 +2000,9 @@ float4 HQAAEdgeTemporalAggregationPS(float4 vpos : SV_Position, float2 texcoord 
 	
 	float3 pixel = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	float2 bufferdata = float2(dot(pixel, __HQAA_LUMA_REF), 0.0);
-	float2 edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba - HqaaEdgeTemporalAggregation);
+	float2 edges;
+	if (clamp(HqaaEdgeTemporalAggregation, 0, 1) == HqaaEdgeTemporalAggregation) edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba - HqaaEdgeTemporalAggregation));
+	else edges = saturate(HQAA_Tex2D(HQAAsamplerSMweights, texcoord).rg + HQAA_Tex2D(HQAAsamplerSMweights, texcoord).ba + HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).ba - HqaaEdgeTemporalAggregation);
 	
 	return float4(edges, bufferdata);
 }
