@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.3.2";
+	ui_label = "Version: 28.3.3";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -563,10 +563,8 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_label = "Previous Frame Weight";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
-	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.\n"
-				 "The default setting matches the\nmaximum reduction SMAA hinting can\n"
-				 "apply when there is no edge.";
-> = 0.25;
+	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
+> = 0.2;
 
 uniform bool HqaaTemporalEdgeHinting <
 	ui_spacing = 3;
@@ -2544,13 +2542,11 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (HqaaTemporalEdgeHinting)
 	{
 		float4 blendingdata = HQAA_Tex2D(HQAAsamplerSMweights, texcoord);
-		float blendingoffset = (-0.5 + saturate(saturate(max(blendingdata.r + blendingdata.b, blendingdata.g + blendingdata.a)) / dot(current, __HQAA_AVERAGE_REF))) * 0.5;
-		blendweight = clamp(blendweight + blendingoffset, 0.0, 0.75);
+		blendweight = clamp(blendweight + ((-(1.0 - HqaaPreviousFrameWeight) + saturate(saturate(max(blendingdata.r + blendingdata.b, blendingdata.g + blendingdata.a)) / dot(current, __HQAA_AVERAGE_REF))) * HqaaPreviousFrameWeight), 0.0, 0.75);
 	}
 	if (HqaaTemporalClamp)
 	{
-		float chromadiff = 0.5 + dotweight(current, previous, false, 0);
-		blendweight = clamp(blendweight * chromadiff, 0.0, 0.75);
+		blendweight = clamp(blendweight * (0.5 + (1.0 + log2(1.0 + dotweight(current, previous, false, __HQAA_AVERAGE_REF)))), 0.0, 0.75);
 	}
 	pixel = lerp(current, previous, blendweight);
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
