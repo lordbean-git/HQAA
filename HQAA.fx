@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.3.4";
+	ui_label = "Version: 28.4.010522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -290,8 +290,9 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaHysteresisStrength = 25.0;
-static const float HqaaHysteresisFudgeFactor = 1.0;
+static const float HqaaLowLumaThreshold = 0.375;
+static const float HqaaHysteresisStrength = 20.0;
+static const float HqaaHysteresisFudgeFactor = 2.0;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaFxEarlyExit = true;
@@ -308,9 +309,19 @@ uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 0.1;
 
+uniform float HqaaLowLumaThreshold <
+	ui_type = "slider";
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
+	ui_label = "Low Luma Threshold";
+	ui_tooltip = "Luma level below which dynamic thresholding activates";
+	ui_spacing = 3;
+	ui_category = "Edge Detection";
+	ui_category_closed = true;
+> = 0.375;
+
 uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Dynamic Range\n\n";
+	ui_label = "% Dynamic Range";
 	ui_tooltip = "Maximum reduction of edge threshold (% base threshold)\n"
 				 "permitted when detecting low-brightness edges.\n"
 				 "Lower = faster, might miss low-contrast edges\n"
@@ -321,7 +332,7 @@ uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
-	ui_spacing = 6;
+	ui_spacing = 9;
 	ui_label = "Edge Detection Interpolation";
 	ui_tooltip = "Offsets edge detection passes by either\n"
 				 "two or four frames when enabled. This is\n"
@@ -484,7 +495,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.2;
+> = 0.25;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -564,7 +575,7 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.2;
+> = 0.25;
 
 uniform bool HqaaTemporalEdgeHinting <
 	ui_spacing = 3;
@@ -666,7 +677,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.333333;
+> = 0.625;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -680,7 +691,7 @@ uniform float HqaaImageSoftenOffset <
 				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.666667;
+> = 0.375;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -817,6 +828,8 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 #define HQAAmax12(o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(o,p),max(q,r)),max(max(s,t),max(u,v))),max(max(w,x),max(y,z)))
 #define HQAAmax13(n,o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(n,o),max(p,q)),max(max(r,s),max(t,u))),max(max(max(v,w),x),max(y,z)))
 #define HQAAmax14(m,n,o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(m,n),max(o,p)),max(max(q,r),max(s,t))),max(max(max(u,v),max(w,x)),max(y,z)))
+#define HQAAmax15(l,m,n,o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(l,m),max(n,o)),max(max(p,q),max(r,s))),max(max(max(t,u),max(v,w)),max(max(x,y),z)))
+#define HQAAmax16(k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z) max(max(max(max(k,l),max(m,n)),max(max(o,p),max(q,r))),max(max(max(s,t),max(u,v)),max(max(w,x),max(y,z))))
 
 #define HQAAmin3(x,y,z) min(min(x,y),z)
 #define HQAAmin4(w,x,y,z) min(min(w,x),min(y,z))
@@ -830,6 +843,8 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 #define HQAAmin12(o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(o,p),min(q,r)),min(min(s,t),min(u,v))),min(min(w,x),min(y,z)))
 #define HQAAmin13(n,o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(n,o),min(p,q)),min(min(r,s),min(t,u))),min(min(min(v,w),x),min(y,z)))
 #define HQAAmin14(m,n,o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(m,n),min(o,p)),min(min(q,r),min(s,t))),min(min(min(u,v),min(w,x)),min(y,z)))
+#define HQAAmin15(l,m,n,o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(l,m),min(n,o)),min(min(p,q),min(r,s))),min(min(min(t,u),min(v,w)),min(min(x,y),z)))
+#define HQAAmin16(k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z) min(min(min(min(k,l),min(m,n)),min(min(o,p),min(q,r))),min(min(min(s,t),min(u,v)),min(min(w,x),min(y,z))))
 
 #define HQAAdotmax(x) max(max((x).r, (x).g), (x).b)
 #define HQAAdotmin(x) min(min((x).r, (x).g), (x).b)
@@ -1539,13 +1554,11 @@ float HQAASearchLength(sampler2D HQAAsearchTex, float2 e, float offset)
 float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
 {
     float2 e = float2(0.0, 1.0);
-    bool endedge = false;
     [loop] while (texcoord.x > end) 
 	{
         e = tex2Dlod(HQAAedgesTex, texcoord.xyxy).rg;
         texcoord = mad(-float2(2.0, 0.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
-        endedge = e.r > 0.0 || e.g == 0.0;
-        if (endedge) break;
+        if (e.r > 0.0) break;
     }
     float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e, 0.0), 3.25); // -(255/127)
     return mad(__HQAA_SM_BUFFERINFO.x, offset, texcoord.x);
@@ -1553,13 +1566,11 @@ float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
 float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
 {
     float2 e = float2(0.0, 1.0);
-    bool endedge = false;
     [loop] while (texcoord.x < end) 
 	{
         e = tex2Dlod(HQAAedgesTex, texcoord.xyxy).rg;
         texcoord = mad(float2(2.0, 0.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
-        endedge = e.r > 0.0 || e.g == 0.0;
-        if (endedge) break;
+        if (e.r > 0.0) break;
     }
     float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e, 0.5), 3.25);
     return mad(-__HQAA_SM_BUFFERINFO.x, offset, texcoord.x);
@@ -1567,13 +1578,11 @@ float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 t
 float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
 {
     float2 e = float2(1.0, 0.0);
-    bool endedge = false;
     [loop] while (texcoord.y > end) 
 	{
         e = tex2Dlod(HQAAedgesTex, texcoord.xyxy).rg;
         texcoord = mad(-float2(0.0, 2.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
-        endedge = e.r == 0.0 || e.g > 0.0;
-        if (endedge) break;
+        if (e.g > 0.0) break;
     }
     float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e.gr, 0.0), 3.25);
     return mad(__HQAA_SM_BUFFERINFO.y, offset, texcoord.y);
@@ -1581,13 +1590,11 @@ float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texc
 float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
 {
     float2 e = float2(1.0, 0.0);
-    bool endedge = false;
     [loop] while (texcoord.y < end) 
 	{
         e = tex2Dlod(HQAAedgesTex, texcoord.xyxy).rg;
         texcoord = mad(float2(0.0, 2.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
-        endedge = e.r == 0.0 || e.g > 0.0;
-        if (endedge) break;
+        if (e.g > 0.0) break;
     }
     float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e.gr, 0.5), 3.25);
     return mad(-__HQAA_SM_BUFFERINFO.y, offset, texcoord.y);
@@ -1938,7 +1945,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dot(middle, __HQAA_LUMA_REF);
     bool useluma = L > dotsat(middle);
     
-	float rangemult = 1.0 - log2(1.0 + clamp(L, 0.0, 0.25) * 4.0);
+	float rangemult = 1.0 - log2(1.0 + clamp(L, 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2104,7 +2111,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float lumaM = dot(middle, __HQAA_NORMAL_REF);
 	float satM = dotsat(middle);
 	bool useluma = lumaM > satM;
-	float rangemult = 1.0 - log2(1.0 + clamp(lumaM, 0.0, 0.25) * 4.0);
+	float rangemult = 1.0 - log2(1.0 + clamp(lumaM, 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	if (!useluma) lumaM = 0.0;
@@ -2469,7 +2476,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		mxRGB += mxRGB2;
 	
 		float3 ampRGB = rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)));    
-		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.5), 8.0));
+		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.625), 8.0));
 		float3 window = (b + d) + (f + h);
 	
 		float3 outColor = saturate(mad(window, wRGB, casdot) * rcp(mad(4.0, wRGB, 1.0)));
