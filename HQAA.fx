@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.3.3";
+	ui_label = "Version: 28.3.4";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -738,10 +738,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |  SMAA  |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Scan---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|------|-------|-------|\n"
-			  "|     Low|    0.20   | 37.5% |    0%  |   8  |  2.0  |  50%  |\n"
-			  "|  Medium|    0.16   | 50.0% |   10%  |  16  |  1.0  |  75%  |\n"
-			  "|    High|    0.12   | 60.0% |   15%  |  24  |  1.0  |  83%  |\n"
-			  "|   Ultra|    0.08   | 66.7% |   20%  |  64  |  0.5  |  90%  |\n"
+			  "|     Low|    0.16   | 37.5% |    0%  |   8  |  2.0  |  50%  |\n"
+			  "|  Medium|    0.12   | 50.0% |   10%  |  16  |  1.0  |  75%  |\n"
+			  "|    High|    0.08   | 60.0% |   15%  |  24  |  1.0  |  83%  |\n"
+			  "|   Ultra|    0.05   | 66.7% |   20%  |  64  |  0.5  |  90%  |\n"
 			  "--------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -756,7 +756,7 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.2, 0.16, 0.12, 0.08};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.16, 0.12, 0.08, 0.05};
 static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.375, 0.5, 0.6, 0.666667};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.15, 0.2};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {8, 16, 24, 64};
@@ -1938,7 +1938,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dot(middle, __HQAA_LUMA_REF);
     bool useluma = L > dotsat(middle);
     
-	float rangemult = 1.0 - sqrt(L);
+	float rangemult = 1.0 - log2(1.0 + clamp(L, 0.0, 0.25) * 4.0);
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2104,7 +2104,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float lumaM = dot(middle, __HQAA_NORMAL_REF);
 	float satM = dotsat(middle);
 	bool useluma = lumaM > satM;
-	float rangemult = 1.0 - sqrt(lumaM);
+	float rangemult = 1.0 - log2(1.0 + clamp(lumaM, 0.0, 0.25) * 4.0);
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	if (!useluma) lumaM = 0.0;
