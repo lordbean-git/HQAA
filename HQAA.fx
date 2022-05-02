@@ -142,7 +142,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.4.010522";
+	ui_label = "Version: 28.4.020522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -677,12 +677,12 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.25;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
 	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
-	ui_label = "Sampling Offset\n\n";
+	ui_label = "Sampling Offset";
 	ui_tooltip = "Adjust this value up or down to expand or\n"
 				 "contract the sampling patterns around the\n"
 				 "central pixel. Effectively, this gives the\n"
@@ -691,7 +691,38 @@ uniform float HqaaImageSoftenOffset <
 				 "result to look either more or less blurred.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.75;
+
+uniform bool HqaaSoftenerSpuriousDetection <
+	ui_label = "Spurious Pixel Correction";
+	ui_tooltip = "Uses different blending strength when an\n"
+				 "overly bright or dark pixel (compared to\n"
+				 "its surroundings) is detected.";
+	ui_spacing = 3;
+	ui_category = "Image Softening";
+	ui_category_closed = true;
+> = true;
+
+uniform float HqaaSoftenerSpuriousThreshold <
+	ui_label = "Detection Threshold";
+	ui_tooltip = "Difference in contrast between the middle\n"
+				 "pixel and the neighborhood around it to be\n"
+				 "considered a spurious pixel";
+	ui_min = 0.0; ui_max = 0.5; ui_step = 0.001;
+	ui_type = "slider";
+	ui_category = "Image Softening";
+	ui_category_closed = true;
+> = 0.125;
+
+uniform float HqaaSoftenerSpuriousStrength <
+	ui_label = "Spurious Softening Strength\n\n";
+	ui_tooltip = "Overrides the base softening strength to this\n"
+				 "when a pixel is flagged as spurious.";
+	ui_type = "slider";
+	ui_min = 0; ui_max = 2.0; ui_step = 0.001;
+	ui_category = "Image Softening";
+	ui_category_closed = true;
+> = 0.875;
 #endif //HQAA_OPTIONAL__SOFTENING
 
 uniform int HqaaOptionalsEOF <
@@ -2574,6 +2605,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	bool lowdetail = !any(m);
 	float passdivisor = clamp(HQAA_OPTIONAL__SOFTENING_PASSES, 1.0, 4.0);
 	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * (lowdetail ? (HqaaImageSoftenOffset * rcp(passdivisor)) : HqaaImageSoftenOffset);
+	bool highdelta = false;
 	
 // pattern:
 //  e f g
@@ -2591,9 +2623,12 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	float3 h = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1, 0) * pixstep).rgb;
 	float3 i = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-1, 1) * pixstep).rgb;
 	
-	float3 surroundavg = (b + c + d + e + f + g + h + i) / 8.0;
-	float middledelta = dotweight(a, surroundavg, false, __HQAA_AVERAGE_REF);
-	bool highdelta = middledelta > __HQAA_EDGE_THRESHOLD;
+	if (HqaaSoftenerSpuriousDetection)
+	{
+		float3 surroundavg = (b + c + d + e + f + g + h + i) / 8.0;
+		float middledelta = dotweight(a, surroundavg, false, __HQAA_AVERAGE_REF);
+		highdelta = middledelta > HqaaSoftenerSpuriousThreshold;
+	}
 	
 	float3 highterm = float3(0.0, 0.0, 0.0);
 	float3 lowterm = float3(1.0, 1.0, 1.0);
@@ -2658,10 +2693,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	if (!diag) localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box) - (highterm + lowterm)) / 7.0;
 	else localavg = ((x1 + x2 + x3 + xy1 + xy2 + xy3 + xy4 + square + box + diag1 + diag2) - (highterm + lowterm)) / 9.0;
 	
-	float lerpweight = HqaaImageSoftenStrength;
-	if (highdelta) lerpweight = saturate(lerpweight + middledelta);
-	
-	return lerp(original, ConditionalEncode(localavg), lerpweight);
+	return lerp(original, ConditionalEncode(localavg), highdelta ? HqaaSoftenerSpuriousStrength : HqaaImageSoftenStrength);
 }
 
 #endif //HQAA_OPTIONAL__SOFTENING
