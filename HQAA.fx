@@ -495,7 +495,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.625;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
