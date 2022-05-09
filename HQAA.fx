@@ -91,13 +91,141 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 /////////////////////////////////////////////////////// CONFIGURABLE TOGGLES //////////////////////////////////////////////////////////////
 
-#ifndef HQAA_ADVANCED_MODE
+#ifndef HQAA__GLOBAL_PRESET
+	#define HQAA__GLOBAL_PRESET 0
+#endif
+
+#if HQAA__GLOBAL_PRESET > 8 || HQAA__GLOBAL_PRESET < 0
+	#undef HQAA__GLOBAL_PRESET
+	#define HQAA__GLOBAL_PRESET 0
+#endif
+
+#if HQAA__GLOBAL_PRESET != 0
+	#undef HQAA_DEBUG_MODE
+	#undef HQAA_TAA_ASSIST_MODE
+	#undef HQAA_ADVANCED_MODE
+	#undef HQAA_OPTIONAL_EFFECTS
+	#undef HQAA_OPTIONAL__TEMPORAL_STABILIZER
+	#undef HQAA_OPTIONAL__DEBANDING
+	#undef HQAA_OPTIONAL__SOFTENING
+	#undef HQAA_FXAA_MULTISAMPLING
+	#undef HQAA_OPTIONAL__DEBANDING_PASSES
+	#undef HQAA_OPTIONAL__SOFTENING_PASSES
+#endif
+
+#if HQAA__GLOBAL_PRESET == 1 // Top Down
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 1
+	#define HQAA_FXAA_MULTISAMPLING 1
+#endif
+
+#if HQAA__GLOBAL_PRESET == 2 // Open World
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_FXAA_MULTISAMPLING 2
+#endif
+
+#if HQAA__GLOBAL_PRESET == 3 // Survival
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 0
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 1
+	#define HQAA_FXAA_MULTISAMPLING 1
+#endif
+
+#if HQAA__GLOBAL_PRESET == 4 // Action
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 0
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 0
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 1
+	#define HQAA_FXAA_MULTISAMPLING 2
+#endif
+
+#if HQAA__GLOBAL_PRESET == 5 // Racing
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 0
+	#define HQAA_OPTIONAL__SOFTENING 0
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 1
+	#define HQAA_FXAA_MULTISAMPLING 2
+#endif
+
+#if HQAA__GLOBAL_PRESET == 6 // Horror
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_FXAA_MULTISAMPLING 3
+#endif
+
+#if HQAA__GLOBAL_PRESET == 7 // Fake HDR
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_FXAA_MULTISAMPLING 2
+#endif
+
+#if HQAA__GLOBAL_PRESET == 8 // No Temporal Effects
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 0
+	#define HQAA_OPTIONAL__DEBANDING 0
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
 #ifndef HQAA_OUTPUT_MODE
 	#define HQAA_OUTPUT_MODE 0
 #endif //HQAA_TARGET_COLOR_SPACE
+
+#if HQAA__GLOBAL_PRESET == 0
+
+#ifndef HQAA_ADVANCED_MODE
+	#define HQAA_ADVANCED_MODE 0
+#endif
 
 #ifndef HQAA_DEBUG_MODE
 	#define HQAA_DEBUG_MODE 0
@@ -137,31 +265,68 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 #endif
 
+#endif //HQAA__GLOBAL_PRESET
+
+uniform uint HqaaFramecounter < source = "framecount"; >;
+#define __HQAA_ALT_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 2 == 0)
+#define __HQAA_QUAD_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 4 == 1)
+
 /////////////////////////////////////////////////////// GLOBAL SETUP OPTIONS //////////////////////////////////////////////////////////////
 
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.5.030522";
+	ui_label = "Version: 28.6.090522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
 			"--------------------------------------------------------------------------------\n\n"
-			"Currently Compiled Configuration:\n\n"
-			#if HQAA_ADVANCED_MODE
-			"Advanced Mode:                                                             on  *\n"
+			
+			"Available Global Preset Configurations (via HQAA__GLOBAL_PRESET):\n"
+			"0 = Manual Setup (Default)\n"
+			"1 = Top Down\n"
+			"2 = Open World\n"
+			"3 = Survival\n"
+			"4 = Action\n"
+			"5 = Racing\n"
+			"6 = Horror/Atmospheric\n"
+			"7 = Fake HDR\n"
+			"8 = No Temporal Effects\n\n"
+			
+			"Currently Compiled Configuration:\n"
+			#if HQAA__GLOBAL_PRESET == 1
+			"Preset:                                                              Top Down\n"
+			#elif HQAA__GLOBAL_PRESET == 2
+			"Preset:                                                            Open World\n"
+			#elif HQAA__GLOBAL_PRESET == 3
+			"Preset:                                                              Survival\n"
+			#elif HQAA__GLOBAL_PRESET == 4
+			"Preset:                                                                Action\n"
+			#elif HQAA__GLOBAL_PRESET == 5
+			"Preset:                                                                Racing\n"
+			#elif HQAA__GLOBAL_PRESET == 6
+			"Preset:                                                    Horror/Atmospheric\n"
+			#elif HQAA__GLOBAL_PRESET == 7
+			"Preset:                                                              Fake HDR\n"
+			#elif HQAA__GLOBAL_PRESET == 8
+			"Preset:                                                   No Temporal Effects\n"
 			#else
-			"Advanced Mode:                                                            off\n"
-			#endif
+			"Preset:                                                                Manual\n"
+			#endif //HQAA__GLOBAL_PRESET
 			#if HQAA_OUTPUT_MODE == 1
 			"Output Mode:                                                         HDR nits  *\n"
 			#elif HQAA_OUTPUT_MODE == 2
-			"Output Mode:                                                      PQ accurate  *\n"
+			"Output Mode:                                                      PQ accurate\n"
 			#elif HQAA_OUTPUT_MODE == 3
 			"Output Mode:                                                        PQ approx  *\n"
 			#else
 			"Output Mode:                                                        Gamma 2.2\n"
 			#endif //HQAA_TARGET_COLOR_SPACE
+			#if HQAA_ADVANCED_MODE
+			"Advanced Mode:                                                             on  *\n"
+			#else
+			"Advanced Mode:                                                            off\n"
+			#endif
 			#if HQAA_FXAA_MULTISAMPLING < 2
 			"FXAA Multisampling:                                                       off  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 3
@@ -220,6 +385,7 @@ uniform int HQAAintroduction <
 			"Image Softening:                                                          off  *\n"
 			#endif
 			
+			#if HQAA__GLOBAL_PRESET == 0
 			"\nRemarks:\n"
 			
 			#if HQAA_DEBUG_MODE
@@ -245,6 +411,7 @@ uniform int HQAAintroduction <
 			"as edges with more than one color gradient or along objects that have highly\n"
 			"irregular geometry. Costs some performance for each extra pass.\n"
 			"Valid range: 1 to 4. Higher values are ignored.\n"
+			#endif // HQAA__GLOBAL_PRESET
 			
 			"\nValid Output Modes (HQAA_OUTPUT_MODE):\n"
 			"0: Gamma 2.2 (default)\n"
@@ -273,12 +440,24 @@ uniform uint HqaaDebugMode <
 > = 0;
 #endif //HQAA_DEBUG_MODE
 
+#if HQAA_OUTPUT_MODE == 1
+uniform float HqaaHdrNits < 
+	ui_spacing = 3;
+	ui_type = "slider";
+	ui_min = 500.0; ui_max = 10000.0; ui_step = 100.0;
+	ui_label = "HDR Nits";
+	ui_tooltip = "If the scene brightness changes after HQAA runs, try\n"
+				 "adjusting this value up or down until it looks right.";
+> = 1000.0;
+#endif //HQAA_TARGET_COLOR_SPACE
+
 uniform int HqaaAboutEOF <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n--------------------------------------------------------------------------------";
 >;
 
+#if HQAA__GLOBAL_PRESET == 0
 #if !HQAA_ADVANCED_MODE
 uniform uint HqaaPreset <
 	ui_type = "combo";
@@ -291,8 +470,8 @@ uniform uint HqaaPreset <
 > = 2;
 
 static const float HqaaLowLumaThreshold = 0.333333;
-static const float HqaaHysteresisStrength = 12.5;
-static const float HqaaHysteresisFudgeFactor = 1.0;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaFxEarlyExit = true;
@@ -451,17 +630,6 @@ uniform float HqaaHysteresisFudgeFactor <
 > = 1.0;
 #endif //HQAA_ADVANCED_MODE
 
-#if HQAA_OUTPUT_MODE == 1
-uniform float HqaaHdrNits < 
-	ui_spacing = 3;
-	ui_type = "slider";
-	ui_min = 500.0; ui_max = 10000.0; ui_step = 100.0;
-	ui_label = "HDR Nits\n\n";
-	ui_tooltip = "If the scene brightness changes after HQAA runs, try\n"
-				 "adjusting this value up or down until it looks right.";
-> = 1000.0;
-#endif //HQAA_TARGET_COLOR_SPACE
-
 uniform int HqaaOptionsEOF <
 	ui_type = "radio";
 	ui_label = " ";
@@ -495,7 +663,7 @@ uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.375;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -562,7 +730,7 @@ uniform uint HqaaTonemapping <
 	ui_spacing = 3;
 	ui_type = "combo";
 	ui_label = "Tonemapping\n\n";
-	ui_items = "None\0Reinhard\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0";
+	ui_items = "None\0Reinhard\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0Logarithmic Fake HDR\0";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
 > = 0;
@@ -768,6 +936,7 @@ uniform int HqaaDebugExplainer <
 	ui_category_closed = true;
 >;
 #endif //HQAA_DEBUG_MODE
+#endif // HQAA__GLOBAL_PRESET
 
 ///////////////////////////////////////////////// HUMAN+MACHINE PRESET REFERENCE //////////////////////////////////////////////////////////
 
@@ -780,10 +949,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |  SMAA  |        FXAA          |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Scan---Texel---Blend-|\n"
 	          "|--------|-----------|-------|--------|------|-------|-------|\n"
-			  "|     Low|    0.20   | 50.0% |    8%  |  12  |  2.0  |  50%  |\n"
-			  "|  Medium|    0.16   | 66.7% |   16%  |  24  |  1.0  |  75%  |\n"
-			  "|    High|    0.12   | 75.0% |   24%  |  36  |  1.0  |  83%  |\n"
-			  "|   Ultra|    0.08   | 80.0% |   32%  |  72  |  0.5  |  90%  |\n"
+			  "|     Low|    0.20   | 50.0% |    8%  |   4  |  2.0  |  50%  |\n"
+			  "|  Medium|    0.16   | 66.7% |   16%  |   8  |  1.0  |  75%  |\n"
+			  "|    High|    0.12   | 75.0% |   24%  |  12  |  1.0  |  90%  |\n"
+			  "|   Ultra|    0.08   | 80.0% |   32%  |  24  |  0.5  | 100%  |\n"
 			  "--------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -803,7 +972,7 @@ static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.8};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.08, 0.16, 0.24, 0.32};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {12, 24, 36, 72};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
-static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.833333, 0.9};
+static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.9, 1.0};
 
 #define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
 #define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
@@ -814,9 +983,301 @@ static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.833333, 0.9};
 
 #endif //HQAA_ADVANCED_MODE
 
-uniform uint HqaaFramecounter < source = "framecount"; >;
-#define __HQAA_ALT_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 2 == 0)
-#define __HQAA_QUAD_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 4 == 1)
+#if HQAA__GLOBAL_PRESET == 1 // Top Down
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.333333;
+static const float HqaaHysteresisStrength = 20.0;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
+static const bool HqaaFxEarlyExit = false;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.333333;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.333333;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = false;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 0;
+static const float HqaaPreviousFrameWeight = 0.2;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 32.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.1;
+static const float HqaaImageSoftenOffset = 0.75;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.2;
+static const float HqaaSoftenerSpuriousStrength = 1.0;
+#endif // Preset = Top Down
+
+#if HQAA__GLOBAL_PRESET == 2 // Open World
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.333333;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 0;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.5;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.333333;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = false;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 0;
+static const float HqaaPreviousFrameWeight = 0.25;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 32.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.125;
+static const float HqaaImageSoftenOffset = 0.875;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.125;
+static const float HqaaSoftenerSpuriousStrength = 0.75;
+#endif // Preset = Open World
+
+#if HQAA__GLOBAL_PRESET == 3 // Survival
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 2;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.125;
+static const bool HqaaEnableBrightnessGain = true;
+static const float HqaaGainStrength = 0.4;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = false;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 0;
+static const float HqaaPreviousFrameWeight = 0.125;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 32.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+//static const float HqaaImageSoftenStrength = 0.125;
+//static const float HqaaImageSoftenOffset = 0.875;
+//static const bool HqaaSoftenerSpuriousDetection = true;
+//static const float HqaaSoftenerSpuriousThreshold = 0.125;
+//static const float HqaaSoftenerSpuriousStrength = 0.75;
+#endif // Preset = Survival
+
+#if HQAA__GLOBAL_PRESET == 4 // Action
+static const uint HqaaPreset = 2;
+static const float HqaaLowLumaThreshold = 0.4;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
+static const bool HqaaFxEarlyExit = false;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.25;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.4;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = false;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 0;
+//static const float HqaaPreviousFrameWeight = 0.125;
+//static const bool HqaaTemporalEdgeHinting = true;
+//static const bool HqaaTemporalClamp = true;
+//static const bool HqaaHighFramerateAssist = false;
+//static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 16.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+//static const float HqaaImageSoftenStrength = 0.125;
+//static const float HqaaImageSoftenOffset = 0.875;
+//static const bool HqaaSoftenerSpuriousDetection = true;
+//static const float HqaaSoftenerSpuriousThreshold = 0.125;
+//static const float HqaaSoftenerSpuriousStrength = 0.75;
+#endif // Preset = Action
+
+#if HQAA__GLOBAL_PRESET == 5 // Racing
+static const uint HqaaPreset = 2;
+static const float HqaaLowLumaThreshold = 0.2;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 2;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.5;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.4;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = false;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 0;
+static const float HqaaPreviousFrameWeight = 0.125;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+//static const uint HqaaDebandPreset = 0;
+//static const float HqaaDebandRange = 16.0;
+//static const bool HqaaDebandIgnoreLowLuma = true;
+//static const bool HqaaDebandUseSmaaData = true;
+//uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+//static const float HqaaImageSoftenStrength = 0.125;
+//static const float HqaaImageSoftenOffset = 0.875;
+//static const bool HqaaSoftenerSpuriousDetection = true;
+//static const float HqaaSoftenerSpuriousThreshold = 0.125;
+//static const float HqaaSoftenerSpuriousStrength = 0.75;
+#endif // Preset = Racing
+
+#if HQAA__GLOBAL_PRESET == 6 // Horror
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.375;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 0;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 0.75;
+static const float HqaaSharpenerClamping = 0.25;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.4;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = true;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.55;
+static const uint HqaaTonemapping = 0;
+static const float HqaaPreviousFrameWeight = 0.2;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 12.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.125;
+static const float HqaaImageSoftenOffset = 0.875;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.125;
+static const float HqaaSoftenerSpuriousStrength = 0.75;
+#endif // Preset = Horror
+
+#if HQAA__GLOBAL_PRESET == 7 // Fake HDR
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 0.8;
+static const float HqaaSharpenerClamping = 0.75;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.4;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = true;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 7;
+static const float HqaaPreviousFrameWeight = 0.125;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 24.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.125;
+static const float HqaaImageSoftenOffset = 0.75;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.2;
+static const float HqaaSoftenerSpuriousStrength = 0.5;
+#endif // Preset = Fake HDR
+
+#if HQAA__GLOBAL_PRESET == 8 // No Temporal Effects
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaHysteresisStrength = 33.333333;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.375;
+static const bool HqaaEnableBrightnessGain = false;
+static const float HqaaGainStrength = 0.4;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = false;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const uint HqaaTonemapping = 0;
+//static const float HqaaPreviousFrameWeight = 0.125;
+//static const bool HqaaTemporalEdgeHinting = true;
+//static const bool HqaaTemporalClamp = true;
+//static const bool HqaaHighFramerateAssist = false;
+//static const float HqaaHFRJitterStrength = 0.5;
+//static const uint HqaaDebandPreset = 0;
+//static const float HqaaDebandRange = 24.0;
+//static const bool HqaaDebandIgnoreLowLuma = true;
+//static const bool HqaaDebandUseSmaaData = true;
+//uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.1;
+static const float HqaaImageSoftenOffset = 0.75;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.125;
+static const float HqaaSoftenerSpuriousStrength = 0.5;
+#endif // Preset = No Temporal Effects
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -1095,6 +1556,12 @@ float3 AdjustSaturation(float3 input, float requestedadjustment)
 	
 	// change back to ARGB color space
 	return YUVtoRGB(yuv);
+}
+
+float lognormalize(float x, float base)
+{
+	float numerator = x * (1.0 + (x / (base * base)));
+	return numerator / (1.0 + x);
 }
 
 /////////////////////////////////////////////////////// TRANSFER FUNCTIONS ////////////////////////////////////////////////////////////////
@@ -1733,6 +2200,26 @@ float3 aces_approx(float3 x)
 	
 	return saturate((xout*(A*xout+B))/(xout*(C*xout+D)+E));
 }
+
+float3 logarithmic_fake_hdr(float3 x)
+{
+	float luma = dot(x, __HQAA_LUMA_REF);
+	float offsetlow = 0.75 * luma;
+	float offsethigh = 0.75 * (1.0 - luma);
+	float offsetmid = 1.5 * (0.5 - luma);
+	float channelfloor = __HQAA_SMALLEST_COLOR_STEP;
+	float channelceiling = 1.0 - channelfloor;
+	float3 result = x;
+	if (luma < 0.333333) result = pow(abs(__HQAA_CONST_E + offsetlow), log(clamp(x, channelfloor, channelceiling)));
+	else if (luma < 0.666667) result = pow(abs(__HQAA_CONST_E + offsetmid), log(clamp(x, channelfloor, channelceiling)));
+	else result = pow(abs(__HQAA_CONST_E - offsethigh), log(clamp(x, channelfloor, channelceiling)));
+	result = RGBtoYUV(result);
+	if (luma < 0.333333) result.x -= offsetlow * result.x;
+	else if (luma < 0.666667) result.x -= offsetmid * result.x;
+	else result.x += offsethigh * result.x;
+	result = YUVtoRGB(result);
+	return result;
+}
 #endif //HQAA_OPTIONAL_EFFECTS
 
 /***************************************************************************************************************************************/
@@ -1953,7 +2440,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
     float L = dot(middle, __HQAA_LUMA_REF);
     bool useluma = L > dotsat(middle);
     
-	float rangemult = 1.0 - log2(1.0 + clamp(sqrt(L), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
+	float rangemult = 1.0 - log2(1.0 + clamp(log2(1.0 + L), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
     if (!useluma) L = 0.0;
@@ -2119,7 +2606,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float lumaM = dot(middle, __HQAA_NORMAL_REF);
 	float satM = dotsat(middle);
 	bool useluma = lumaM > satM;
-	float rangemult = 1.0 - log2(1.0 + clamp(sqrt(lumaM), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
+	float rangemult = 1.0 - log2(1.0 + clamp(log2(1.0 + lumaM), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	if (!useluma) lumaM = 0.0;
@@ -2178,7 +2665,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	uint iterations = 0;
 	uint maxiterations = __HQAA_FX_QUALITY;
 	
-	[loop] while (iterations < maxiterations)
+	[fastopt] while (iterations < maxiterations)
 	{
 		if (doneN && doneP) break;
 		if (!doneN)
@@ -2200,16 +2687,18 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	
 	float2 dstNP = float2(texcoord.y - posN.y, posP.y - texcoord.y);
 	HQAAMovc(bool(horzSpan).xx, dstNP, float2(texcoord.x - posN.x, posP.x - texcoord.x));
-    float pixelOffset = mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5);
-    float maxblending = __HQAA_FX_BLEND;
-    float subpixOut;
     float endluma = (dstNP.x < dstNP.y) ? lumaEndN : lumaEndP;
-	if (!(endluma < 0.0 != lumaMLTZero)) // bad span
+    float pixelOffset = abs(mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5) * (1.0 - log2(1.0 + abs(endluma - lumaM)))) * __HQAA_FX_BLEND;
+    float subpixOut = 1.0;
+    bool goodSpan = endluma < 0.0 != lumaMLTZero;
+    
+	if (!goodSpan) // bad span
 	{
 		subpixOut = mad(mad(2.0, lumaS + lumaE + lumaN + lumaW, lumaNW + lumaSE + lumaNE + lumaSW), 0.083333, -lumaM) * rcp(range); //ABC
-		subpixOut = intpow(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0) * pixelOffset * maxblending * abs(endluma); // DEFGH
+		subpixOut = intpow(saturate(mad(-2.0, subpixOut, 3.0) * (subpixOut * subpixOut)), 2.0); // DEFGH
 	}
-	else subpixOut = pixelOffset * maxblending; // good span
+	
+	subpixOut *= pixelOffset;
 
     float2 posM = texcoord;
 	HQAAMovc(bool2(!horzSpan, horzSpan), posM, float2(posM.x + lengthSign * subpixOut, posM.y + lengthSign * subpixOut));
@@ -2543,6 +3032,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			else if (HqaaTonemapping == 4) pixel = reinhard_jodie(pixel);
 			else if (HqaaTonemapping == 5) pixel = uncharted2_filmic(pixel);
 			else if (HqaaTonemapping == 6) pixel = aces_approx(pixel);
+			else if (HqaaTonemapping == 7) pixel = logarithmic_fake_hdr(pixel);
 		}
 	}
 
