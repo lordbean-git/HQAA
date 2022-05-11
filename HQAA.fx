@@ -95,7 +95,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA__GLOBAL_PRESET 0
 #endif
 
-#if HQAA__GLOBAL_PRESET > 8 || HQAA__GLOBAL_PRESET < 0
+#if HQAA__GLOBAL_PRESET > 9 || HQAA__GLOBAL_PRESET < 0
 	#undef HQAA__GLOBAL_PRESET
 	#define HQAA__GLOBAL_PRESET 0
 #endif
@@ -187,8 +187,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
 	#define HQAA_OPTIONAL__DEBANDING_PASSES 2
-	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
-	#define HQAA_FXAA_MULTISAMPLING 3
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 3
+	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
@@ -214,6 +214,19 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_OPTIONAL__SOFTENING 1
 	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
 	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_FXAA_MULTISAMPLING 2
+#endif
+
+#if HQAA__GLOBAL_PRESET == 9 // Dim LCD
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 1
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
@@ -270,13 +283,14 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 uniform uint HqaaFramecounter < source = "framecount"; >;
 #define __HQAA_ALT_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 2 == 0)
 #define __HQAA_QUAD_FRAME ((HqaaFramecounter + HqaaSourceInterpolationOffset) % 4 == 1)
+#define __HQAA_TEMPORAL_KEYFRAME (HqaaFramecounter % HqaaTemporalKeyframe == 1)
 
 /////////////////////////////////////////////////////// GLOBAL SETUP OPTIONS //////////////////////////////////////////////////////////////
 
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.6.100522";
+	ui_label = "Version: 28.6.110522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -291,7 +305,8 @@ uniform int HQAAintroduction <
 			"5 = Racing\n"
 			"6 = Horror/Atmospheric\n"
 			"7 = Fake HDR\n"
-			"8 = No Temporal Effects\n\n"
+			"8 = No Temporal Effects\n"
+			"9 = Dim LCD Compensation\n\n"
 			
 			"Currently Compiled Configuration:\n"
 			#if HQAA__GLOBAL_PRESET == 1
@@ -310,6 +325,8 @@ uniform int HQAAintroduction <
 			"Preset:                                                              Fake HDR\n"
 			#elif HQAA__GLOBAL_PRESET == 8
 			"Preset:                                                   No Temporal Effects\n"
+			#elif HQAA__GLOBAL_PRESET == 9
+			"Preset:                                                  Dim LCD Compensation\n"
 			#else
 			"Preset:                                                                Manual\n"
 			#endif //HQAA__GLOBAL_PRESET
@@ -727,10 +744,10 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
  > = 0.5;
  
 uniform uint HqaaTonemapping <
-	ui_spacing = 3;
+	ui_spacing = 6;
 	ui_type = "combo";
 	ui_label = "Tonemapping";
-	ui_items = "None\0Reinhard\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0Logarithmic Fake HDR\0";
+	ui_items = "None\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0Logarithmic Fake HDR\0Dynamic Range Compression\0";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
 > = 0;
@@ -756,7 +773,6 @@ uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
 > = 0.5;
 
 uniform bool HqaaTemporalEdgeHinting <
-	ui_spacing = 3;
 	ui_label = "Use SMAA Blend Hinting";
 	ui_tooltip = "Adaptively adjusts previous frame weight\nby referencing SMAA blending weights.";
 	ui_category = "Temporal Stabilizer";
@@ -773,9 +789,29 @@ uniform bool HqaaTemporalClamp <
 				 "after SMAA hinting if it's also enabled.";
 > = true;
 
+uniform uint HqaaTemporalPersistenceMode <
+	ui_type = "radio";
+	ui_label = "Mouseover for description";
+	ui_text = "Temporal Persistence Mode:";
+	ui_tooltip = "Determines whether and how many frames beyond\n"
+				 "the previous one will persist in the temporal data.";
+	ui_items = "Disabled\0Infinite\0Keyframe Every:\0";
+	ui_spacing = 6;
+	ui_category = "Temporal Stabilizer";
+	ui_category_closed = true;
+> = 0;
+
+uniform uint HqaaTemporalKeyframe <
+	ui_type = "slider";
+	ui_label = "Frames";
+	ui_min = 2; ui_max = 240; ui_step = 1;
+	ui_category = "Temporal Stabilizer";
+	ui_category_closed = true;
+> = 30;
+
 uniform bool HqaaHighFramerateAssist <
 	ui_label = "High Framerate Assist Enhancement";
-	ui_spacing = 3;
+	ui_spacing = 6;
 	ui_tooltip = "Combines HFRAA with the temporal stabilizer\nto enhance the effect. Your framerate must be\ncapped to the monitor refresh rate for this to work well.";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
@@ -1017,6 +1053,8 @@ static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaPreviousFrameWeight = 0.4;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
@@ -1055,6 +1093,8 @@ static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaPreviousFrameWeight = 0.666667;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
@@ -1093,6 +1133,8 @@ static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaPreviousFrameWeight = 0.5;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
@@ -1131,6 +1173,8 @@ static const float HqaaTonemappingParameter = 1.0;
 //static const float HqaaPreviousFrameWeight = 0.125;
 //static const bool HqaaTemporalEdgeHinting = true;
 //static const bool HqaaTemporalClamp = true;
+//static const uint HqaaTemporalPersistenceMode = 0;
+//static const uint HqaaTemporalKeyframe = 2;
 //static const bool HqaaHighFramerateAssist = false;
 //static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
@@ -1166,9 +1210,11 @@ static const float HqaaVibranceStrength = 50;
 static const float HqaaSaturationStrength = 0.5;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaPreviousFrameWeight = 0.5;
+static const float HqaaPreviousFrameWeight = 0.375;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 //static const uint HqaaDebandPreset = 0;
@@ -1202,23 +1248,25 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
 static const float HqaaSaturationStrength = 0.55;
-static const uint HqaaTonemapping = 7;
+static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 0.333333;
-static const float HqaaPreviousFrameWeight = 0.75;
+static const float HqaaPreviousFrameWeight = 0.25;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 1;
+static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 12.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.125;
+static const float HqaaImageSoftenStrength = 0.1;
 static const float HqaaImageSoftenOffset = 0.875;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.125;
-static const float HqaaSoftenerSpuriousStrength = 0.75;
+static const float HqaaSoftenerSpuriousStrength = 0.5;
 #endif // Preset = Horror
 
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
@@ -1240,11 +1288,13 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
 static const float HqaaSaturationStrength = 0.6;
-static const uint HqaaTonemapping = 7;
+static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 2.718282;
 static const float HqaaPreviousFrameWeight = 0.5;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
@@ -1283,6 +1333,8 @@ static const float HqaaTonemappingParameter = 1.0;
 //static const float HqaaPreviousFrameWeight = 0.125;
 //static const bool HqaaTemporalEdgeHinting = true;
 //static const bool HqaaTemporalClamp = true;
+//static const uint HqaaTemporalPersistenceMode = 0;
+//static const uint HqaaTemporalKeyframe = 2;
 //static const bool HqaaHighFramerateAssist = false;
 //static const float HqaaHFRJitterStrength = 0.5;
 //static const uint HqaaDebandPreset = 0;
@@ -1296,6 +1348,46 @@ static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.125;
 static const float HqaaSoftenerSpuriousStrength = 0.5;
 #endif // Preset = No Temporal Effects
+
+#if HQAA__GLOBAL_PRESET == 9 // Dim LCD Compensation
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.4;
+static const float HqaaHysteresisStrength = 25.0;
+static const float HqaaHysteresisFudgeFactor = 5.0;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.125;
+static const bool HqaaEnableBrightnessGain = true;
+static const float HqaaGainStrength = 0.333333;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = true;
+static const float HqaaVibranceStrength = 40;
+static const float HqaaSaturationStrength = 0.6;
+static const uint HqaaTonemapping = 7;
+static const float HqaaTonemappingParameter = 0.625;
+static const float HqaaPreviousFrameWeight = 0.5;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 32.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.1;
+static const float HqaaImageSoftenOffset = 0.75;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.125;
+static const float HqaaSoftenerSpuriousStrength = 0.5;
+#endif // Preset = Dim LCD Compensation
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -2166,11 +2258,6 @@ float3 reinhard_jodie(float3 x)
 	return lerp(x / (1.0 + xl), xv, xv);
 }
 
-float3 reinhard(float3 x)
-{
-	return x / (1.0 + x);
-}
-
 float3 extended_reinhard(float3 x)
 {
 	float whitepoint = HqaaTonemappingParameter;
@@ -2222,6 +2309,14 @@ float3 aces_approx(float3 x)
 float3 logarithmic_fake_hdr(float3 x)
 {
 	return saturate(pow(abs(__HQAA_CONST_E + (HqaaTonemappingParameter * (0.5 - log2(1.0 + dot(x, __HQAA_LUMA_REF))))), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0))));
+}
+
+float3 logarithmic_range_compression(float3 x)
+{
+	float luma = dot(x, __HQAA_LUMA_REF);
+	float offset = HqaaTonemappingParameter * (0.5 - luma);
+	float3 result = pow(abs(__HQAA_CONST_E - offset), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0)));
+	return saturate(result);
 }
 #endif //HQAA_OPTIONAL_EFFECTS
 
@@ -2879,6 +2974,14 @@ float4 HQAAFrameFlipPS(float4 position : SV_Position, float2 texcoord : TEXCOORD
 	if(__HQAA_ALT_FRAME && HqaaHighFramerateAssist) Shift = BUFFER_RCP_WIDTH * HqaaHFRJitterStrength;
     return HQAA_Tex2D(ReShade::BackBuffer, texcoord + float2(Shift, 0.0));
 }
+
+// optional stabilizer - temporal persistence
+float3 HQAATemporalPersistencePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	if (HqaaTemporalPersistenceMode == 1) return HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
+	if ((HqaaTemporalPersistenceMode == 2) && !(__HQAA_TEMPORAL_KEYFRAME)) return HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
+	return HQAA_Tex2D(HQAAsamplerLastFrameBuffer, texcoord).rgb;
+}
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 
 #if HQAA_OPTIONAL__DEBANDING
@@ -2972,11 +3075,6 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 {
 	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float3 original = pixel;
-#if HQAA_DEBUG_MODE
-	// skip optional effect processing if a debug mode is enabled
-	if (HqaaDebugMode == 0) {
-#endif
-
 	pixel = ConditionalDecode(pixel);
 	float3 initstate = pixel;
 	
@@ -3010,13 +3108,13 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 
 	if (HqaaEnableColorPalette && (HqaaTonemapping > 0))
 	{
-		if (HqaaTonemapping == 1) pixel = reinhard(pixel);
-		else if (HqaaTonemapping == 2) pixel = extended_reinhard(pixel);
-		else if (HqaaTonemapping == 3) pixel = extended_reinhard_luma(pixel);
-		else if (HqaaTonemapping == 4) pixel = reinhard_jodie(pixel);
-		else if (HqaaTonemapping == 5) pixel = uncharted2_filmic(pixel);
-		else if (HqaaTonemapping == 6) pixel = aces_approx(pixel);
-		else if (HqaaTonemapping == 7) pixel = logarithmic_fake_hdr(pixel);
+		if (HqaaTonemapping == 1) pixel = extended_reinhard(pixel);
+		else if (HqaaTonemapping == 2) pixel = extended_reinhard_luma(pixel);
+		else if (HqaaTonemapping == 3) pixel = reinhard_jodie(pixel);
+		else if (HqaaTonemapping == 4) pixel = uncharted2_filmic(pixel);
+		else if (HqaaTonemapping == 5) pixel = aces_approx(pixel);
+		else if (HqaaTonemapping == 6) pixel = logarithmic_fake_hdr(pixel);
+		else if (HqaaTonemapping == 7) pixel = logarithmic_range_compression(pixel);
 	}
 	
 	if (HqaaEnableColorPalette && (HqaaVibranceStrength != 50.0))
@@ -3076,10 +3174,6 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	
 	if (any(pixel - initstate)) return ConditionalEncode(pixel);
 	else return original;
-#if HQAA_DEBUG_MODE
-	}
-	else return original;
-#endif
 }
 
 #if HQAA_OPTIONAL__SOFTENING
@@ -3367,6 +3461,20 @@ technique HQAA <
 	{
 		VertexShader = PostProcessVS;
 		PixelShader = HQAAPreviousFrameBlendPS;
+	}
+	pass TransferPreviousFrame
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAAGenerateSecondaryCopyPS;
+		RenderTarget = HQAAstabilizerbufferTex;
+		ClearRenderTargets = true;
+	}
+	pass TemporalPersistence
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATemporalPersistencePS;
+		RenderTarget = HQAAstabilizerTex;
+		ClearRenderTargets = true;
 	}
 #endif //HQAA_OPTIONAL__TEMPORAL_STABILIZER
 #endif //HQAA_OPTIONAL_EFFECTS
