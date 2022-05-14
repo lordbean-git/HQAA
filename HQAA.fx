@@ -199,8 +199,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
-	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
-	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 3
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
@@ -290,7 +290,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.6.110522";
+	ui_label = "Version: 28.6.140522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1271,26 +1271,26 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
 static const uint HqaaPreset = 3;
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaLowLumaThreshold = 0.375;
 static const float HqaaHysteresisStrength = 33.333333;
 static const float HqaaHysteresisFudgeFactor = 5.0;
 static const bool HqaaDoLumaHysteresis = true;
-static const uint HqaaEdgeTemporalAggregation = 1;
+static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.8;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerStrength = 0.75;
+static const float HqaaSharpenerClamping = 0.25;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
-static const float HqaaSaturationStrength = 0.6;
+static const float HqaaSaturationStrength = 0.55;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 2.718282;
-static const float HqaaPreviousFrameWeight = 0.5;
+static const float HqaaPreviousFrameWeight = 0.4;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 0;
@@ -1298,14 +1298,14 @@ static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 24.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.125;
-static const float HqaaImageSoftenOffset = 0.75;
+static const float HqaaImageSoftenStrength = 0.1;
+static const float HqaaImageSoftenOffset = 0.875;
 static const bool HqaaSoftenerSpuriousDetection = true;
-static const float HqaaSoftenerSpuriousThreshold = 0.2;
+static const float HqaaSoftenerSpuriousThreshold = 0.125;
 static const float HqaaSoftenerSpuriousStrength = 0.5;
 #endif // Preset = Fake HDR
 
@@ -2665,7 +2665,7 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
       	  coords.y = texcoord.y;
      	   HQAADetectHorizontalCornerPattern(HQAAsamplerAlphaEdges, weights.rg, coords.xyzy, d);
         }
-        //else e.r = 0.0;
+        else e.r = 0.0;
     }
 	if (e.r > 0.0) 
 	{
@@ -2807,7 +2807,7 @@ float3 HQAAFXPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Targ
 	float2 dstNP = float2(texcoord.y - posN.y, posP.y - texcoord.y);
 	HQAAMovc(bool(horzSpan).xx, dstNP, float2(texcoord.x - posN.x, posP.x - texcoord.x));
     float endluma = (dstNP.x < dstNP.y) ? lumaEndN : lumaEndP;
-    float pixelOffset = abs(mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5) * (1.0 - log2(1.0 + abs(endluma - lumaM)))) * __HQAA_FX_BLEND;
+    float pixelOffset = abs(mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5) * (1.0 - intpow(abs(endluma - lumaM), 4))) * __HQAA_FX_BLEND;
     float subpixOut = 1.0;
     bool goodSpan = endluma < 0.0 != lumaMLTZero;
     
