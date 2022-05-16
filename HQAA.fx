@@ -95,7 +95,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA__GLOBAL_PRESET 0
 #endif
 
-#if HQAA__GLOBAL_PRESET > 9 || HQAA__GLOBAL_PRESET < 0
+#if HQAA__GLOBAL_PRESET > 10 || HQAA__GLOBAL_PRESET < 0
 	#undef HQAA__GLOBAL_PRESET
 	#define HQAA__GLOBAL_PRESET 0
 #endif
@@ -230,6 +230,19 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
+#if HQAA__GLOBAL_PRESET == 10 // Eye Comfort
+	#define HQAA_DEBUG_MODE 0
+	#define HQAA_TAA_ASSIST_MODE 0
+	#define HQAA_ADVANCED_MODE 0
+	#define HQAA_OPTIONAL_EFFECTS 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__DEBANDING 1
+	#define HQAA_OPTIONAL__SOFTENING 1
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
+	#define HQAA_OPTIONAL__SOFTENING_PASSES 2
+	#define HQAA_FXAA_MULTISAMPLING 2
+#endif
+
 #ifndef HQAA_OUTPUT_MODE
 	#define HQAA_OUTPUT_MODE 0
 #endif //HQAA_TARGET_COLOR_SPACE
@@ -290,23 +303,11 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.7.150522";
+	ui_label = "Version: 28.7.160522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
 			"--------------------------------------------------------------------------------\n\n"
-			
-			"Available Global Preset Configurations (via HQAA__GLOBAL_PRESET):\n"
-			"0 = Manual Setup (Default)\n"
-			"1 = Top Down\n"
-			"2 = Open World\n"
-			"3 = Survival\n"
-			"4 = Action\n"
-			"5 = Racing\n"
-			"6 = Horror/Atmospheric\n"
-			"7 = Fake HDR\n"
-			"8 = No Temporal Effects\n"
-			"9 = Dim LCD Compensation\n\n"
 			
 			"Currently Compiled Configuration:\n"
 			#if HQAA__GLOBAL_PRESET == 1
@@ -327,6 +328,8 @@ uniform int HQAAintroduction <
 			"Preset:                                                   No Temporal Effects\n"
 			#elif HQAA__GLOBAL_PRESET == 9
 			"Preset:                                                  Dim LCD Compensation\n"
+			#elif HQAA__GLOBAL_PRESET == 10
+			"Preset:                                                           Eye Comfort\n"
 			#else
 			"Preset:                                                                Manual\n"
 			#endif //HQAA__GLOBAL_PRESET
@@ -401,9 +404,25 @@ uniform int HQAAintroduction <
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__SOFTENING
 			"Image Softening:                                                          off  *\n"
 			#endif
+			"\n--------------------------------------------------------------------------------\n\n"
+			
+			"Available Global Preset Configurations (via HQAA__GLOBAL_PRESET):\n"
+			"0 = Manual Setup (Default)\n"
+			"1 = Top Down\n"
+			"2 = Open World\n"
+			"3 = Survival\n"
+			"4 = Action\n"
+			"5 = Racing\n"
+			"6 = Horror/Atmospheric\n"
+			"7 = Fake HDR\n"
+			"8 = No Temporal Effects\n"
+			"9 = Dim LCD Compensation\n"
+			"10 = Eye Comfort\n\n"
+			
+			"--------------------------------------------------------------------------------\n\n"
 			
 			#if HQAA__GLOBAL_PRESET == 0
-			"\nRemarks:\n"
+			"Remarks:\n"
 			
 			#if HQAA_DEBUG_MODE
 			"\nDebug code should be disabled when you are not using it because it has a small\n"
@@ -427,10 +446,11 @@ uniform int HQAAintroduction <
 			"\nFXAA Multisampling can be used to increase correction strength in cases such\n"
 			"as edges with more than one color gradient or along objects that have highly\n"
 			"irregular geometry. Costs some performance for each extra pass.\n"
-			"Valid range: 1 to 4. Higher values are ignored.\n"
+			"Valid range: 1 to 4. Higher values are ignored.\n\n"
+			"--------------------------------------------------------------------------------\n\n"
 			#endif // HQAA__GLOBAL_PRESET
 			
-			"\nValid Output Modes (HQAA_OUTPUT_MODE):\n"
+			"Valid Output Modes (HQAA_OUTPUT_MODE):\n"
 			"0: Gamma 2.2 (default)\n"
 			"1: HDR, direct nits scale\n"
 			"2: HDR10, accurate encoding\n"
@@ -695,7 +715,7 @@ uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
 			  "as a quick fix for dark games or monitors.";
 	ui_category = "Brightness Booster";
 	ui_category_closed = true;
-> = 0.2;
+> = 0.0;
 
 uniform bool HqaaGainLowLumaCorrection <
 	ui_label = "Washout Correction\n\n";
@@ -739,7 +759,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "therefore can cause loss of detail.";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
- > = 0.55;
+ > = 0.50;
  
  uniform float HqaaColorTemperature <
 	ui_spacing = 3;
@@ -752,7 +772,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "0.5 is neutral.";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
- > = 0.4;
+ > = 0.5;
  
  uniform float HqaaBlueLightFilter <
 	ui_type = "slider";
@@ -763,7 +783,7 @@ uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
 				 "or to help fall asleep at night";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
- > = 0.25;
+ > = 0.0;
  
 uniform uint HqaaTonemapping <
 	ui_spacing = 3;
@@ -772,7 +792,7 @@ uniform uint HqaaTonemapping <
 	ui_items = "None\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0Logarithmic Fake HDR\0Dynamic Range Compression\0";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
-> = 6;
+> = 0;
 
 uniform float HqaaTonemappingParameter <
 	ui_type = "slider";
@@ -1416,6 +1436,46 @@ static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.125;
 static const float HqaaSoftenerSpuriousStrength = 0.5;
 #endif // Preset = Dim LCD Compensation
+
+#if HQAA__GLOBAL_PRESET == 10 // Eye Comfort
+static const uint HqaaPreset = 3;
+static const float HqaaLowLumaThreshold = 0.3;
+static const bool HqaaDoLumaHysteresis = true;
+static const uint HqaaEdgeTemporalAggregation = 1;
+static const bool HqaaFxEarlyExit = true;
+static const uint HqaaSourceInterpolation = 0;
+static const uint HqaaSourceInterpolationOffset = 0;
+static const bool HqaaEnableSharpening = true;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerClamping = 0.375;
+static const bool HqaaEnableBrightnessGain = true;
+static const float HqaaGainStrength = 0.2;
+static const bool HqaaGainLowLumaCorrection = true;
+static const bool HqaaEnableColorPalette = true;
+static const float HqaaVibranceStrength = 50;
+static const float HqaaSaturationStrength = 0.5;
+static const float HqaaColorTemperature = 0.25;
+static const float HqaaBlueLightFilter = 0.2;
+static const uint HqaaTonemapping = 7;
+static const float HqaaTonemappingParameter = 2.718282 / 2.0;
+static const float HqaaPreviousFrameWeight = 0.125;
+static const bool HqaaTemporalEdgeHinting = true;
+static const bool HqaaTemporalClamp = true;
+static const uint HqaaTemporalPersistenceMode = 0;
+static const uint HqaaTemporalKeyframe = 2;
+static const bool HqaaHighFramerateAssist = false;
+static const float HqaaHFRJitterStrength = 0.5;
+static const uint HqaaDebandPreset = 0;
+static const float HqaaDebandRange = 32.0;
+static const bool HqaaDebandIgnoreLowLuma = true;
+static const bool HqaaDebandUseSmaaData = true;
+uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
+static const float HqaaImageSoftenStrength = 0.1;
+static const float HqaaImageSoftenOffset = 0.75;
+static const bool HqaaSoftenerSpuriousDetection = true;
+static const float HqaaSoftenerSpuriousThreshold = 0.2;
+static const float HqaaSoftenerSpuriousStrength = 1.0;
+#endif // Preset = Eye Comfort
 
 /*****************************************************************************************************************************************/
 /*********************************************************** UI SETUP END ****************************************************************/
@@ -3209,10 +3269,16 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 		pixel = casdot;
 	}
 	
+	if (HqaaEnableColorPalette && (HqaaSaturationStrength != 0.5))
+	{
+		float3 outdot = AdjustSaturation(pixel, HqaaSaturationStrength);
+		pixel = outdot;
+	}
+	
 	if (HqaaEnableColorPalette && (HqaaColorTemperature != 0.5))
 	{
 		float3 outdot = RGBtoYUV(pixel);
-		float direction = (0.5 - HqaaColorTemperature) * 0.1;
+		float direction = (0.5 - HqaaColorTemperature) * min(abs(outdot.y), abs(outdot.z)) * 2.0;
 		outdot.y += direction;
 		outdot.z -= direction;
 		pixel = YUVtoRGB(outdot);
@@ -3224,12 +3290,6 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 		float strength = 1.0 - HqaaBlueLightFilter;
 		if (outdot.z > 0.0) outdot.z *= strength;
 		pixel = YUVtoRGB(outdot);
-	}
-	
-	if (HqaaEnableColorPalette && (HqaaSaturationStrength != 0.5))
-	{
-		float3 outdot = AdjustSaturation(pixel, HqaaSaturationStrength);
-		pixel = outdot;
 	}
 	
 	if (any(pixel - initstate)) return ConditionalEncode(pixel);
