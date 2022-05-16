@@ -1681,6 +1681,13 @@ float3 AdjustSaturation(float3 input, float requestedadjustment)
 	// convert absolute saturation to adjustment delta
 	float adjustment = 2.0 * (saturate(requestedadjustment) - 0.5);
 	
+	// for a positive adjustment, determine ceiling and clamp if necessary
+	if (adjustment > 0.0)
+	{
+		float maxboost = rcp(max(abs(yuv.y), abs(yuv.z)) / 0.5);
+		if (adjustment > maxboost) adjustment = maxboost;
+	}
+	
 	// compute delta Cr,Cb
 	yuv.y = yuv.y > 0.0 ? (yuv.y + (adjustment * yuv.y)) : (yuv.y - (adjustment * abs(yuv.y)));
 	yuv.z = yuv.z > 0.0 ? (yuv.z + (adjustment * yuv.z)) : (yuv.z - (adjustment * abs(yuv.z)));
