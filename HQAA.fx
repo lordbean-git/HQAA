@@ -303,7 +303,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.7.160522";
+	ui_label = "Version: 28.7.180522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1037,10 +1037,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |  SMAA  |        FXAA          |     Hysteresis   |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Scan---Texel---Blend-|-Strength---Fudge-|\n"
 	          "|--------|-----------|-------|--------|------|-------|-------|----------|-------|\n"
-			  "|     Low|    0.20   | 50.0% |    8%  |   4  |  2.0  |  50%  |    15%   |  2.0% |\n"
-			  "|  Medium|    0.16   | 66.7% |   16%  |   8  |  1.0  |  75%  |    25%   |  3.0% |\n"
-			  "|    High|    0.12   | 80.0% |   24%  |  12  |  1.0  |  90%  |    33%   |  4.0% |\n"
-			  "|   Ultra|    0.08   | 87.5% |   32%  |  24  |  0.5  | 100%  |    38%   |  5.0% |\n"
+			  "|     Low|    0.20   | 50.0% |    8%  |   4  |  2.0  |  50%  |    20%   |  2.0% |\n"
+			  "|  Medium|    0.16   | 66.7% |   16%  |   8  |  1.0  |  75%  |    30%   |  3.0% |\n"
+			  "|    High|    0.12   | 80.0% |   24%  |  12  |  1.0  |  90%  |    35%   |  5.0% |\n"
+			  "|   Ultra|    0.08   | 87.5% |   32%  |  24  |  0.5  | 100%  |    40%   |  7.5% |\n"
 			  "---------------------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -1063,8 +1063,8 @@ static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.08, 0.16, 0.24, 0.32
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {12, 24, 36, 72};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.9, 1.0};
-static const float HQAA_HYSTERESIS_STRENGTH_PRESET[4] = {0.15, 0.25, 0.333333, 0.375};
-static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.02, 0.03, 0.04, 0.05};
+static const float HQAA_HYSTERESIS_STRENGTH_PRESET[4] = {0.2, 0.3, 0.35, 0.4};
+static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.02, 0.03, 0.05, 0.075};
 
 #define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
 #define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
@@ -1438,7 +1438,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 #endif // Preset = Dim LCD Compensation
 
 #if HQAA__GLOBAL_PRESET == 10 // Eye Comfort
-static const uint HqaaPreset = 3;
+static const uint HqaaPreset = 2;
 static const float HqaaLowLumaThreshold = 0.3;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 1;
@@ -1447,15 +1447,15 @@ static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerClamping = 0.125;
 static const bool HqaaEnableBrightnessGain = true;
-static const float HqaaGainStrength = 0.2;
+static const float HqaaGainStrength = 0.125;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
 static const float HqaaSaturationStrength = 0.5;
-static const float HqaaColorTemperature = 0.25;
-static const float HqaaBlueLightFilter = 0.2;
+static const float HqaaColorTemperature = 0.2;
+static const float HqaaBlueLightFilter = 0.625;
 static const uint HqaaTonemapping = 7;
 static const float HqaaTonemappingParameter = 2.718282 / 2.0;
 static const float HqaaPreviousFrameWeight = 0.125;
@@ -3278,7 +3278,7 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 	if (HqaaEnableColorPalette && (HqaaColorTemperature != 0.5))
 	{
 		float3 outdot = RGBtoYUV(pixel);
-		float direction = (0.5 - HqaaColorTemperature) * min(abs(outdot.y), abs(outdot.z)) * 2.0;
+		float direction = (0.5 - HqaaColorTemperature) * min(abs(outdot.y), abs(outdot.z)) * (1.0 + outdot.x);
 		outdot.y += direction;
 		outdot.z -= direction;
 		pixel = YUVtoRGB(outdot);
@@ -3288,7 +3288,8 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 	{
 		float3 outdot = RGBtoYUV(pixel);
 		float strength = 1.0 - HqaaBlueLightFilter;
-		if (outdot.z > 0.0) outdot.z *= strength;
+		float signalclamp = (outdot.x * 0.5) * dotsat(pixel) * abs(outdot.y);
+		if (outdot.z > 0.0) outdot.z = clamp(outdot.z * strength, signalclamp, 0.5);
 		pixel = YUVtoRGB(outdot);
 	}
 	
