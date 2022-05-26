@@ -322,7 +322,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.9.250522";
+	ui_label = "Version: 28.9.260522";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -541,13 +541,13 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaLowLumaThreshold = 0.5;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
-static const float HqaaFxClampStrength = 0.625;
+static const float HqaaFxClampStrength = 0.25;
 
 #else
 uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
@@ -669,7 +669,7 @@ uniform float HqaaFxClampStrength <
 				 "artifacts. 0.0 is off.";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 0.625;
+> = 0.25;
 
 uniform bool HqaaFxEarlyExit <
 	ui_label = "Allow Early Exit\n\n";
@@ -720,7 +720,7 @@ uniform int HqaaOptionsEOF <
 
 #else //HQAA__SKIP_AA_BLENDING
 static const uint HqaaPreset = 3;
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaLowLumaThreshold = 0.5;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const uint HqaaSourceInterpolation = 0;
@@ -745,7 +745,7 @@ uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 1.0;
+> = 0.75;
 
 uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
@@ -1082,12 +1082,12 @@ uniform int HqaaDebugExplainer <
 #endif //HQAA_DEBUG_MODE
 #else // HQAA__GLOBAL_PRESET != 0
 
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaLowLumaThreshold = 0.5;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
-static const float HqaaFxClampStrength = 0.625;
+static const float HqaaFxClampStrength = 0.25;
 
 #endif // HQAA__GLOBAL_PRESET
 
@@ -1102,10 +1102,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |       Edges       |  SMAA  |        FXAA          |     Hysteresis   |\n"
 	          "|--Preset|-Threshold---Range-|-Corner-|-Scan---Texel---Blend-|-Strength---Fudge-|\n"
 	          "|--------|-----------|-------|--------|------|-------|-------|----------|-------|\n"
-			  "|     Low|    0.15   | 66.7% |    0%  |   4  |  2.0  |  50%  |    20%   |  9.0% |\n"
-			  "|  Medium|    0.12   | 66.7% |   10%  |   8  |  1.0  |  75%  |    25%   |  7.5% |\n"
-			  "|    High|    0.08   | 62.5% |   15%  |  12  |  1.0  |  88%  |    30%   |  6.0% |\n"
-			  "|   Ultra|    0.05   | 60.0% |   20%  |  24  |  0.5  | 100%  |    33%   |  5.0% |\n"
+			  "|     Low|    .125   | 50.0% |    0%  |   4  |  2.0  |  50%  |    20%   |  9.0% |\n"
+			  "|  Medium|    .125   | 66.7% |   10%  |   8  |  1.0  |  75%  |    25%   |  7.5% |\n"
+			  "|    High|    .125   | 80.0% |   15%  |  12  |  1.0  |  88%  |    30%   |  6.0% |\n"
+			  "|   Ultra|    .125   | 90.0% |   20%  |  24  |  0.5  | 100%  |    33%   |  5.0% |\n"
 			  "---------------------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -1122,8 +1122,8 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.15, 0.12, 0.08, 0.05};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.666667, 0.666667, 0.625, 0.6};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.125, 0.125, 0.125, 0.125};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.8, 0.9};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.15, 0.2};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {12, 24, 36, 72};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
@@ -1146,7 +1146,7 @@ static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.09, 0.075, 0.06, 0.05};
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
@@ -1181,7 +1181,7 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
@@ -1216,7 +1216,7 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 2;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.25;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.4;
@@ -1251,7 +1251,7 @@ uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 static const uint HqaaPreset = 2;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
@@ -1286,7 +1286,7 @@ uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 static const uint HqaaPreset = 2;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
@@ -1356,7 +1356,7 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
@@ -1391,7 +1391,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.75;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 2;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
@@ -1426,7 +1426,7 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.333333;
@@ -1461,7 +1461,7 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.875;
+static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerClamping = 0.375;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.125;
@@ -2683,7 +2683,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	float3 Dbottom = neighbor;
 	float Lbottom = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
 	
-	float Lavg = (L + dot(Dleft, __HQAA_LUMA_REF) + dot(Dtop, __HQAA_LUMA_REF) + dot(Dright, __HQAA_LUMA_REF) + dot(Dbottom, __HQAA_LUMA_REF)) / 5.0;
+	float Lavg = sqrt(L * ((dot(Dleft, __HQAA_LUMA_REF) + dot(Dtop, __HQAA_LUMA_REF) + dot(Dright, __HQAA_LUMA_REF) + dot(Dbottom, __HQAA_LUMA_REF)) / 4.0));
 	float rangemult = 1.0 - log2(1.0 + clamp(log2(1.0 + Lavg), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
@@ -2946,7 +2946,7 @@ float3 HQAAFX(float2 texcoord, float3 ref)
 
 float3 HQAAFXPS1(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	return HQAAFX(texcoord, __HQAA_NORMAL_REF);
+	return HQAAFX(texcoord, __HQAA_INVERSE_REF);
 }
 
 float3 HQAAFXPS2(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
