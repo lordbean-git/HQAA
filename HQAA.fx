@@ -335,7 +335,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.10.030622";
+	ui_label = "Version: 28.10.040622";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2737,7 +2737,7 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
     float4 weights = float(0.0).xxxx;
     float2 e = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg;
     float2 diagweights;
-    if (any(e)) { diagweights = HQAACalculateDiagWeights(HQAAsamplerAlphaEdges, HQAAsamplerSMarea, texcoord, e); weights.rg = diagweights; }
+    if (all(e)) { diagweights = HQAACalculateDiagWeights(HQAAsamplerAlphaEdges, HQAAsamplerSMarea, texcoord, e); weights.rg = diagweights; }
 	if (e.g > 0.0)
 	{
 		float3 coords = float3(HQAASearchXLeft(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].xy, offset[2].x), offset[1].y, HQAASearchXRight(HQAAsamplerAlphaEdges, HQAAsamplerSMsearch, offset[0].zw, offset[2].y));
@@ -2896,7 +2896,9 @@ float3 HQAAFX(float2 texcoord, float3 ref, float4 smaaweights)
 	float2 dstNP = float2(texcoord.y - posN.y, posP.y - texcoord.y);
 	HQAAMovc(bool(horzSpan).xx, dstNP, float2(texcoord.x - posN.x, posP.x - texcoord.x));
     float endluma = (dstNP.x < dstNP.y) ? lumaEndN : lumaEndP;
-    float blendclamp = min(saturate(1.0 - dot(smaaweights, HqaaFxClampStrength.xxxx)), saturate(1.0 - pow(abs(endluma - lumaM), float(BUFFER_COLOR_BIT_DEPTH) / 4.0)));
+    bool smaadiag = all(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
+    float resultingdelta = saturate(1.0 - pow(abs(endluma - lumaM), float(BUFFER_COLOR_BIT_DEPTH) / 4.0));
+    float blendclamp = smaadiag ? resultingdelta : min(saturate(1.0 - dot(smaaweights, HqaaFxClampStrength.xxxx)), resultingdelta);
     float pixelOffset = abs(mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5)) * clamp(__HQAA_FX_BLEND, 0.0, blendclamp);
     float subpixOut = 1.0;
     bool goodSpan = endluma < 0.0 != lumaMLTZero;
@@ -3315,9 +3317,9 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
     float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
-    bool horiz = max(m.x, m.z) > max(m.y, m.w);
-    bool diag = any(m.xz) && any(m.yw);
 	bool lowdetail = !any(m);
+    bool horiz = max(m.x, m.z) > max(m.y, m.w);
+    bool diag = lowdetail ? false : all(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
 	float passdivisor = clamp(HQAA_OPTIONAL__SOFTENING_PASSES, 1.0, 4.0);
 	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * (lowdetail ? (HqaaImageSoftenOffset * rcp(passdivisor)) : HqaaImageSoftenOffset);
 	bool highdelta = false;
@@ -3372,13 +3374,14 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	
 	if (lowdetail)
 	{
-		x1 = (f + c) / 2.0;
-		x2 = (h + b) / 2.0;
+		x1 = (f + a + c) / 3.0;
+		x2 = (h + a + b) / 3.0;
 		x3 = (a + e + f + g + h + b + i + c + d) / 9.0;
-		xy1 = (e + f + g + b + d) / 5.0;
-		xy2 = (g + b + d + c + i) / 5.0;
-		xy3 = (d + c + i + h + e) / 5.0;
-		xy4 = (i + h + e + f + g) / 5.0;
+		xy1 = (e + f + g + b + d + a) / 6.0;
+		xy2 = (g + b + d + c + i + a) / 6.0;
+		xy3 = (d + c + i + h + e + a) / 6.0;
+		xy4 = (i + h + e + f + g + a) / 6.0;
+		square = (e + g + i + d + a) / 5.0;
 	}
 	else if (!horiz)
 	{
