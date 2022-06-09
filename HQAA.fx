@@ -200,7 +200,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
-	#define HQAA_OPTIONAL__DEBANDING_PASSES 2
+	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
 	#define HQAA_OPTIONAL__SOFTENING_PASSES 1
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
@@ -236,7 +236,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 1
+	#define HQAA_OPTIONAL__TEMPORAL_STABILIZER 0
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
 	#define HQAA_OPTIONAL__DEBANDING_PASSES 1
@@ -335,7 +335,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.10.040622";
+	ui_label = "Version: 28.10.090622";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -562,17 +562,18 @@ static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
-static const float HqaaFxClampStrength = 0.25;
+static const float HqaaFxClampStrength = 0.125;
 
 #else
-uniform float HqaaEdgeThresholdCustom < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaEdgeThresholdCustom <
+	ui_type = "slider";
 	ui_min = 0.0; ui_max = 1.0;
 	ui_spacing = 3;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to be considered an edge";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 0.1;
+> = 0.075;
 
 uniform float HqaaLowLumaThreshold <
 	ui_type = "slider";
@@ -582,9 +583,10 @@ uniform float HqaaLowLumaThreshold <
 	ui_spacing = 3;
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.5;
 
-uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaDynamicThresholdCustom <
+	ui_type = "slider";
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_label = "% Dynamic Range";
 	ui_tooltip = "Maximum reduction of edge threshold (% base threshold)\n"
@@ -593,7 +595,7 @@ uniform float HqaaDynamicThresholdCustom < __UNIFORM_SLIDER_FLOAT1
 				 "Higher = slower, catches more edges in dark scenes";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 75;
+> = 90;
 
 uniform uint HqaaFxQualityCustom <
 	ui_spacing = 3;
@@ -603,7 +605,7 @@ uniform uint HqaaFxQualityCustom <
 	ui_tooltip = "Maximum radius from center dot\nthat SMAA and FXAA will scan.";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 25;
+> = 40;
 
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
@@ -648,16 +650,18 @@ uniform uint HqaaEdgeTemporalAggregation <
 	ui_category_closed = true;
 > = 1;
 
-uniform float HqaaSmCorneringCustom < __UNIFORM_SLIDER_INT1
+uniform float HqaaSmCorneringCustom <
+	ui_type = "slider";
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_spacing = 2;
 	ui_label = "% Corner Rounding\n\n";
 	ui_tooltip = "Affects the amount of blending performed when SMAA\ndetects crossing edges";
 	ui_category = "SMAA";
 	ui_category_closed = true;
-> = 25;
+> = 50;
 
-uniform float HqaaFxTexelCustom < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaFxTexelCustom <
+	ui_type = "slider";
 	ui_min = 0.25; ui_max = 4.0; ui_step = 0.01;
 	ui_spacing = 3;
 	ui_label = "Edge Gradient Texel Size";
@@ -666,14 +670,15 @@ uniform float HqaaFxTexelCustom < __UNIFORM_SLIDER_FLOAT1
 	ui_category_closed = true;
 > = 0.5;
 
-uniform float HqaaFxBlendCustom < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaFxBlendCustom <
+	ui_type = "slider";
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_label = "% Blending Strength";
 	ui_tooltip = "Percentage of blending FXAA will apply to edges.\n"
 				 "Lower = sharper image, Higher = more AA effect";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 75;
+> = 100;
 
 uniform float HqaaFxClampStrength <
 	ui_type = "slider";
@@ -685,7 +690,7 @@ uniform float HqaaFxClampStrength <
 				 "artifacts. 0.0 is off.";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.125;
 
 uniform bool HqaaFxEarlyExit <
 	ui_label = "Allow Early Exit\n\n";
@@ -717,7 +722,7 @@ uniform float HqaaHysteresisStrength <
 	ui_tooltip = "0% = Off (keep anti-aliasing result as-is)\n100% = Aggressive Correction";
 	ui_category = "Hysteresis";
 	ui_category_closed = true;
-> = 33.333333;
+> = 20.0;
 
 uniform float HqaaHysteresisFudgeFactor <
 	ui_type = "slider";
@@ -726,7 +731,7 @@ uniform float HqaaHysteresisFudgeFactor <
 	ui_tooltip = "Ignore up to this much difference between the\noriginal pixel and the anti-aliasing result";
 	ui_category = "Hysteresis";
 	ui_category_closed = true;
-> = 5.0;
+> = 3.8;
 #endif //HQAA_ADVANCED_MODE
 uniform int HqaaOptionsEOF <
 	ui_type = "radio";
@@ -754,23 +759,35 @@ uniform bool HqaaEnableSharpening <
 	ui_category_closed = true;
 > = true;
 
-uniform float HqaaSharpenerStrength < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaSharpenerStrength <
+	ui_type = "slider";
 	ui_spacing = 3;
 	ui_min = 0; ui_max = 1; ui_step = 0.01;
 	ui_label = "Sharpening Strength";
 	ui_tooltip = "Amount of sharpening to apply";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.75;
+> = 1.00;
 
-uniform float HqaaSharpenerClamping < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaSharpenerAdaptation <
+	ui_type = "slider";
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.01;
+	ui_label = "Sharpening Contrast";
+	ui_tooltip = "Affects how much the CAS math will cause\ncontrasting details to stand out.";
+	ui_category = "Sharpening";
+	ui_category_closed = true;
+> = 0.1;
+
+uniform float HqaaSharpenerClamping <
+	ui_spacing = 3;
+	ui_type = "slider";
 	ui_min = 0; ui_max = 1; ui_step = 0.001;
 	ui_label = "Clamp Strength\n\n";
 	ui_tooltip = "How much to clamp sharpening strength when the pixel had AA applied to it\n"
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.5;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -779,7 +796,8 @@ uniform bool HqaaEnableBrightnessGain <
 	ui_category_closed = true;
 > = false;
 
-uniform float HqaaGainStrength < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaGainStrength <
+	ui_type = "slider";
 	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
 	ui_spacing = 3;
 	ui_label = "Boost";
@@ -804,7 +822,8 @@ uniform bool HqaaEnableColorPalette <
 	ui_category_closed = true;
 > = false;
 
-uniform float HqaaVibranceStrength < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaVibranceStrength <
+	ui_type = "slider";
 	ui_min = 0; ui_max = 100; ui_step = 1;
 	ui_spacing = 3;
 	ui_label = "% Vibrance";
@@ -877,14 +896,15 @@ uniform float HqaaTonemappingParameter <
 > = 1.0;
 
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
-uniform float HqaaPreviousFrameWeight < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaPreviousFrameWeight <
+	ui_type = "slider";
 	ui_spacing = 3;
 	ui_min = 0; ui_max = 0.9; ui_step = 0.001;
 	ui_label = "Previous Frame Weight";
 	ui_category = "Temporal Stabilizer";
 	ui_category_closed = true;
 	ui_tooltip = "Blends the previous frame with the\ncurrent frame to stabilize results.";
-> = 0.125;
+> = 0.4;
 
 uniform bool HqaaTemporalEdgeHinting <
 	ui_label = "Use SMAA Blend Hinting";
@@ -957,7 +977,8 @@ uniform uint HqaaDebandPreset <
 	ui_category_closed = true;
 > = 0;
 
-uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
+uniform float HqaaDebandRange <
+	ui_type = "slider";
     ui_min = 4.0;
     ui_max = 32.0;
     ui_step = 1.0;
@@ -966,7 +987,7 @@ uniform float HqaaDebandRange < __UNIFORM_SLIDER_FLOAT1
     			 "for possible color banding artifacts\n";
 	ui_category = "Debanding";
 	ui_category_closed = true;
-> = 32.0;
+> = 16.0;
 
 uniform bool HqaaDebandIgnoreLowLuma <
 	ui_label = "Skip Dark Pixels";
@@ -1103,7 +1124,7 @@ static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
-static const float HqaaFxClampStrength = 0.25;
+static const float HqaaFxClampStrength = 0.125;
 
 #endif // HQAA__GLOBAL_PRESET
 
@@ -1118,10 +1139,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |           Edges          |  SMAA  |     FXAA      |     Hysteresis   |\n"
 	          "|--Preset|-Threshold---Range---Dist-|-Corner-|-Texel---Blend-|-Strength---Fudge-|\n"
 	          "|--------|-----------|-------|------|--------|-------|-------|----------|-------|\n"
-			  "|     Low|   .1250   | 75.0% |  10  |    0%  |  2.0  |  50%  |    20%   |  6.3% |\n"
-			  "|  Medium|   .1000   | 75.0% |  20  |   10%  |  1.0  |  75%  |    20%   |  5.0% |\n"
-			  "|    High|   .0867   | 90.0% |  20  |   15%  |  1.0  |  88%  |    20%   |  4.3% |\n"
-			  "|   Ultra|   .0750   | 90.0% |  40  |   20%  |  0.5  | 100%  |    20%   |  3.8% |\n"
+			  "|     Low|    .25    | 50.0% |  10  |   33%  |  2.0  |  50%  |    20%   | 12.5% |\n"
+			  "|  Medium|    .15    | 66.7% |  20  |   40%  |  1.0  |  75%  |    20%   |  7.5% |\n"
+			  "|    High|    .10    | 75.0% |  20  |   60%  |  1.0  |  88%  |    20%   |  5.0% |\n"
+			  "|   Ultra|    .06    | 83.3% |  40  |   67%  |  0.5  | 100%  |    20%   |  3.0% |\n"
 			  "---------------------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -1138,14 +1159,14 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.125, 0.1, 0.086667, 0.075};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.75, 0.75, 0.9, 0.9};
-static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.1, 0.15, 0.2};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.25, 0.15, 0.1, 0.06};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.5, 0.666667, 0.75, 0.833333};
+static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.333333, 0.4, 0.6, 0.666667};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {10, 20, 25, 50};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {2.0, 1.0, 1.0, 0.5};
 static const float HQAA_SUBPIX_PRESET[4] = {0.5, 0.75, 0.875, 1.0};
 static const float HQAA_HYSTERESIS_STRENGTH_PRESET[4] = {0.2, 0.2, 0.2, 0.2};
-static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.0625, 0.05, 0.043333, 0.0375};
+static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.125, 0.075, 0.05, 0.03};
 
 #define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[HqaaPreset])
 #define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[HqaaPreset])
@@ -1162,11 +1183,12 @@ static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.0625, 0.05, 0.043333, 0.
 #define __HQAA_SM_AREATEX_RANGE_DIAG clamp(__HQAA_SM_RADIUS, 0.0, 20.0)
 
 #if HQAA__GLOBAL_PRESET == 1 // Top Down
-static const uint HqaaPreset = 3;
+static const uint HqaaPreset = 2;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.00;
+static const float HqaaSharpenerAdaptation = 0.0;
+static const float HqaaSharpenerClamping = 0.0;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1177,7 +1199,7 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaPreviousFrameWeight = 0.4;
+static const float HqaaPreviousFrameWeight = 0.125;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 0;
@@ -1185,7 +1207,7 @@ static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 32.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
@@ -1200,8 +1222,9 @@ static const float HqaaSoftenerSpuriousStrength = 0.75;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 0.9;
+static const float HqaaSharpenerAdaptation = 0.125;
+static const float HqaaSharpenerClamping = 0.4;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1212,7 +1235,7 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaPreviousFrameWeight = 0.666667;
+static const float HqaaPreviousFrameWeight = 0.25;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 0;
@@ -1220,7 +1243,7 @@ static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 32.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
@@ -1232,11 +1255,12 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 #endif // Preset = Open World
 
 #if HQAA__GLOBAL_PRESET == 3 // Survival
-static const uint HqaaPreset = 3;
+static const uint HqaaPreset = 2;
 static const uint HqaaEdgeTemporalAggregation = 2;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.25;
+static const float HqaaSharpenerStrength = 1.00;
+static const float HqaaSharpenerAdaptation = 0.25;
+static const float HqaaSharpenerClamping = 0.125;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1247,7 +1271,7 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaPreviousFrameWeight = 0.5;
+static const float HqaaPreviousFrameWeight = 0.125;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 0;
@@ -1255,7 +1279,7 @@ static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 32.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
@@ -1267,11 +1291,12 @@ uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 #endif // Preset = Survival
 
 #if HQAA__GLOBAL_PRESET == 4 // Action
-static const uint HqaaPreset = 2;
+static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1305,8 +1330,9 @@ uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 static const uint HqaaPreset = 2;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.25;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1317,7 +1343,7 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaPreviousFrameWeight = 0.375;
+static const float HqaaPreviousFrameWeight = 0.125;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 0;
@@ -1340,8 +1366,9 @@ static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.625;
+static const float HqaaSharpenerStrength = 0.8;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1352,7 +1379,7 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 0.333333;
-static const float HqaaPreviousFrameWeight = 0.25;
+static const float HqaaPreviousFrameWeight = 0.4;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 1;
@@ -1373,16 +1400,17 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
 static const uint HqaaPreset = 3;
-static const uint HqaaEdgeTemporalAggregation = 1;
+static const uint HqaaEdgeTemporalAggregation = 0;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.00;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
-static const float HqaaSaturationStrength = 0.55;
+static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 6;
@@ -1399,19 +1427,20 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.05;
+static const float HqaaImageSoftenStrength = 0.125;
 static const float HqaaImageSoftenOffset = 0.625;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.2;
-static const float HqaaSoftenerSpuriousStrength = 0.75;
+static const float HqaaSoftenerSpuriousStrength = 1.0;
 #endif // Preset = Fake HDR
 
 #if HQAA__GLOBAL_PRESET == 8 // No Temporal Effects
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 2;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1442,11 +1471,12 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 #endif // Preset = No Temporal Effects
 
 #if HQAA__GLOBAL_PRESET == 9 // Dim LCD Compensation
-static const uint HqaaPreset = 3;
+static const uint HqaaPreset = 2;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.5;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.4;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.333333;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1457,7 +1487,7 @@ static const float HqaaColorTemperature = 0.6;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 7;
 static const float HqaaTonemappingParameter = 0.625;
-static const float HqaaPreviousFrameWeight = 0.5;
+static const float HqaaPreviousFrameWeight = 0.125;
 static const bool HqaaTemporalEdgeHinting = true;
 static const bool HqaaTemporalClamp = true;
 static const uint HqaaTemporalPersistenceMode = 0;
@@ -1465,12 +1495,12 @@ static const uint HqaaTemporalKeyframe = 2;
 static const bool HqaaHighFramerateAssist = false;
 static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 32.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 static const float HqaaImageSoftenStrength = 0.05;
-static const float HqaaImageSoftenOffset = 0.625;
+static const float HqaaImageSoftenOffset = 0.75;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.2;
 static const float HqaaSoftenerSpuriousStrength = 0.875;
@@ -1480,27 +1510,28 @@ static const float HqaaSoftenerSpuriousStrength = 0.875;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.875;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.2;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
 static const float HqaaSaturationStrength = 0.5;
-static const float HqaaColorTemperature = 0.125;
-static const float HqaaBlueLightFilter = 0.475;
+static const float HqaaColorTemperature = 0.375;
+static const float HqaaBlueLightFilter = 0.333333;
 static const uint HqaaTonemapping = 7;
 static const float HqaaTonemappingParameter = 2.718282 / 5.0;
-static const float HqaaPreviousFrameWeight = 0.125;
-static const bool HqaaTemporalEdgeHinting = true;
-static const bool HqaaTemporalClamp = true;
-static const uint HqaaTemporalPersistenceMode = 0;
-static const uint HqaaTemporalKeyframe = 2;
-static const bool HqaaHighFramerateAssist = false;
-static const float HqaaHFRJitterStrength = 0.5;
+//static const float HqaaPreviousFrameWeight = 0.125;
+//static const bool HqaaTemporalEdgeHinting = true;
+//static const bool HqaaTemporalClamp = true;
+//static const uint HqaaTemporalPersistenceMode = 0;
+//static const uint HqaaTemporalKeyframe = 2;
+//static const bool HqaaHighFramerateAssist = false;
+//static const float HqaaHFRJitterStrength = 0.5;
 static const uint HqaaDebandPreset = 0;
-static const float HqaaDebandRange = 32.0;
+static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
@@ -1515,8 +1546,9 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const uint HqaaEdgeTemporalAggregation = 1;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerClamping = 0.375;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.1;
+static const float HqaaSharpenerClamping = 0.5;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1556,7 +1588,7 @@ static const float HqaaTonemappingParameter = 1.0;
 
 #define __HQAA_DISPLAY_NUMERATOR max(BUFFER_HEIGHT, BUFFER_WIDTH)
 #define __HQAA_SMALLEST_COLOR_STEP rcp(pow(2, BUFFER_COLOR_BIT_DEPTH))
-#define __HQAA_CONST_E 2.718282
+#define __HQAA_CONST_E 2.7182818284590452353602874713527
 #define __HQAA_LUMA_REF float3(0.2126, 0.7152, 0.0722)
 #define __HQAA_AVERAGE_REF float3(0.333333, 0.333334, 0.333333)
 #define __HQAA_NORMAL_REF float3(0.299, 0.587, 0.114)
@@ -1564,8 +1596,8 @@ static const float HqaaTonemappingParameter = 1.0;
 
 #define __HQAA_SM_BUFFERINFO float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __HQAA_SM_AREATEX_RANGE 16
-#define __HQAA_SM_AREATEX_TEXEL float2(0.00625, 0.001786) // 1/{160,560}
-#define __HQAA_SM_AREATEX_SUBTEXEL 0.142857 // 1/7
+#define __HQAA_SM_AREATEX_TEXEL float2(0.00625, 0.00178571428571428571428571428571) // 1/{160,560}
+#define __HQAA_SM_AREATEX_SUBTEXEL 0.14285714285714285714285714285714 // 1/7
 #define __HQAA_SM_SEARCHTEX_SIZE float2(66.0, 33.0)
 #define __HQAA_SM_SEARCHTEX_SIZE_PACKED float2(64.0, 16.0)
 
@@ -1771,17 +1803,17 @@ float lognormalize(float x, float base)
 float encodePQ(float x)
 {
 /*	float nits = 10000.0;
-	float m2rcp = 0.012683; // 1 / (2523/32)
-	float m1rcp = 6.277395; // 1 / (1305/8192)
+	float m2rcp = 0.0126833135156559651208878319461; // 1 / (2523/32)
+	float m1rcp = 6.2773946360153256704980842911877; // 1 / (1305/8192)
 	float c1 = 0.8359375; // 107 / 128
 	float c2 = 18.8515625; // 2413 / 128
 	float c3 = 18.6875; // 2392 / 128
 */
-	float xpm2rcp = pow(saturate(x), 0.012683);
+	float xpm2rcp = pow(saturate(x), 0.0126833135156559651208878319461);
 	float numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	float output = pow(abs(numerator / denominator), 6.277395);
+	float output = pow(abs(numerator / denominator), 6.2773946360153256704980842911877);
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	output *= 500.0;
 #else
@@ -1791,11 +1823,11 @@ float encodePQ(float x)
 }
 float2 encodePQ(float2 x)
 {
-	float2 xpm2rcp = pow(saturate(x), 0.012683);
+	float2 xpm2rcp = pow(saturate(x), 0.0126833135156559651208878319461);
 	float2 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float2 denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	float2 output = pow(abs(numerator / denominator), 6.277395);
+	float2 output = pow(abs(numerator / denominator), 6.2773946360153256704980842911877);
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	output *= 500.0;
 #else
@@ -1805,11 +1837,11 @@ float2 encodePQ(float2 x)
 }
 float3 encodePQ(float3 x)
 {
-	float3 xpm2rcp = pow(saturate(x), 0.012683);
+	float3 xpm2rcp = pow(saturate(x), 0.0126833135156559651208878319461);
 	float3 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float3 denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	float3 output = pow(abs(numerator / denominator), 6.277395);
+	float3 output = pow(abs(numerator / denominator), 6.2773946360153256704980842911877);
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	output *= 500.0;
 #else
@@ -1819,11 +1851,11 @@ float3 encodePQ(float3 x)
 }
 float4 encodePQ(float4 x)
 {
-	float4 xpm2rcp = pow(saturate(x), 0.012683);
+	float4 xpm2rcp = pow(saturate(x), 0.0126833135156559651208878319461);
 	float4 numerator = max(xpm2rcp - 0.8359375, 0.0);
 	float4 denominator = 18.8515625 - (18.6875 * xpm2rcp);
 	
-	float4 output = pow(abs(numerator / denominator), 6.277395);
+	float4 output = pow(abs(numerator / denominator), 6.2773946360153256704980842911877);
 #if BUFFER_COLOR_BIT_DEPTH == 10
 	output *= 500.0;
 #else
@@ -1836,15 +1868,15 @@ float decodePQ(float x)
 {
 /*	float nits = 10000.0;
 	float m2 = 78.84375 // 2523 / 32
-	float m1 = 0.159302; // 1305 / 8192
+	float m1 = 0.1593017578125; // 1305 / 8192
 	float c1 = 0.8359375; // 107 / 128
 	float c2 = 18.8515625; // 2413 / 128
 	float c3 = 18.6875; // 2392 / 128
 */
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	float xpm1 = pow(saturate(x / 500.0), 0.159302);
+	float xpm1 = pow(saturate(x / 500.0), 0.1593017578125);
 #else
-	float xpm1 = pow(saturate(x / 10000.0), 0.159302);
+	float xpm1 = pow(saturate(x / 10000.0), 0.1593017578125);
 #endif
 	float numerator = 0.8359375 + (18.8515625 * xpm1);
 	float denominator = 1.0 + (18.6875 * xpm1);
@@ -1854,9 +1886,9 @@ float decodePQ(float x)
 float2 decodePQ(float2 x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	float2 xpm1 = pow(saturate(x / 500.0), 0.159302);
+	float2 xpm1 = pow(saturate(x / 500.0), 0.1593017578125);
 #else
-	float2 xpm1 = pow(saturate(x / 10000.0), 0.159302);
+	float2 xpm1 = pow(saturate(x / 10000.0), 0.1593017578125);
 #endif
 	float2 numerator = 0.8359375 + (18.8515625 * xpm1);
 	float2 denominator = 1.0 + (18.6875 * xpm1);
@@ -1866,9 +1898,9 @@ float2 decodePQ(float2 x)
 float3 decodePQ(float3 x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	float3 xpm1 = pow(saturate(x / 500.0), 0.159302);
+	float3 xpm1 = pow(saturate(x / 500.0), 0.1593017578125);
 #else
-	float3 xpm1 = pow(saturate(x / 10000.0), 0.159302);
+	float3 xpm1 = pow(saturate(x / 10000.0), 0.1593017578125);
 #endif
 	float3 numerator = 0.8359375 + (18.8515625 * xpm1);
 	float3 denominator = 1.0 + (18.6875 * xpm1);
@@ -1878,9 +1910,9 @@ float3 decodePQ(float3 x)
 float4 decodePQ(float4 x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	float4 xpm1 = pow(saturate(x / 500.0), 0.159302);
+	float4 xpm1 = pow(saturate(x / 500.0), 0.1593017578125);
 #else
-	float4 xpm1 = pow(saturate(x / 10000.0), 0.159302);
+	float4 xpm1 = pow(saturate(x / 10000.0), 0.1593017578125);
 #endif
 	float4 numerator = 0.8359375 + (18.8515625 * xpm1);
 	float4 denominator = 1.0 + (18.6875 * xpm1);
@@ -1946,7 +1978,7 @@ float4 fastencodePQ(float4 x)
 float fastdecodePQ(float x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
 #else
 	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 #endif
@@ -1954,7 +1986,7 @@ float fastdecodePQ(float x)
 float2 fastdecodePQ(float2 x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
 #else
 	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 #endif
@@ -1962,7 +1994,7 @@ float2 fastdecodePQ(float2 x)
 float3 fastdecodePQ(float3 x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
 #else
 	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 #endif
@@ -1970,7 +2002,7 @@ float3 fastdecodePQ(float3 x)
 float4 fastdecodePQ(float4 x)
 {
 #if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.728708));
+	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
 #else
 	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 #endif
@@ -2236,7 +2268,7 @@ float HQAASearchXLeft(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
         texcoord = mad(-float2(2.0, 0.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
         if (e.r > 0.0) break;
     }
-    float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e, 0.0), 3.25); // -(255/127)
+    float offset = mad(-2.0078740157480314960629921259843, HQAASearchLength(HQAAsearchTex, e, 0.0), 3.25); // -(255/127)
     return mad(__HQAA_SM_BUFFERINFO.x, offset, texcoord.x);
 }
 float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
@@ -2248,7 +2280,7 @@ float HQAASearchXRight(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 t
         texcoord = mad(float2(2.0, 0.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
         if (e.r > 0.0) break;
     }
-    float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e, 0.5), 3.25);
+    float offset = mad(-2.0078740157480314960629921259843, HQAASearchLength(HQAAsearchTex, e, 0.5), 3.25);
     return mad(-__HQAA_SM_BUFFERINFO.x, offset, texcoord.x);
 }
 float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
@@ -2260,7 +2292,7 @@ float HQAASearchYUp(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texc
         texcoord = mad(-float2(0.0, 2.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
         if (e.g > 0.0) break;
     }
-    float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e.gr, 0.0), 3.25);
+    float offset = mad(-2.0078740157480314960629921259843, HQAASearchLength(HQAAsearchTex, e.gr, 0.0), 3.25);
     return mad(__HQAA_SM_BUFFERINFO.y, offset, texcoord.y);
 }
 float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 texcoord, float end)
@@ -2272,7 +2304,7 @@ float HQAASearchYDown(sampler2D HQAAedgesTex, sampler2D HQAAsearchTex, float2 te
         texcoord = mad(float2(0.0, 2.0), __HQAA_SM_BUFFERINFO.xy, texcoord);
         if (e.g > 0.0) break;
     }
-    float offset = mad(-2.007874, HQAASearchLength(HQAAsearchTex, e.gr, 0.5), 3.25);
+    float offset = mad(-2.0078740157480314960629921259843, HQAASearchLength(HQAAsearchTex, e.gr, 0.5), 3.25);
     return mad(-__HQAA_SM_BUFFERINFO.y, offset, texcoord.y);
 }
 
@@ -2648,55 +2680,37 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	if (!lumachange) return float(0.0).xxxx;
 #endif //HQAA_TAA_ASSIST_MODE
 
-	float floor = __HQAA_SMALLEST_COLOR_STEP;
-	
     float L = dot(middle, __HQAA_LUMA_REF);
-    float S = dotsat(middle);
-    
     bool useluma = L > dotsat(middle);
-	
 	float2 edges = float(0.0).xx;
 	
 	float3 neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].xy).rgb;
 	float3 Dleft = neighbor;
-	float Sleft = dotsat(Dleft);
     float Lleft = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
     
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[0].zw).rgb;
 	float3 Dtop = neighbor;
-	float Stop = dotsat(Dtop);
     float Ltop = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
     
     neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].xy).rgb;
 	float3 Dright = neighbor;
-	float Sright = dotsat(Dright);
     float Lright = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
 	
 	neighbor = HQAA_DecodeTex2D(ReShade::BackBuffer, offset[1].zw).rgb;
 	float3 Dbottom = neighbor;
-	float Sbottom = dotsat(Dbottom);
 	float Lbottom = dotweight(middle, neighbor, useluma, __HQAA_LUMA_REF);
 	
-	float Lavg = sqrt(L * clamp(((dot(Dleft, __HQAA_LUMA_REF) + dot(Dtop, __HQAA_LUMA_REF) + dot(Dright, __HQAA_LUMA_REF) + dot(Dbottom, __HQAA_LUMA_REF)) / 4.0), floor, 1.0));
-	float Savg = sqrt(S * clamp(((Sleft + Stop + Sright + Sbottom) / 4.0), floor, 1.0));
+	float Lavg = sqrt(L * clamp(((dot(Dleft, __HQAA_LUMA_REF) + dot(Dtop, __HQAA_LUMA_REF) + dot(Dright, __HQAA_LUMA_REF) + dot(Dbottom, __HQAA_LUMA_REF)) / 4.0), __HQAA_SMALLEST_COLOR_STEP, 1.0));
 	float rangemult = 1.0 - log2(1.0 + clamp(log2(1.0 + Lavg), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
 	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
 	
-	Dleft = abs(middle - Dleft);
-	Dtop = abs(middle - Dtop);
-	Dright = abs(middle - Dright);
-	Dbottom = abs(middle - Dbottom);
-	
-	float3 adaptationaverage = (HQAAmax4(Dleft, Dtop, Dright, Dbottom) + ((Dleft + Dtop + Dright + Dbottom) / 4.0)) / 2.0;
-	float scalefactor = sqrt(sqrt(dot(adaptationaverage, __HQAA_AVERAGE_REF) * Lavg) * Savg);
-	float scale = 1.0 + log2(1.0 + scalefactor);
-	
     if (!useluma) L = 0.0;
+    
 	float4 delta = abs(L - float4(Lleft, Ltop, Lright, Lbottom));
     float2 maxDelta = max(delta.xy, delta.zw);
 	
-	edges = step(edgethreshold, scale * maxDelta);
+	edges = step(edgethreshold, maxDelta);
 	
 	return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 }
@@ -2897,7 +2911,7 @@ float3 HQAAFX(float2 texcoord, float3 ref, float4 smaaweights)
 	HQAAMovc(bool(horzSpan).xx, dstNP, float2(texcoord.x - posN.x, posP.x - texcoord.x));
     float endluma = (dstNP.x < dstNP.y) ? lumaEndN : lumaEndP;
     bool smaadiag = all(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
-    float resultingdelta = saturate(1.0 - pow(abs(endluma - lumaM), float(BUFFER_COLOR_BIT_DEPTH) / 4.0));
+    float resultingdelta = saturate(1.0 - pow(abs(endluma - lumaM), float(BUFFER_COLOR_BIT_DEPTH) / 2.0));
     float blendclamp = smaadiag ? resultingdelta : min(saturate(1.0 - dot(smaaweights, HqaaFxClampStrength.xxxx)), resultingdelta);
     float pixelOffset = abs(mad(-rcp(dstNP.y + dstNP.x), min(dstNP.x, dstNP.y), 0.5)) * clamp(__HQAA_FX_BLEND, 0.0, blendclamp);
     float subpixOut = 1.0;
@@ -3276,7 +3290,7 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 		mxRGB += mxRGB2;
 	
 		float3 ampRGB = rsqrt(saturate(min(mnRGB, 2.0 - mxRGB) * rcp(mxRGB)));    
-		float3 wRGB = -rcp(ampRGB * mad(-3.0, saturate(sharpening * 0.625), 8.0));
+		float3 wRGB = -rcp(ampRGB * mad(-3.0, HqaaSharpenerAdaptation, 8.0));
 		float3 window = (b + d) + (f + h);
 	
 		float3 outColor = saturate(mad(window, wRGB, casdot) * rcp(mad(4.0, wRGB, 1.0)));
