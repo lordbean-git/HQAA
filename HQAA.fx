@@ -2762,15 +2762,15 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	float4 diaghits = step(edgethreshold, diagdelta);
 	float4 crosshits = step(edgethreshold, delta);
 	float4 neardiagedges = float4(crosshits.x * lxor(diaghits.z, diaghits.w), crosshits.y * lxor(diaghits.y, diaghits.w), crosshits.z * lxor(diaghits.x, diaghits.y), crosshits.w * lxor(diaghits.x, diaghits.z));
-	float2 validneardiags = float2(lxor(neardiagedges.x, neardiagedges.z), lxor(neardiagedges.y, neardiagedges.w));
+	float2 validneardiags = float2(lxor(neardiagedges.x, neardiagedges.y), lxor(neardiagedges.z, neardiagedges.w));
 	float diagedge = lxor(diaghits.x * diaghits.w, diaghits.y * diaghits.z);
 	float2 diagstraightedges = float2(lxor(diaghits.x * diaghits.y, diaghits.z * diaghits.w), lxor(diaghits.x * diaghits.z, diaghits.y * diaghits.w));
 	
 	edges = saturate(step(edgethreshold, maxDelta) + validneardiags);
 	
 	// not 100% sure whether this is the correct order for the following two statements or not.
-	if (!any(edges)) edges = diagstraightedges;
 	if (!any(edges)) edges = diagedge.xx;
+	if (!any(edges)) edges = diagstraightedges;
 	
 	return float4(edges, HQAA_Tex2D(HQAAsamplerLastEdges, texcoord).rg);
 }
