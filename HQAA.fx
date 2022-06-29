@@ -353,7 +353,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.14.260622";
+	ui_label = "Version: 28.14.290622";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2858,7 +2858,7 @@ float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
         resultAA = blendingWeight.x * HQAA_DecodeTex2D(ReShade::BackBuffer, blendingCoord.xy).rgb;
         resultAA += blendingWeight.y * HQAA_DecodeTex2D(ReShade::BackBuffer, blendingCoord.zw).rgb;
         float Lpost = dot(resultAA, __HQAA_LUMA_REF);
-        float resultingdelta = saturate(1.0 - pow(abs(Lpost - Lpre), float(BUFFER_COLOR_BIT_DEPTH) / 4.0));
+        float resultingdelta = saturate(1.0 - pow(abs(Lpost - Lpre), float(BUFFER_COLOR_BIT_DEPTH)));
         resultAA = lerp(original, resultAA, resultingdelta);
 		resultAA = ConditionalEncode(resultAA);
     }
@@ -2902,7 +2902,7 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
     float lumaN = dotweight(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2( 0,-1)).rgb, useluma, ref);
     float lumaW = dotweight(HQAA_DecodeTex2DOffset(ReShade::BackBuffer, texcoord, int2(-1, 0)).rgb, useluma, ref);
     float4 crossdelta = abs(lumaM - float4(lumaS, lumaE, lumaN, lumaW));
-    bool4 crossedge = step(edgethreshold, crossdelta);
+	float2 weightsHV = float2((crossdelta.x + crossdelta.z) / 2.0, (crossdelta.y + crossdelta.w) / 2.0);
     
     // pattern
     // * z *
@@ -2914,32 +2914,29 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
     float lumaNE = dotweight(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + (__HQAA_SM_BUFFERINFO.xy * __HQAA_CONST_HALFROOT2 * float2(1, -1))).rgb, useluma, ref);
     float lumaSW = dotweight(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + (__HQAA_SM_BUFFERINFO.xy * __HQAA_CONST_HALFROOT2 * float2(-1, 1))).rgb, useluma, ref);
     float4 diagdelta = abs(lumaM - float4(lumaNW, lumaSE, lumaNE, lumaSW));
-    bool4 diagedge = step(edgethreshold, diagdelta);
+	float2 weightsDI = float2((diagdelta.w + diagdelta.z) / 2.0, (diagdelta.x + diagdelta.y) / 2.0);
     
     // pattern
     // x * z
     // * * *
     // w * y
     
-    float4 crosscheck = max(crossdelta, diagdelta);
-    float range = HQAAmax4(crosscheck.x, crosscheck.y, crosscheck.z, crosscheck.w);
+	//detect edge pattern
+	bool diagSpan = max(weightsDI.x, weightsDI.y) > max(weightsHV.x, weightsHV.y);
+	bool inverseDiag = diagSpan && (weightsDI.y > weightsDI.x);
+	bool horzSpan = weightsHV.x > weightsHV.y;
 	
 	// early exit check
-	if (HqaaFxEarlyExit && (range < edgethreshold) && !any(smaaweights))
+    float exitcheck = (diagSpan && inverseDiag) ? weightsDI.y : (diagSpan ? weightsDI.x : (horzSpan ? weightsHV.x : weightsHV.y));
+	if (HqaaFxEarlyExit && (exitcheck < edgethreshold))
 #if HQAA_DEBUG_MODE
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
 		else
 #endif //HQAA_DEBUG_MODE
 		return original;
-		
-	bool diagNW = (crossedge.z * crossedge.w) && (crossedge.x + crossedge.y == 0.0);
-	bool diagSE = (crossedge.y * crossedge.x) && (crossedge.z + crossedge.w == 0.0);
-	bool diagNE = (crossedge.z * crossedge.y) && (crossedge.x + crossedge.w == 0.0);
-	bool diagSW = (crossedge.x * crossedge.w) && (crossedge.z + crossedge.y == 0.0);
-	bool diagSpan = lxor(diagedge.x * diagedge.y, diagedge.z * diagedge.w) || diagNW || diagSE || diagNE || diagSW;
-	bool inverseDiag = diagSpan && ((diagedge.w * diagedge.z) || diagNW || diagSE);
-	bool horzSpan = crossdelta.z + crossdelta.x > crossdelta.w + crossdelta.y;
-			
+	
+    float4 crosscheck = max(crossdelta, diagdelta);
+    float range = HQAAmax4(crosscheck.x, crosscheck.y, crosscheck.z, crosscheck.w);
 	float2 lengthSign = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT);
 	
 	float2 lumaNP = float2(lumaN, lumaS);
@@ -3000,7 +2997,7 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 	HQAAMovc(bool(horzSpan).xx, dstNP, float2(texcoord.x - posN.x, posP.x - texcoord.x));
 	HQAAMovc(bool(diagSpan).xx, dstNP, float2(sqrt(pow(abs(texcoord.y - posN.y), 2.0) + pow(abs(texcoord.x - posN.x), 2.0)), sqrt(pow(abs(posP.y - texcoord.y), 2.0) + pow(abs(posP.x - texcoord.x), 2.0))));
     float endluma = (dstNP.x < dstNP.y) ? lumaEndN : lumaEndP;
-    float resultingdelta = saturate(1.0 - pow(abs(endluma - lumaM), float(BUFFER_COLOR_BIT_DEPTH) / 4.0));
+    float resultingdelta = saturate(1.0 - pow(abs(endluma - lumaM), float(BUFFER_COLOR_BIT_DEPTH)));
     float blendclamp = min(saturate(1.0 - dot(smaaweights, HqaaFxClampStrength)), resultingdelta);
     float pixelOffset = abs(mad(-(1.0 / (dstNP.y + dstNP.x)), min(dstNP.x, dstNP.y), 0.5)) * clamp(__HQAA_FX_BLEND, 0.0, blendclamp);
     float subpixOut = 1.0;
