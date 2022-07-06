@@ -353,7 +353,7 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.15.030722";
+	ui_label = "Version: 28.15.060722";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -532,7 +532,7 @@ uniform int HQAAintroduction <
 			"\n--------------------------------------------------------------------------------"
 			"\nSee the 'Preprocessor definitions' section for color, feature, and mode toggles.\n"
 			"--------------------------------------------------------------------------------";
-	ui_tooltip = "Happy Canada Day!";
+	ui_tooltip = "Long-Term Support";
 	ui_category = "About";
 	ui_category_closed = true;
 >;
@@ -597,8 +597,8 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaNoiseControlStrength = 50.;
-static const float HqaaLowLumaThreshold = 0.5;
+static const float HqaaNoiseControlStrength = 67.;
+static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
@@ -623,7 +623,7 @@ uniform float HqaaLowLumaThreshold <
 	ui_spacing = 3;
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 0.5;
+> = 0.25;
 
 uniform float HqaaDynamicThresholdCustom <
 	ui_type = "slider";
@@ -655,7 +655,7 @@ uniform float HqaaNoiseControlStrength <
 				 "the output would cause a high luma delta.";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 50;
+> = 67;
 
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
@@ -765,7 +765,7 @@ uniform int HqaaOptionsEOF <
 
 #else //HQAA_SKIP_AA_BLENDING
 static const uint HqaaPreset = 3;
-static const float HqaaLowLumaThreshold = 0.5;
+static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
@@ -821,7 +821,7 @@ uniform float HqaaSharpenerClamping <
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.75;
+> = 0.625;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -1060,7 +1060,7 @@ uniform float HqaaImageSoftenStrength <
 				"scene. Warning: may eat stars.";
 	ui_category = "Image Softening";
 	ui_category_closed = true;
-> = 0.333333;
+> = 0.2;
 
 uniform float HqaaImageSoftenOffset <
 	ui_type = "slider";
@@ -1151,8 +1151,8 @@ uniform int HqaaDebugExplainer <
 #endif //HQAA_DEBUG_MODE
 #else // HQAA__GLOBAL_PRESET != 0
 
-static const float HqaaNoiseControlStrength = 50.;
-static const float HqaaLowLumaThreshold = 0.5;
+static const float HqaaNoiseControlStrength = 67.;
+static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
@@ -1171,10 +1171,10 @@ uniform int HqaaPresetBreakdown <
 			  "|        |           Edges          |  SMAA  |     FXAA      |     Hysteresis   |\n"
 	          "|--Preset|-Threshold---Range---Dist-|-Corner-|-Texel---Blend-|-Strength---Fudge-|\n"
 	          "|--------|-----------|-------|------|--------|-------|-------|----------|-------|\n"
-			  "|     Low|    .10    | 60.0% |   8  |    0%  |  1.0  |  50%  |    50%   |  6.0% |\n"
-			  "|  Medium|    .08    | 62.5% |  16  |   12%  |  1.0  |  67%  |    33%   |  5.0% |\n"
+			  "|     Low|    .12    | 66.7% |   8  |    0%  |  1.0  |  50%  |    50%   |  6.0% |\n"
+			  "|  Medium|    .08    | 75.0% |  16  |   12%  |  1.0  |  67%  |    33%   |  5.0% |\n"
 			  "|    High|    .06    | 66.7% |  32  |   20%  |  0.5  |  75%  |    20%   |  4.0% |\n"
-			  "|   Ultra|    .05    | 80.0% |  64  |   25%  |  0.5  |  80%  |    12%   |  3.0% |\n"
+			  "|   Ultra|    .04    | 75.0% |  64  |   25%  |  0.5  |  80%  |    12%   |  3.0% |\n"
 			  "---------------------------------------------------------------------------------";
 	ui_category = "Click me to see what settings each preset uses!";
 	ui_category_closed = true;
@@ -1191,8 +1191,8 @@ uniform int HqaaPresetBreakdown <
 
 #else
 
-static const float HQAA_THRESHOLD_PRESET[4] = {0.1, 0.08, 0.06, 0.05};
-static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.6, 0.625, 0.666667, 0.8};
+static const float HQAA_THRESHOLD_PRESET[4] = {0.12, 0.08, 0.06, 0.04};
+static const float HQAA_DYNAMIC_RANGE_PRESET[4] = {0.666667, 0.75, 0.666667, 0.75};
 static const uint HQAA_FXAA_SCAN_ITERATIONS_PRESET[4] = {8, 16, 32, 64};
 static const float HQAA_SMAA_CORNER_ROUNDING_PRESET[4] = {0.0, 0.125, 0.2, 0.25};
 static const float HQAA_FXAA_TEXEL_SIZE_PRESET[4] = {1.0, 1.0, 0.5, 0.5};
@@ -1220,7 +1220,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1243,7 +1243,7 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.333333;
+static const float HqaaImageSoftenStrength = 0.2;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -1256,7 +1256,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 0.8;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1279,7 +1279,7 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.333333;
+static const float HqaaImageSoftenStrength = 0.2;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -1328,7 +1328,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1364,7 +1364,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1400,7 +1400,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1423,7 +1423,7 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.5;
+static const float HqaaImageSoftenStrength = 0.4;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -1436,7 +1436,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1459,7 +1459,7 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.333333;
+static const float HqaaImageSoftenStrength = 0.2;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -1472,7 +1472,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.5;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1495,7 +1495,7 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.125;
+static const float HqaaImageSoftenStrength = 0.1;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -1508,7 +1508,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.25;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1531,7 +1531,7 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.333333;
+static const float HqaaImageSoftenStrength = 0.2;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -1544,7 +1544,7 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.00;
 static const float HqaaSharpenerAdaptation = 0.625;
 static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.75;
+static const float HqaaSharpenerClamping = 0.625;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1567,7 +1567,7 @@ static const float HqaaTonemappingParameter = 1.0;
 //static const bool HqaaDebandIgnoreLowLuma = true;
 //static const bool HqaaDebandUseSmaaData = true;
 //uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.333333;
+static const float HqaaImageSoftenStrength = 0.2;
 static const float HqaaImageSoftenOffset = 1.0;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
@@ -3018,8 +3018,8 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 #if HQAA_DEBUG_MODE
 	if (HqaaDebugMode == 4)
 	{
-		float debugout = lumaM * 0.75 + 0.25;
-		return useluma ? debugout.xxx : float3(debugout, 0.0, 0.0);
+		float3 debugout = ref * lumaM * 0.75 + 0.25;
+		return debugout;
 	}
 	if (HqaaDebugMode == 5)
 	{
