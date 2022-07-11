@@ -111,7 +111,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif
 
 #if HQAA__GLOBAL_PRESET != 0
-	#undef HQAA_DEBUG_MODE
 	#undef HQAA_TAA_ASSIST_MODE
 	#undef HQAA_ADVANCED_MODE
 	#undef HQAA_OPTIONAL_EFFECTS
@@ -119,10 +118,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#undef HQAA_OPTIONAL__DEBANDING
 	#undef HQAA_OPTIONAL__SOFTENING
 	#undef HQAA_FXAA_MULTISAMPLING
-	#undef HQAA_SKIP_AA_BLENDING
 #endif
 #if HQAA__GLOBAL_PRESET == 1 // Top Down
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -132,7 +129,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 #if HQAA__GLOBAL_PRESET == 2 // Open World
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -142,7 +138,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 4
 #endif
 #if HQAA__GLOBAL_PRESET == 3 // Survival
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -152,7 +147,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 #if HQAA__GLOBAL_PRESET == 4 // Action
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -162,7 +156,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 5 // Racing
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -172,7 +165,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 6 // Horror
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -182,7 +174,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 4
 #endif
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -192,7 +183,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 8 // Dim LCD
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -202,7 +192,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 9 // Eye Comfort
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -212,7 +201,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 10 // Stream-Friendly
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -222,7 +210,6 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 11 // e-sports
-	#define HQAA_DEBUG_MODE 0
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
@@ -232,85 +219,39 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_FXAA_MULTISAMPLING 2
 #endif
 
-#ifndef HQAA_OUTPUT_MODE
-	#define HQAA_OUTPUT_MODE 0
-#endif //HQAA_TARGET_COLOR_SPACE
-#if HQAA_OUTPUT_MODE > 3 || HQAA_OUTPUT_MODE < 0
-	#undef HQAA_OUTPUT_MODE
-	#define HQAA_OUTPUT_MODE 0
-#endif
-
 #if HQAA__GLOBAL_PRESET == 0
 
-	#ifndef HQAA_SKIP_AA_BLENDING
-		#define HQAA_SKIP_AA_BLENDING 0
+	#ifndef HQAA_FXAA_MULTISAMPLING
+		#define HQAA_FXAA_MULTISAMPLING 3
 	#endif
-	#if HQAA_SKIP_AA_BLENDING > 1 || HQAA_SKIP_AA_BLENDING < 0
-		#undef HQAA_SKIP_AA_BLENDING
-		#define HQAA_SKIP_AA_BLENDING 0
-	#endif
-
-	#if !HQAA_SKIP_AA_BLENDING
-	
-		#ifndef HQAA_FXAA_MULTISAMPLING
-			#define HQAA_FXAA_MULTISAMPLING 3
-		#endif
-		#if HQAA_FXAA_MULTISAMPLING > 6 || HQAA_FXAA_MULTISAMPLING < 0
-			#undef HQAA_FXAA_MULTISAMPLING
-			#define HQAA_FXAA_MULTISAMPLING 2
-		#endif
-
-		#ifndef HQAA_TAA_ASSIST_MODE
-			#define HQAA_TAA_ASSIST_MODE 0
-		#endif
-		#if HQAA_TAA_ASSIST_MODE > 1 || HQAA_TAA_ASSIST_MODE < 0
-			#undef HQAA_TAA_ASSIST_MODE
-			#define HQAA_TAA_ASSIST_MODE 0
-		#endif
-
-		#ifndef HQAA_ADVANCED_MODE
-			#define HQAA_ADVANCED_MODE 0
-		#endif
-		#if HQAA_ADVANCED_MODE > 1 || HQAA_ADVANCED_MODE < 0
-			#undef HQAA_ADVANCED_MODE
-			#define HQAA_ADVANCED_MODE 0
-		#endif
-
-	#else //HQAA_SKIP_AA_BLENDING
-	
+	#if HQAA_FXAA_MULTISAMPLING > 6 || HQAA_FXAA_MULTISAMPLING < 0
 		#undef HQAA_FXAA_MULTISAMPLING
-		#define HQAA_FXAA_MULTISAMPLING 1
+		#define HQAA_FXAA_MULTISAMPLING 2
+	#endif
+
+	#ifndef HQAA_TAA_ASSIST_MODE
+		#define HQAA_TAA_ASSIST_MODE 0
+	#endif
+	#if HQAA_TAA_ASSIST_MODE > 1 || HQAA_TAA_ASSIST_MODE < 0
 		#undef HQAA_TAA_ASSIST_MODE
 		#define HQAA_TAA_ASSIST_MODE 0
-		#undef HQAA_ADVANCED_MODE
-		#define HQAA_ADVANCED_MODE 0
-		
-	#endif //HQAA_SKIP_AA_BLENDING
-
-	#ifndef HQAA_DEBUG_MODE
-		#define HQAA_DEBUG_MODE 0
-	#endif //HQAA_DEBUG_MODE
-	#if HQAA_DEBUG_MODE > 1 || HQAA_DEBUG_MODE < 0
-		#undef HQAA_DEBUG_MODE
-		#define HQAA_DEBUG_MODE 0
 	#endif
 
-	#if !HQAA_SKIP_AA_BLENDING
+	#ifndef HQAA_ADVANCED_MODE
+		#define HQAA_ADVANCED_MODE 0
+	#endif
+	#if HQAA_ADVANCED_MODE > 1 || HQAA_ADVANCED_MODE < 0
+		#undef HQAA_ADVANCED_MODE
+		#define HQAA_ADVANCED_MODE 0
+	#endif
 
-		#ifndef HQAA_OPTIONAL_EFFECTS
-			#define HQAA_OPTIONAL_EFFECTS 1
-		#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
-		#if HQAA_OPTIONAL_EFFECTS > 1 || HQAA_OPTIONAL_EFFECTS < 0
-			#undef HQAA_OPTIONAL_EFFECTS
-			#define HQAA_OPTIONAL_EFFECTS 1
-		#endif
-
-	#else //HQAA_SKIP_AA_BLENDING
-	
+	#ifndef HQAA_OPTIONAL_EFFECTS
+		#define HQAA_OPTIONAL_EFFECTS 1
+	#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
+	#if HQAA_OPTIONAL_EFFECTS > 1 || HQAA_OPTIONAL_EFFECTS < 0
 		#undef HQAA_OPTIONAL_EFFECTS
 		#define HQAA_OPTIONAL_EFFECTS 1
-		
-	#endif //HQAA_SKIP_AA_BLENDING
+	#endif
 
 	#if HQAA_OPTIONAL_EFFECTS
 	
@@ -350,10 +291,16 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 
 /////////////////////////////////////////////////////// GLOBAL SETUP OPTIONS //////////////////////////////////////////////////////////////
 
+uniform int HqaaAboutSTART <
+	ui_type = "radio";
+	ui_label = " ";
+	ui_text = "\n---------------------------------- HQAA 28.17 ----------------------------------";
+>;
+
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.16.100722";
+	ui_label = "Version: 28.17.110722";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -385,28 +332,11 @@ uniform int HQAAintroduction <
 			#else
 			"Preset:                                                                Manual\n"
 			#endif //HQAA__GLOBAL_PRESET
-			#if HQAA_OUTPUT_MODE == 1
-			"Output Mode:                                                         HDR nits  *\n"
-			#elif HQAA_OUTPUT_MODE == 2
-			"Output Mode:                                                      PQ accurate\n"
-			#elif HQAA_OUTPUT_MODE == 3
-			"Output Mode:                                                        PQ approx  *\n"
-			#else
-			"Output Mode:                                                        Gamma 2.2\n"
-			#endif //HQAA_TARGET_COLOR_SPACE
-			#if !HQAA_SKIP_AA_BLENDING
 			#if HQAA_ADVANCED_MODE
 			"Advanced Mode:                                                             on  *\n"
 			#else
 			"Advanced Mode:                                                            off\n"
 			#endif
-			#endif //HQAA_SKIP_AA_BLENDING
-			#if HQAA_SKIP_AA_BLENDING
-			"Anti-Aliasing:                                                            off  *\n"
-			#else
-			"Anti-Aliasing:                                                             on\n"
-			#endif
-			#if !HQAA_SKIP_AA_BLENDING
 			#if HQAA_FXAA_MULTISAMPLING < 2
 			"FXAA Multisampling:                                                       off  *\n"
 			#elif HQAA_FXAA_MULTISAMPLING > 5
@@ -425,12 +355,6 @@ uniform int HQAAintroduction <
 			#else
 			"TAA Assist Mode:                                                          off\n"
 			#endif //HQAA_TAA_ASSIST_MODE
-			#endif //HQAA_SKIP_AA_BLENDING
-			#if HQAA_DEBUG_MODE
-			"Debug Code:                                                                on  *\n"
-			#else
-			"Debug Code:                                                               off\n"
-			#endif //HQAA_DEBUG_MODE
 			#if HQAA_OPTIONAL_EFFECTS
 			"Optional Effects:                                                          on\n"
 			#else
@@ -477,6 +401,27 @@ uniform int HQAAintroduction <
 			
 			"\n--------------------------------------------------------------------------------\n\n"
 			
+			#if HQAA__GLOBAL_PRESET == 0
+			"Remarks:\n"
+			
+			#if HQAA_OPTIONAL_EFFECTS && (HQAA_OPTIONAL__DEBANDING || HQAA_OPTIONAL__SOFTENING)
+			"\nYou can set the number of passes performed by debanding/softening in the same\n"
+			"way as FXAA multisampling. Valid range is 1 to 4.\n"
+			#endif
+			#if HQAA_TAA_ASSIST_MODE
+			"\nTAA Assist Mode is designed to help the game's internal Temporal Anti-Aliasing\n"
+			"solution by performing corrections only on scenes that are moving. This helps to\n"
+			"fix aliasing on moving objects and conserves GPU power by skipping parts of the\n"
+			"scene that are not moving.\n"
+			#endif
+			"\nFXAA Multisampling can be used to increase correction strength in cases such\n"
+			"as edges with more than one color gradient or along objects that have highly\n"
+			"irregular geometry. Costs some performance for each extra pass.\n"
+			"Valid range: 1 to 6. Higher values are ignored.\n"
+			#endif // HQAA__GLOBAL_PRESET
+			
+			"\n--------------------------------------------------------------------------------\n\n"
+			
 			"Available Global Preset Configurations (via HQAA__GLOBAL_PRESET):\n"
 			"0 = Manual Setup (Default)\n"
 			"1 = Top Down\n"
@@ -489,50 +434,8 @@ uniform int HQAAintroduction <
 			"8 = Dim LCD Compensation\n"
 			"9 = Eye Comfort\n"
 			"10 = Stream-Friendly\n"
-			"11 = e-sports\n\n"
+			"11 = e-sports\n"
 			
-			"--------------------------------------------------------------------------------\n\n"
-			
-			#if HQAA__GLOBAL_PRESET == 0
-			"Remarks:\n"
-			
-			#if HQAA_DEBUG_MODE
-			"\nDebug code should be disabled when you are not using it because it has a small\n"
-			"performance penalty while enabled.\n"
-			#endif
-			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__DEBANDING && (HQAA_OUTPUT_MODE > 0)
-			"\nPerforming Debanding is not recommended when using an HDR output format\n"
-			"because the randomized noise used to fix the banding tends to be visible.\n"
-			#endif
-			#if HQAA_OPTIONAL_EFFECTS && (HQAA_OPTIONAL__DEBANDING || HQAA_OPTIONAL__SOFTENING)
-			"\nYou can set the number of passes performed by debanding/softening in the same\n"
-			"way as FXAA multisampling. Valid range is 1 to 4.\n"
-			#endif
-			#if HQAA_TAA_ASSIST_MODE
-			"\nTAA Assist Mode is designed to help the game's internal Temporal Anti-Aliasing\n"
-			"solution by performing corrections only on scenes that are moving. This helps to\n"
-			"fix aliasing on moving objects and conserves GPU power by skipping parts of the\n"
-			"scene that are not moving.\n"
-			#endif
-			#if HQAA_SKIP_AA_BLENDING
-			"\nSkipping HQAA's anti-aliasing blending allows the shader to be used primarily\n"
-			"for its optional effects. Note that HQAA will still perform SMAA edge detection\n"
-			"and blending weight calculation as many of the optional effects use this data.\n"
-			#endif
-			#if !HQAA_SKIP_AA_BLENDING
-			"\nFXAA Multisampling can be used to increase correction strength in cases such\n"
-			"as edges with more than one color gradient or along objects that have highly\n"
-			"irregular geometry. Costs some performance for each extra pass.\n"
-			"Valid range: 1 to 6. Higher values are ignored.\n"
-			#endif
-			"\n--------------------------------------------------------------------------------\n\n"
-			#endif // HQAA__GLOBAL_PRESET
-			
-			"Valid Output Modes (HQAA_OUTPUT_MODE):\n"
-			"0: Gamma 2.2 (default)\n"
-			"1: HDR, direct nits scale\n"
-			"2: HDR10, accurate encoding\n"
-			"3: HDR10, fast encoding\n"
 			"\n--------------------------------------------------------------------------------"
 			"\nSee the 'Preprocessor definitions' section for color, feature, and mode toggles.\n"
 			"--------------------------------------------------------------------------------";
@@ -540,6 +443,39 @@ uniform int HQAAintroduction <
 	ui_category = "About";
 	ui_category_closed = true;
 >;
+
+uniform uint HqaaOutputMode <
+	ui_type = "radio";
+	ui_spacing = 3;
+	ui_label = " ";
+	ui_items = "Normal (sRGB)\0HDR, Direct Nits Scale\0Perceptual Quantizer, Accurate (HDR10, scRGB)\0Perceptual Quantizer, Fast Transcode (HDR10, scRGB)\0";
+	ui_category = "Output Mode";
+	ui_category_closed = true;
+> = 0;
+
+uniform float HqaaHdrNits < 
+	ui_spacing = 3;
+	ui_type = "slider";
+	ui_min = 300.0; ui_max = 10000.0; ui_step = 100.0;
+	ui_label = "HDR Nits";
+	ui_tooltip = "If the scene brightness changes after HQAA runs, try\n"
+				 "adjusting this value up or down until it looks right.\n"
+				 "Only has effect when using the HDR Nits mode.";
+	ui_category = "Output Mode";
+	ui_category_closed = true;
+> = 1000.0;
+
+uniform bool HqaaEnableAABlending <
+	ui_spacing = 3;
+	ui_label = "Enable Anti-Aliasing Blending\n\n";
+	ui_tooltip = "Uncheck if you want to use the shader for\n"
+				 "the optional effects, but not the anti-\n"
+				 "aliasing. SMAA edge detection and weight\n"
+				 "calculations will still be performed as\n"
+				 "most of the optionals use the data.";
+	ui_category = "Output Mode";
+	ui_category_closed = true;
+> = true;
 
 #if HQAA_OLED_ANTI_BURN_IN
 uniform float HqaaOledStrobeStrength <
@@ -557,30 +493,22 @@ uniform float HqaaOledStrobeStrength <
 > = 0.008;
 #endif
 
-#if HQAA_DEBUG_MODE
 uniform uint HqaaDebugMode <
 	ui_type = "radio";
 	ui_category = "Debug";
 	ui_category_closed = true;
 	ui_spacing = 3;
-	ui_label = " ";
+	ui_label = "Mouseover for info";
 	ui_text = "Debug Mode:";
 	ui_items = "Off\n\n\0Detected Edges\0SMAA Blend Weights\n\n\0FXAA Results\0FXAA Lumas\0FXAA Metrics\n\n\0Hysteresis Pattern\n\n\0Dynamic Threshold Usage\n\n\0Disable SMAA\0Disable FXAA\0\n\n";
 	ui_tooltip = "Useful primarily for learning what everything\n"
-				 "does when using advanced mode setup.";
+				 "does when using advanced mode setup. Debug\n"
+				 "instructions are compiled out of the shader\n"
+				 "when 'Off' is selected and ReShade is in\n"
+				 "Performance Mode. You can find additional\n"
+				 "info on how to read each debug mode in the\n"
+				 "'DEBUG README' dropdown near the bottom.";
 > = 0;
-#endif //HQAA_DEBUG_MODE
-
-#if HQAA_OUTPUT_MODE == 1
-uniform float HqaaHdrNits < 
-	ui_spacing = 3;
-	ui_type = "slider";
-	ui_min = 500.0; ui_max = 10000.0; ui_step = 100.0;
-	ui_label = "HDR Nits";
-	ui_tooltip = "If the scene brightness changes after HQAA runs, try\n"
-				 "adjusting this value up or down until it looks right.";
-> = 1000.0;
-#endif //HQAA_TARGET_COLOR_SPACE
 
 uniform int HqaaAboutEOF <
 	ui_type = "radio";
@@ -589,7 +517,6 @@ uniform int HqaaAboutEOF <
 >;
 
 #if HQAA__GLOBAL_PRESET == 0
-#if !HQAA_SKIP_AA_BLENDING
 #if !HQAA_ADVANCED_MODE
 uniform uint HqaaPreset <
 	ui_type = "combo";
@@ -601,7 +528,7 @@ uniform uint HqaaPreset <
 	ui_items = "Low\0Medium\0High\0Ultra\0";
 > = 2;
 
-static const float HqaaNoiseControlStrength = 33.333333;
+static const float HqaaNoiseControlStrength = 20.;
 static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
@@ -659,7 +586,7 @@ uniform float HqaaNoiseControlStrength <
 				 "the output would cause a high luma delta.";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 33.333333;
+> = 20.;
 
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
@@ -766,14 +693,6 @@ uniform int HqaaOptionsEOF <
 	ui_label = " ";
 	ui_text = "\n--------------------------------------------------------------------------------";
 >;
-
-#else //HQAA_SKIP_AA_BLENDING
-static const uint HqaaPreset = 3;
-static const float HqaaLowLumaThreshold = 0.25;
-static const bool HqaaDoLumaHysteresis = true;
-static const uint HqaaSourceInterpolation = 0;
-static const uint HqaaSourceInterpolationOffset = 0;
-#endif //HQAA_SKIP_AA_BLENDING
 
 #if HQAA_OPTIONAL_EFFECTS
 uniform bool HqaaEnableSharpening <
@@ -1119,7 +1038,6 @@ uniform int HqaaOptionalsEOF <
 >;
 #endif //HQAA_OPTIONAL_EFFECTS
 
-#if HQAA_DEBUG_MODE
 uniform int HqaaDebugExplainer <
 	ui_type = "radio";
 	ui_spacing = 3;
@@ -1152,10 +1070,9 @@ uniform int HqaaDebugExplainer <
 	ui_category = "DEBUG README";
 	ui_category_closed = true;
 >;
-#endif //HQAA_DEBUG_MODE
 #else // HQAA__GLOBAL_PRESET != 0
 
-static const float HqaaNoiseControlStrength = 33.333333;
+static const float HqaaNoiseControlStrength = 20.;
 static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
@@ -1902,6 +1819,7 @@ float4 YUVtoRGB(float4 yuv)
 	return float4(YUVtoRGB(yuv.xyz), yuv.a);
 }
 
+// saturation calculator
 float dotsat(float3 x)
 {
 	// trunc(xl) only = 1 when x = float3(1,1,1)
@@ -1915,18 +1833,13 @@ float dotsat(float4 x)
 	return dotsat(x.rgb);
 }
 
+// color delta calculator
 float chromadelta(float3 pixel1, float3 pixel2)
 {
 	return dot(abs(pixel1 - pixel2), __HQAA_AVERAGE_REF);
 }
 
-float huedelta(in float3 pixel1, in float3 pixel2)
-{
-	pixel1 *= rcp(max3(pixel1.r, pixel1.g, pixel1.b));
-	pixel2 *= rcp(max3(pixel2.r, pixel2.g, pixel2.b));
-	return dot(abs(pixel1 - pixel2), __HQAA_AVERAGE_REF);
-}
-
+// vibrance adjustment
 float3 AdjustVibrance(float3 pixel, float satadjust)
 {
 	float3 outdot = pixel;
@@ -1977,6 +1890,7 @@ float4 AdjustVibrance(float4 pixel, float satadjust)
 	return float4(AdjustVibrance(pixel.rgb, satadjust), pixel.a);
 }
 
+// saturation adjustment
 float3 AdjustSaturation(float3 input, float requestedadjustment)
 {
 	// change to YCrCb (component) color space
@@ -2001,6 +1915,7 @@ float3 AdjustSaturation(float3 input, float requestedadjustment)
 	return YUVtoRGB(yuv);
 }
 
+// non-bitwise logical operators
 float lxor(float x, float y)
 {
 	bool valid = (x == 0.0) ? ((y == 0.0) ? false : true) : ((y == 0.0) ? true : false);
@@ -2020,9 +1935,25 @@ float4 lxor(float4 x, float4 y)
 	return float4(lxor(x.xy, y.xy), lxor(x.zw, y.zw));
 }
 
+float lnand(float x, float y)
+{
+	return y == 0.0 ? x : 0.0;
+}
+float2 lnand(float2 x, float2 y)
+{
+	return float2(lnand(x.x, y.x), lnand(x.y, y.y));
+}
+float3 lnand(float3 x, float3 y)
+{
+	return float3(lnand(x.x, y.x), lnand(x.yz, y.yz));
+}
+float4 lnand(float4 x, float4 y)
+{
+	return float4(lnand(x.xy, y.xy), lnand(x.zw, y.zw));
+}
+
 /////////////////////////////////////////////////////// TRANSFER FUNCTIONS ////////////////////////////////////////////////////////////////
 
-#if HQAA_OUTPUT_MODE == 2
 float encodePQ(float x)
 {
 /*	float nits = 10000.0
@@ -2037,11 +1968,8 @@ float encodePQ(float x)
 	float denominator = 2413./128. - ((2392./128.) * xpm2rcp);
 	
 	float output = pow(abs(numerator / denominator), rcp(1305./8192.));
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	output *= 500.0;
-#else
-	output *= 10000.0;
-#endif
+	if (BUFFER_COLOR_BIT_DEPTH == 10) output *= 500.0;
+	else output *= 10000.0;
 	return output;
 }
 float2 encodePQ(float2 x)
@@ -2051,11 +1979,8 @@ float2 encodePQ(float2 x)
 	float2 denominator = 2413./128. - ((2392./128.) * xpm2rcp);
 	
 	float2 output = pow(abs(numerator / denominator), rcp(1305./8192.));
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	output *= 500.0;
-#else
-	output *= 10000.0;
-#endif
+	if (BUFFER_COLOR_BIT_DEPTH == 10) output *= 500.0;
+	else output *= 10000.0;
 	return output;
 }
 float3 encodePQ(float3 x)
@@ -2065,11 +1990,8 @@ float3 encodePQ(float3 x)
 	float3 denominator = 2413./128. - ((2392./128.) * xpm2rcp);
 	
 	float3 output = pow(abs(numerator / denominator), rcp(1305./8192.));
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	output *= 500.0;
-#else
-	output *= 10000.0;
-#endif
+	if (BUFFER_COLOR_BIT_DEPTH == 10) output *= 500.0;
+	else output *= 10000.0;
 	return output;
 }
 float4 encodePQ(float4 x)
@@ -2079,11 +2001,8 @@ float4 encodePQ(float4 x)
 	float4 denominator = 2413./128. - ((2392./128.) * xpm2rcp);
 	
 	float4 output = pow(abs(numerator / denominator), rcp(1305./8192.));
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	output *= 500.0;
-#else
-	output *= 10000.0;
-#endif
+	if (BUFFER_COLOR_BIT_DEPTH == 10) output *= 500.0;
+	else output *= 10000.0;
 	return output;
 }
 
@@ -2096,11 +2015,9 @@ float decodePQ(float x)
 	float c2 = 2413 / 128
 	float c3 = 2392 / 128
 */
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float xpm1 = pow(saturate(x / 500.0), 1305./8192.);
-#else
-	float xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
-#endif
+	float xpm1;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) xpm1 = pow(saturate(x / 500.0), 1305./8192.);
+	else xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
 	float numerator = 107./128. + ((2413./128.) * xpm1);
 	float denominator = 1.0 + ((2392./128.) * xpm1);
 	
@@ -2108,11 +2025,9 @@ float decodePQ(float x)
 }
 float2 decodePQ(float2 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float2 xpm1 = pow(saturate(x / 500.0), 1305./8192.);
-#else
-	float2 xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
-#endif
+	float2 xpm1;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) xpm1 = pow(saturate(x / 500.0), 1305./8192.);
+	else xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
 	float2 numerator = 107./128. + ((2413./128.) * xpm1);
 	float2 denominator = 1.0 + ((2392./128.) * xpm1);
 	
@@ -2120,11 +2035,9 @@ float2 decodePQ(float2 x)
 }
 float3 decodePQ(float3 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float3 xpm1 = pow(saturate(x / 500.0), 1305./8192.);
-#else
-	float3 xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
-#endif
+	float3 xpm1;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) xpm1 = pow(saturate(x / 500.0), 1305./8192.);
+	else xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
 	float3 numerator = 107./128. + ((2413./128.) * xpm1);
 	float3 denominator = 1.0 + ((2392./128.) * xpm1);
 	
@@ -2132,67 +2045,51 @@ float3 decodePQ(float3 x)
 }
 float4 decodePQ(float4 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float4 xpm1 = pow(saturate(x / 500.0), 1305./8192.);
-#else
-	float4 xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
-#endif
+	float4 xpm1;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) xpm1 = pow(saturate(x / 500.0), 1305./8192.);
+	else xpm1 = pow(saturate(x / 10000.0), 1305./8192.);
 	float4 numerator = 107./128. + ((2413./128.) * xpm1);
 	float4 denominator = 1.0 + ((2392./128.) * xpm1);
 	
 	return saturate(pow(abs(numerator / denominator), 2523./32.));
 }
-#endif //HQAA_OUTPUT_MODE == 2
 
-#if HQAA_OUTPUT_MODE == 3
 float fastencodePQ(float x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float y = saturate(x) * 4.728708;
-	float z = 500.0;
-#else
-	float y = saturate(x) * 10.0;
-	float z = 10000.0;
-#endif
+	float y;
+	float z;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) {y = saturate(x) * 4.728708; z = 500.0;}
+	else {y = saturate(x) * 10.0; z = 10000.0;}
 	y *= y;
 	y *= y;
 	return clamp(y, 0.0, z);
 }
 float2 fastencodePQ(float2 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float2 y = saturate(x) * 4.728708;
-	float z = 500.0;
-#else
-	float2 y = saturate(x) * 10.0;
-	float z = 10000.0;
-#endif
+	float2 y;
+	float z;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) {y = saturate(x) * 4.728708; z = 500.0;}
+	else {y = saturate(x) * 10.0; z = 10000.0;}
 	y *= y;
 	y *= y;
 	return clamp(y, 0.0, z);
 }
 float3 fastencodePQ(float3 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float3 y = saturate(x) * 4.728708;
-	float z = 500.0;
-#else
-	float3 y = saturate(x) * 10.0;
-	float z = 10000.0;
-#endif
+	float3 y;
+	float z;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) {y = saturate(x) * 4.728708; z = 500.0;}
+	else {y = saturate(x) * 10.0; z = 10000.0;}
 	y *= y;
 	y *= y;
 	return clamp(y, 0.0, z);
 }
 float4 fastencodePQ(float4 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	float4 y = saturate(x) * 4.728708;
-	float z = 500.0;
-#else
-	float4 y = saturate(x) * 10.0;
-	float z = 10000.0;
-#endif
+	float4 y;
+	float z;
+	if (BUFFER_COLOR_BIT_DEPTH == 10) {y = saturate(x) * 4.728708; z = 500.0;}
+	else {y = saturate(x) * 10.0; z = 10000.0;}
 	y *= y;
 	y *= y;
 	return clamp(y, 0.0, z);
@@ -2200,39 +2097,21 @@ float4 fastencodePQ(float4 x)
 
 float fastdecodePQ(float x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
-#else
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
-#endif
+	return BUFFER_COLOR_BIT_DEPTH == 10 ? saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361)) : saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 }
 float2 fastdecodePQ(float2 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
-#else
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
-#endif
+	return BUFFER_COLOR_BIT_DEPTH == 10 ? saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361)) : saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 }
 float3 fastdecodePQ(float3 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
-#else
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
-#endif
+	return BUFFER_COLOR_BIT_DEPTH == 10 ? saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361)) : saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 }
 float4 fastdecodePQ(float4 x)
 {
-#if BUFFER_COLOR_BIT_DEPTH == 10
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361));
-#else
-	return saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
-#endif
+	return BUFFER_COLOR_BIT_DEPTH == 10 ? saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 500.0))) / 4.7287080450158790665084805994361)) : saturate((sqrt(sqrt(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 10000.0))) / 10.0));
 }
-#endif //HQAA_OUTPUT_MODE == 3
 
-#if HQAA_OUTPUT_MODE == 1
 float encodeHDR(float x)
 {
 	return saturate(x) * HqaaHdrNits;
@@ -2266,104 +2145,63 @@ float4 decodeHDR(float4 x)
 {
 	return saturate(x / HqaaHdrNits);
 }
-#endif //HQAA_OUTPUT_MODE == 1
 
 float ConditionalEncode(float x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return encodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return encodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastencodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return encodeHDR(x);
+	if (HqaaOutputMode == 2) return encodePQ(x);
+	if (HqaaOutputMode == 3) return fastencodePQ(x);
 	return x;
-#endif
 }
 float2 ConditionalEncode(float2 x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return encodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return encodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastencodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return encodeHDR(x);
+	if (HqaaOutputMode == 2) return encodePQ(x);
+	if (HqaaOutputMode == 3) return fastencodePQ(x);
 	return x;
-#endif
 }
 float3 ConditionalEncode(float3 x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return encodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return encodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastencodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return encodeHDR(x);
+	if (HqaaOutputMode == 2) return encodePQ(x);
+	if (HqaaOutputMode == 3) return fastencodePQ(x);
 	return x;
-#endif
 }
 float4 ConditionalEncode(float4 x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return encodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return encodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastencodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return encodeHDR(x);
+	if (HqaaOutputMode == 2) return encodePQ(x);
+	if (HqaaOutputMode == 3) return fastencodePQ(x);
 	return x;
-#endif
 }
 
 float ConditionalDecode(float x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return decodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return decodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastdecodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return decodeHDR(x);
+	if (HqaaOutputMode == 2) return decodePQ(x);
+	if (HqaaOutputMode == 3) return fastdecodePQ(x);
 	return x;
-#endif
 }
 float2 ConditionalDecode(float2 x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return decodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return decodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastdecodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return decodeHDR(x);
+	if (HqaaOutputMode == 2) return decodePQ(x);
+	if (HqaaOutputMode == 3) return fastdecodePQ(x);
 	return x;
-#endif
 }
 float3 ConditionalDecode(float3 x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return decodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return decodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastdecodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return decodeHDR(x);
+	if (HqaaOutputMode == 2) return decodePQ(x);
+	if (HqaaOutputMode == 3) return fastdecodePQ(x);
 	return x;
-#endif
 }
 float4 ConditionalDecode(float4 x)
 {
-#if HQAA_OUTPUT_MODE == 1
-	return decodeHDR(x);
-#elif HQAA_OUTPUT_MODE == 2
-	return decodePQ(x);
-#elif HQAA_OUTPUT_MODE == 3
-	return fastdecodePQ(x);
-#else
+	if (HqaaOutputMode == 1) return decodeHDR(x);
+	if (HqaaOutputMode == 2) return decodePQ(x);
+	if (HqaaOutputMode == 3) return fastdecodePQ(x);
 	return x;
-#endif
 }
 
 ///////////////////////////////////////////////////// SMAA HELPER FUNCTIONS ///////////////////////////////////////////////////////////////
@@ -2934,18 +2772,19 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	
 	float2 fulldiag = lxor(diagdelta.r * diagdelta.a, diagdelta.g * diagdelta.b).xx;
 	
-	float neardiag1 = saturate(diagdelta.b * delta.z * delta.w + diagdelta.g * delta.x * delta.y);
-	float neardiag2 = saturate(diagdelta.a * delta.z * delta.y + diagdelta.r * delta.x * delta.w);
-	float neardiag3 = saturate(diagdelta.b * delta.y * delta.x + diagdelta.g * delta.w * delta.z);
-	float neardiag4 = saturate(diagdelta.r * delta.y * delta.z + diagdelta.a * delta.w * delta.x);
+	float neardiag1 = lnand(saturate(diagdelta.b * delta.z * delta.w + diagdelta.g * delta.x * delta.y), diagdelta.a + diagdelta.r);
+	float neardiag2 = lnand(saturate(diagdelta.a * delta.z * delta.y + diagdelta.r * delta.x * delta.w), diagdelta.b + diagdelta.g);
+	float neardiag3 = lnand(saturate(diagdelta.b * delta.y * delta.x + diagdelta.g * delta.w * delta.z), diagdelta.a + diagdelta.r);
+	float neardiag4 = lnand(saturate(diagdelta.r * delta.y * delta.z + diagdelta.a * delta.w * delta.x), diagdelta.b + diagdelta.g);
 	float2 neardiag = lxor(lxor(neardiag1, neardiag2), lxor(neardiag3, neardiag4)).xx;
 	
-	float horzedge = delta.y * delta.w;
-	float vertedge = delta.x * delta.z;
+	float2 hvedges = float2(delta.x * delta.z, delta.y * delta.w);
+	if (lxor(hvedges.x, hvedges.y) == 0.0) hvedges = 0.0.xx;
 	
-	float2 edges = fulldiag;
+	float2 edges = 0.0.xx;
+	edges = fulldiag;
 	if (!any(edges)) edges = neardiag;
-	if (!any(edges)) edges = float2(vertedge, horzedge);
+	if (!any(edges)) edges = hvedges;
 	
 	return float4(edges, bufferdata);
 }
@@ -2988,14 +2827,13 @@ float4 HQAABlendingWeightCalculationPS(float4 position : SV_Position, float2 tex
 }
 
 //////////////////////////////////////////////////// NEIGHBORHOOD BLENDING ////////////////////////////////////////////////////////////////
-#if !HQAA_SKIP_AA_BLENDING
+
 float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
-    float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
 	float3 resultAA = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
-#if HQAA_DEBUG_MODE
-	if (HqaaDebugMode == 8) return resultAA;
-#endif //HQAA_DEBUG_MODE
+	if (HqaaDebugMode == 8 || !HqaaEnableAABlending) return resultAA;
+    float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
+
 	[branch] if (any(m))
 	{
 		resultAA = ConditionalDecode(resultAA);
@@ -3037,7 +2875,6 @@ float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
     }
 	return resultAA;
 }
-#endif
 
 /***************************************************************************************************************************************/
 /********************************************************** SMAA SHADER CODE END *******************************************************/
@@ -3047,18 +2884,15 @@ float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
 /********************************************************** FXAA SHADER CODE START *****************************************************/
 /***************************************************************************************************************************************/
 
-#if !HQAA_SKIP_AA_BLENDING
 float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
  {
     float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	if (HqaaDebugMode == 9 || !HqaaEnableAABlending) return original;
 	
 #if HQAA_TAA_ASSIST_MODE
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 	if (lumachange) {
 #endif //HQAA_TAA_ASSIST_MODE
-#if HQAA_DEBUG_MODE
-	if (HqaaDebugMode == 9) return original;
-#endif //HQAA_DEBUG_MODE
 
 	float4 smaadata = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord);
 	float edgethreshold = smaadata.a;
@@ -3104,11 +2938,8 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 	// early exit check
     float range = max8(crossdelta.x, crossdelta.y, crossdelta.z, crossdelta.w, diagdelta.x, diagdelta.y, diagdelta.z, diagdelta.w);
 	if (HqaaFxEarlyExit && (range < edgethreshold))
-#if HQAA_DEBUG_MODE
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
-		else
-#endif //HQAA_DEBUG_MODE
-		return original;
+		else return original;
 	
 	float2 lumaNP = float2(lumaN, lumaS);
 	HQAAMovc(!horzSpan.xx, lumaNP, float2(lumaW, lumaE));
@@ -3184,7 +3015,6 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 	HQAAMovc(bool2(!horzSpan || diagSpan, horzSpan || diagSpan), posM, float2(posM.x + lengthSign.x * subpixOut, posM.y + lengthSign.y * subpixOut));
     
 	// output selection
-#if HQAA_DEBUG_MODE
 	if (HqaaDebugMode == 4)
 	{
 		float3 debugout = ref * lumaM * 0.75 + 0.25;
@@ -3197,22 +3027,15 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 		float3 FxaaMetrics = float3(runtime, 0.5 - runtime, 0.0);
 		return FxaaMetrics;
 	}
-#endif //HQAA_DEBUG_MODE
+	
 	// normal output
 	return HQAA_Tex2D(ReShade::BackBuffer, posM).rgb;
 #if HQAA_TAA_ASSIST_MODE
 	}
-	else {
-#if HQAA_DEBUG_MODE
-		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
-		else
-#endif
-		return original;
-	}
+	else if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
+	else return original;
 #endif //HQAA_TAA_ASSIST_MODE
 }
-
-#endif //HQAA_SKIP_AA_BLENDING
 
 /***************************************************************************************************************************************/
 /********************************************************** FXAA SHADER CODE END *******************************************************/
@@ -3229,10 +3052,7 @@ float3 HQAAHysteresisPS(float4 position : SV_Position, float2 texcoord : TEXCOOR
 	float4 blendingdata = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
 	
 #if HQAA_OPTIONAL_EFFECTS
-#if HQAA_DEBUG_MODE
-	if (HqaaDebugMode == 0) {
-#endif
-	if (HqaaEnableSharpening)
+	if (HqaaEnableSharpening && (HqaaDebugMode == 0))
 	{
 		float3 casdot = pixel;
 	
@@ -3276,34 +3096,28 @@ float3 HQAAHysteresisPS(float4 position : SV_Position, float2 texcoord : TEXCOOR
 	
 		pixel = ConditionalEncode(casdot);
 	}
-#if HQAA_DEBUG_MODE
-	}
-#endif
 #endif //HQAA_OPTIONAL_EFFECTS
 	
 #if HQAA_TAA_ASSIST_MODE
 	bool lumachange = HQAA_Tex2D(HQAAsamplerLumaMask, texcoord).r > 0.0;
 #endif //HQAA_TAA_ASSIST_MODE
 
-	bool skiphysteresis = ( (!HqaaDoLumaHysteresis)
+	bool skiphysteresis = ( (HqaaDebugMode == 0) && ((!HqaaDoLumaHysteresis)
 #if HQAA_TAA_ASSIST_MODE
-	|| (!lumachange)
+	|| (!lumachange))
+#else
+	)
 #endif //HQAA_TAA_ASSIST_MODE
-#if HQAA_DEBUG_MODE
-	&& (HqaaDebugMode == 0)
-#endif //HQAA_DEBUG_MODE
 	);
 	if (skiphysteresis) return pixel;
 	
 	float safethreshold = max(__HQAA_EDGE_THRESHOLD, __HQAA_SMALLEST_COLOR_STEP);
 	
-#if HQAA_DEBUG_MODE
 	bool modifiedpixel = any(edgedata.rg);
 	if (HqaaDebugMode == 6 && !modifiedpixel) return float(0.0).xxx;
 	if (HqaaDebugMode == 1) return float3(edgedata.rg, 0.0);
 	if (HqaaDebugMode == 2) return blendingdata.rgb;
 	if (HqaaDebugMode == 7) { float usedthreshold = 1.0 - (edgedata.a / safethreshold); return float3(0.0, saturate(usedthreshold), 0.0); }
-#endif
 
 	float3 original = pixel;
 	bool altered = false;
@@ -3323,15 +3137,12 @@ float3 HQAAHysteresisPS(float4 position : SV_Position, float2 texcoord : TEXCOOR
 	}
 	
 	//output
-#if HQAA_DEBUG_MODE
 	if (HqaaDebugMode == 6)
 	{
 		// hysteresis pattern
 		return sqrt(abs(pixel - AAdot));
 	}
-	else
-#endif //HQAA_DEBUG_MODE
-	if (altered) return ConditionalEncode(pixel);
+	else if (altered) return ConditionalEncode(pixel);
 	else return original;
 }
 
@@ -3365,7 +3176,9 @@ float HQAALumaMaskingPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 #if HQAA_OPTIONAL__TEMPORAL_STABILIZER
 float3 HQAAPreviousFrameBlendPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float3 current = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
+	float3 current = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	if (HqaaDebugMode != 0) return current;
+	current = ConditionalDecode(current);
 	float3 previous = HQAA_Tex2D(HQAAsamplerLastFrameBuffer, texcoord).rgb;
 	
 	float blendweight = HqaaPreviousFrameWeight;
@@ -3421,10 +3234,8 @@ float4 HQAASaveWeightsPS(float4 position : SV_Position, float2 texcoord : TEXCOO
 float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
     float3 ori = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb; // Original pixel
-#if HQAA_DEBUG_MODE
-	// skip optional effect processing if a debug mode is enabled
-	if (HqaaDebugMode == 0) {
-#endif
+	if (HqaaDebugMode != 0) return ori;
+	
 	float3 encodedori = ori;
 	ori = ConditionalDecode(ori);
 	
@@ -3497,10 +3308,6 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 #endif
 
     return ConditionalEncode(lerp(ori, ref_avg, factor));
-#if HQAA_DEBUG_MODE
-	}
-	else return ori;
-#endif
 }
 #endif //HQAA_OPTIONAL__DEBANDING
 
@@ -3508,6 +3315,7 @@ float3 HQAADebandPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	if (HqaaDebugMode != 0) return pixel;
 	float3 original = pixel;
 	pixel = ConditionalDecode(pixel);
 	float3 initstate = pixel;
@@ -3566,6 +3374,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
 	float3 pixel = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	if (HqaaDebugMode != 0) return pixel;
 	float3 original = pixel;
 	pixel = ConditionalDecode(pixel);
 	float3 initstate = pixel;
@@ -3601,10 +3410,13 @@ float3 HQAAOptionalEffectPassTwoPS(float4 vpos : SV_Position, float2 texcoord : 
 #if HQAA_OPTIONAL__SOFTENING
 float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, float4 offset : TEXCOORD1) : SV_Target
 {
+	float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
+	if (HqaaDebugMode != 0) return original;
     float4 m = float4(HQAA_Tex2D(HQAAsamplerSMweights, offset.xy).a, HQAA_Tex2D(HQAAsamplerSMweights, offset.zw).g, HQAA_Tex2D(HQAAsamplerSMweights, texcoord).zx);
+    float4 edgedata = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord);
 	bool lowdetail = !any(m);
     bool horiz = (m.x + m.z) > (m.y + m.w);
-    bool diag = lowdetail ? false : all(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).rg);
+    bool diag = lowdetail ? false : all(edgedata.rg);
 	float passdivisor = clamp(HQAA_OPTIONAL__SOFTENING, 1.0, 4.0);
 	float2 pixstep = float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT) * (lowdetail ? (HqaaImageSoftenOffset * rcp(passdivisor)) : HqaaImageSoftenOffset);
 	float2 pixstepdiag = pixstep * __HQAA_CONST_HALFROOT2;
@@ -3615,7 +3427,6 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 //  h a b
 //  i c d
 	
-	float3 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float3 a = ConditionalDecode(original);
 	float3 b = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(pixstep.x, 0)).rgb;
 	float3 c = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(0, pixstep.y)).rgb;
@@ -3628,9 +3439,11 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	
 	if (HqaaSoftenerSpuriousDetection)
 	{
+    	float edgethreshold = max(__HQAA_EDGE_THRESHOLD, __HQAA_SMALLEST_COLOR_STEP);
+    	float spuriousthreshold = (edgedata.a / edgethreshold) * HqaaSoftenerSpuriousThreshold;
 		float3 surroundavg = (b + c + d + e + f + g + h + i) / 8.0;
 		float middledelta = dot(abs(a - surroundavg), __HQAA_AVERAGE_REF);
-		highdelta = middledelta > HqaaSoftenerSpuriousThreshold;
+		highdelta = middledelta > spuriousthreshold;
 	}
 	
 	float3 highterm = float3(0.0, 0.0, 0.0);
@@ -3706,6 +3519,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 #if HQAA_OLED_ANTI_BURN_IN
 float3 HQAALumaStrobePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
+	if (HqaaDebugMode != 0) return HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	if (__HQAA_THIRD_FRAME) return HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
 	float3 pixel = RGBtoYUV(HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb);
 	float strobeadd = (1.0 - pixel.x) * HqaaOledStrobeStrength;
@@ -3765,13 +3579,11 @@ technique HQAA <
 		RenderTarget = HQAAblendTex;
 		ClearRenderTargets = true;
 	}
-#if !HQAA_SKIP_AA_BLENDING
 	pass FXAA
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAAFXPS;
 	}
-#endif
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__SOFTENING
 	pass ImageSoftening
@@ -3781,13 +3593,11 @@ technique HQAA <
 	}
 #endif //HQAA_OPTIONAL__SOFTENING
 #endif //HQAA_OPTIONAL_EFFECTS
-#if !HQAA_SKIP_AA_BLENDING
 	pass SMAABlending
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAANeighborhoodBlendingPS;
 	}
-#endif
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__SOFTENING
 #if HQAA_OPTIONAL__SOFTENING > 1
@@ -3799,14 +3609,12 @@ technique HQAA <
 #endif
 #endif
 #endif
-#if !HQAA_SKIP_AA_BLENDING
 #if HQAA_FXAA_MULTISAMPLING > 1
 	pass FXAA
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAAFXPS;
 	}
-#endif
 #endif
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__SOFTENING
@@ -3819,14 +3627,12 @@ technique HQAA <
 #endif
 #endif
 #endif
-#if !HQAA_SKIP_AA_BLENDING
 #if HQAA_FXAA_MULTISAMPLING > 2
 	pass FXAA
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAAFXPS;
 	}
-#endif
 #endif
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__SOFTENING
@@ -3839,7 +3645,6 @@ technique HQAA <
 #endif
 #endif
 #endif
-#if !HQAA_SKIP_AA_BLENDING
 #if HQAA_FXAA_MULTISAMPLING > 3
 	pass FXAA
 	{
@@ -3847,8 +3652,6 @@ technique HQAA <
 		PixelShader = HQAAFXPS;
 	}
 #endif
-#endif
-#if !HQAA_SKIP_AA_BLENDING
 #if HQAA_FXAA_MULTISAMPLING > 4
 	pass FXAA
 	{
@@ -3856,15 +3659,12 @@ technique HQAA <
 		PixelShader = HQAAFXPS;
 	}
 #endif
-#endif
-#if !HQAA_SKIP_AA_BLENDING
 #if HQAA_FXAA_MULTISAMPLING > 5
 	pass FXAA
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAAFXPS;
 	}
-#endif
 #endif
 #if HQAA_OPTIONAL_EFFECTS
 #if HQAA_OPTIONAL__DEBANDING
