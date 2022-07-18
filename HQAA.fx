@@ -297,7 +297,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.18.170722";
+	ui_label = "Version: 28.18.180722";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -719,7 +719,7 @@ uniform float HqaaSharpenerAdaptation <
 	ui_tooltip = "Affects how much the CAS math will cause\ncontrasting details to stand out.";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.5;
 
 uniform float HqaaSharpenOffset <
 	ui_type = "slider";
@@ -741,7 +741,7 @@ uniform float HqaaSharpenerClamping <
 	             "Zero means no clamp applied, one means no sharpening applied";
 	ui_category = "Sharpening";
 	ui_category_closed = true;
-> = 0.4;
+> = 0.25;
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
@@ -1138,10 +1138,10 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 #if HQAA__GLOBAL_PRESET == 2 // Open World
 static const uint HqaaPreset = 3;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.8;
-static const float HqaaSharpenerAdaptation = 0.625;
-static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.5;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.5;
+static const float HqaaSharpenOffset = 0.875;
+static const float HqaaSharpenerClamping = 0.25;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.333333;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1266,10 +1266,10 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 #if HQAA__GLOBAL_PRESET == 6 // Horror
 static const uint HqaaPreset = 3;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 0.75;
-static const float HqaaSharpenerAdaptation = 0.625;
-static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.5;
+static const float HqaaSharpenerStrength = 0.8;
+static const float HqaaSharpenerAdaptation = 0.5;
+static const float HqaaSharpenOffset = 0.875;
+static const float HqaaSharpenerClamping = 0.25;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1298,10 +1298,10 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
 static const uint HqaaPreset = 3;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.00;
-static const float HqaaSharpenerAdaptation = 0.625;
-static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.5;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.5;
+static const float HqaaSharpenOffset = 0.875;
+static const float HqaaSharpenerClamping = 0.25;
 static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1362,10 +1362,10 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 #if HQAA__GLOBAL_PRESET == 9 // Eye Comfort
 static const uint HqaaPreset = 3;
 static const bool HqaaEnableSharpening = true;
-static const float HqaaSharpenerStrength = 1.00;
-static const float HqaaSharpenerAdaptation = 0.625;
-static const float HqaaSharpenOffset = 0.75;
-static const float HqaaSharpenerClamping = 0.5;
+static const float HqaaSharpenerStrength = 1.0;
+static const float HqaaSharpenerAdaptation = 0.5;
+static const float HqaaSharpenOffset = 0.875;
+static const float HqaaSharpenerClamping = 0.125;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.25;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1376,8 +1376,8 @@ static const float HqaaColorTemperature = 0.4;
 static const float HqaaBlueLightFilter = 0.4;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 2.718282 / 3.0;
-static const float HqaaTaaJitterOffset = 0.4;
-static const float HqaaTaaTemporalWeight = 0.5;
+static const float HqaaTaaJitterOffset = 0.375;
+static const float HqaaTaaTemporalWeight = 0.25;
 static const float HqaaTaaMinimumBlend = 0.5;
 static const uint HqaaDebandPreset = 0;
 static const float HqaaDebandRange = 16.0;
