@@ -291,13 +291,13 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HqaaAboutSTART <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n---------------------------------- HQAA 28.18 ----------------------------------";
+	ui_text = "\n---------------------------------- HQAA 28.19 ----------------------------------";
 >;
 
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.18.220722";
+	ui_label = "Version: 28.19.240722";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -2700,19 +2700,22 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	
 	float2 fulldiag = lxor(diagdelta.r * diagdelta.a, diagdelta.g * diagdelta.b).xx;
 	
-	float neardiag1 = lnand(saturate(diagdelta.b * delta.z * delta.w + diagdelta.g * delta.x * delta.y), diagdelta.a + diagdelta.r);
-	float neardiag2 = lnand(saturate(diagdelta.a * delta.z * delta.y + diagdelta.r * delta.x * delta.w), diagdelta.b + diagdelta.g);
-	float neardiag3 = lnand(saturate(diagdelta.b * delta.y * delta.x + diagdelta.g * delta.w * delta.z), diagdelta.a + diagdelta.r);
-	float neardiag4 = lnand(saturate(diagdelta.r * delta.y * delta.z + diagdelta.a * delta.w * delta.x), diagdelta.b + diagdelta.g);
+	float neardiag1 = saturate(lnand(diagdelta.b * delta.z * delta.w, diagdelta.a) + lnand(diagdelta.g * delta.x * delta.y, diagdelta.r));
+	float neardiag2 = saturate(lnand(diagdelta.a * delta.z * delta.y, diagdelta.b) + lnand(diagdelta.r * delta.x * delta.w, diagdelta.g));
+	float neardiag3 = saturate(lnand(diagdelta.b * delta.y * delta.x, diagdelta.r) + lnand(diagdelta.g * delta.w * delta.z, diagdelta.a));
+	float neardiag4 = saturate(lnand(diagdelta.r * delta.y * delta.z, diagdelta.b) + lnand(diagdelta.a * delta.w * delta.x, diagdelta.g));
 	float2 neardiag = lxor(lxor(neardiag1, neardiag2), lxor(neardiag3, neardiag4)).xx;
 	
+	/*
 	float2 hvedges = float2(delta.x * delta.z, delta.y * delta.w);
 	if (lxor(hvedges.x, hvedges.y) == 0.0) hvedges = 0.0.xx;
+	*/
+	float2 hvedges = saturate(float2(delta.x + delta.z, delta.y + delta.w));
 	
 	float2 edges = 0.0.xx;
-	edges = fulldiag;
-	if (!any(edges)) edges = neardiag;
+	edges = neardiag;
 	if (!any(edges)) edges = hvedges;
+	if (!any(edges)) edges = fulldiag;
 	
 	return float4(edges, bufferdata);
 }
@@ -3149,7 +3152,7 @@ float4 HQAATAATemporalBlendingPS(float4 vpos : SV_POSITION, float2 texcoord : TE
 {
 	float edges = HQAA_Tex2D(TaaEdgesTex, texcoord).r;
 	float4 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
-	if (!edges) return original;
+	if (!edges || HqaaDebugMode != 0) return original;
 	original = ConditionalDecode(original);
 	float blendweight = (1.0 - HqaaTaaMinimumBlend) * sqrt(edges) + HqaaTaaMinimumBlend;
 	float4 jitter0 = HQAA_Tex2D(TaaJitterTex0, texcoord);
@@ -3162,7 +3165,7 @@ float4 HQAATAATemporalBlendingTwoPS(float4 vpos : SV_POSITION, float2 texcoord :
 {
 	float edges = HQAA_Tex2D(TaaEdgesTex, texcoord).r;
 	float4 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
-	if (!edges) return original;
+	if (!edges || HqaaDebugMode != 0) return original;
 	original = ConditionalDecode(original);
 	float blendweight = (1.0 - HqaaTaaMinimumBlend) * sqrt(edges) + HqaaTaaMinimumBlend;
 	float4 jitter0 = HQAA_Tex2D(TaaJitterTex2, texcoord);
@@ -3175,7 +3178,7 @@ float3 HQAATAACASPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_
 {
 	float edges = HQAA_Tex2D(TaaEdgesTex, texcoord).r;
     float3 e = HQAA_Tex2D(ReShade::BackBuffer, texcoord).rgb;
-	if (!edges) return e;
+	if (!edges || HqaaDebugMode != 0) return e;
 	
 	float SharpeningStrength = saturate(sqrt(edges));
 	float SharpeningContrast = saturate(edges);
@@ -3578,15 +3581,6 @@ technique HQAA <
 		VertexShader = HQAANeighborhoodBlendingVS;
 		PixelShader = HQAAFXPS;
 	}
-#if HQAA_OPTIONAL_EFFECTS
-#if HQAA_OPTIONAL__SOFTENING
-	pass ImageSoftening
-	{
-		VertexShader = HQAANeighborhoodBlendingVS;
-		PixelShader = HQAASofteningPS;
-	}
-#endif //HQAA_OPTIONAL__SOFTENING
-#endif //HQAA_OPTIONAL_EFFECTS
 	pass SMAABlending
 	{
 		VertexShader = HQAANeighborhoodBlendingVS;
@@ -3755,6 +3749,13 @@ technique HQAA <
 		PixelShader = HQAATAACASPS;
 	}
 #endif //HQAA_OPTIONAL__TEMPORAL_AA
+#if HQAA_OPTIONAL__SOFTENING
+	pass ImageSoftening
+	{
+		VertexShader = HQAANeighborhoodBlendingVS;
+		PixelShader = HQAASofteningPS;
+	}
+#endif //HQAA_OPTIONAL__SOFTENING
 #endif //HQAA_OPTIONAL_EFFECTS
 	pass Hysteresis
 	{
