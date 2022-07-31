@@ -297,7 +297,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.19.250722";
+	ui_label = "Version: 28.19.310722";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -834,7 +834,7 @@ uniform uint HqaaTonemapping <
 	ui_spacing = 3;
 	ui_type = "combo";
 	ui_label = "Tonemapping";
-	ui_items = "None\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0Logarithmic Fake HDR\0Dynamic Range Compression\0";
+	ui_items = "None\0Reinhard Extended\0Reinhard Luminance\0Reinhard-Jodie\0Uncharted 2\0ACES approx\0Logarithmic Fake HDR\0Logarithmic Range Compression\0Logarithmic Black Stabilizer\0";
 	ui_category = "Color Palette";
 	ui_category_closed = true;
 > = 0;
@@ -1342,8 +1342,8 @@ static const float HqaaVibranceStrength = 40;
 static const float HqaaSaturationStrength = 0.6;
 static const float HqaaColorTemperature = 0.6;
 static const float HqaaBlueLightFilter = 0.0;
-static const uint HqaaTonemapping = 7;
-static const float HqaaTonemappingParameter = 0.625;
+static const uint HqaaTonemapping = 8;
+static const float HqaaTonemappingParameter = 1.0;
 //static const float HqaaTaaJitterOffset = 0.333333;
 //static const float HqaaTaaTemporalWeight = 0.25;
 //static const float HqaaTaaMinimumBlend = 0.333333;
@@ -1365,17 +1365,17 @@ static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.5;
 static const float HqaaSharpenOffset = 1.0;
-static const float HqaaSharpenerClamping = 0.2;
-static const bool HqaaEnableBrightnessGain = true;
+static const float HqaaSharpenerClamping = 0.125;
+static const bool HqaaEnableBrightnessGain = false;
 static const float HqaaGainStrength = 0.25;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
-static const float HqaaSaturationStrength = 0.6;
+static const float HqaaSaturationStrength = 0.55;
 static const float HqaaColorTemperature = 0.4;
-static const float HqaaBlueLightFilter = 0.4;
-static const uint HqaaTonemapping = 6;
-static const float HqaaTonemappingParameter = 2.718282 / 3.0;
+static const float HqaaBlueLightFilter = 0.25;
+static const uint HqaaTonemapping = 8;
+static const float HqaaTonemappingParameter = 1.5;
 static const float HqaaTaaJitterOffset = 0.333333;
 static const float HqaaTaaTemporalWeight = 0.0;
 static const float HqaaTaaMinimumBlend = 0.333333;
@@ -2426,6 +2426,15 @@ float3 logarithmic_range_compression(float3 x)
 	float3 result = pow(abs(__HQAA_CONST_E - offset), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0)));
 	return saturate(result);
 }
+
+float3 logarithmic_black_stabilizer(float3 x)
+{
+	float luma = dot(x, __HQAA_LUMA_REF);
+	luma = (1.0 - saturate(luma * 8.)) / 2.;
+	float offset = HqaaTonemappingParameter * luma;
+	float3 result = pow(abs(__HQAA_CONST_E - offset), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0)));
+	return saturate(result);
+}
 #endif //HQAA_OPTIONAL_EFFECTS
 
 /***************************************************************************************************************************************/
@@ -3354,6 +3363,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 		else if (HqaaTonemapping == 5) pixel = aces_approx(pixel);
 		else if (HqaaTonemapping == 6) pixel = logarithmic_fake_hdr(pixel);
 		else if (HqaaTonemapping == 7) pixel = logarithmic_range_compression(pixel);
+		else if (HqaaTonemapping == 8) pixel = logarithmic_black_stabilizer(pixel);
 	}
 	
 	if (HqaaEnableColorPalette && (HqaaVibranceStrength != 50.0))
