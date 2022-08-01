@@ -297,7 +297,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.19.310722";
+	ui_label = "Version: 28.19.010822";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -1335,7 +1335,7 @@ static const float HqaaSharpenerAdaptation = 0.5;
 static const float HqaaSharpenOffset = 1.0;
 static const float HqaaSharpenerClamping = 0.2;
 static const bool HqaaEnableBrightnessGain = true;
-static const float HqaaGainStrength = 0.5;
+static const float HqaaGainStrength = 0.625;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 40;
@@ -1371,11 +1371,11 @@ static const float HqaaGainStrength = 0.25;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 50;
-static const float HqaaSaturationStrength = 0.55;
-static const float HqaaColorTemperature = 0.4;
-static const float HqaaBlueLightFilter = 0.25;
+static const float HqaaSaturationStrength = 0.5;
+static const float HqaaColorTemperature = 0.375;
+static const float HqaaBlueLightFilter = 0.2;
 static const uint HqaaTonemapping = 8;
-static const float HqaaTonemappingParameter = 1.5;
+static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaTaaJitterOffset = 0.333333;
 static const float HqaaTaaTemporalWeight = 0.0;
 static const float HqaaTaaMinimumBlend = 0.333333;
@@ -2416,23 +2416,27 @@ float3 aces_approx(float3 x)
 
 float3 logarithmic_fake_hdr(float3 x)
 {
-	return saturate(pow(abs(__HQAA_CONST_E + (HqaaTonemappingParameter * (0.5 - log2(1.0 + dot(x, __HQAA_LUMA_REF))))), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0))));
+	bool3 truezero = lnand(float3(1., 1., 1.), x);
+	return lnand(saturate(pow(abs(__HQAA_CONST_E + (HqaaTonemappingParameter * (0.5 - log2(1.0 + dot(x, __HQAA_LUMA_REF))))), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0)))), truezero);
 }
 
 float3 logarithmic_range_compression(float3 x)
 {
 	float luma = dot(x, __HQAA_LUMA_REF);
+	bool3 truezero = lnand(float3(1., 1., 1.), x);
 	float offset = HqaaTonemappingParameter * (0.5 - luma);
 	float3 result = pow(abs(__HQAA_CONST_E - offset), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0)));
+	result = lnand(result, truezero);
 	return saturate(result);
 }
 
 float3 logarithmic_black_stabilizer(float3 x)
 {
 	float luma = dot(x, __HQAA_LUMA_REF);
-	luma = (1.0 - saturate(luma * 8.)) / 2.;
-	float offset = HqaaTonemappingParameter * luma;
+	bool3 truezero = lnand(float3(1., 1., 1.), x);
+	float offset = HqaaTonemappingParameter * ((1.0 - pow(saturate(luma * 3.), __HQAA_CONST_E)) / 3.);
 	float3 result = pow(abs(__HQAA_CONST_E - offset), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0)));
+	result = lnand(result, truezero);
 	return saturate(result);
 }
 #endif //HQAA_OPTIONAL_EFFECTS
@@ -3072,7 +3076,8 @@ float3 HQAAHysteresisPS(float4 position : SV_Position, float2 texcoord : TEXCOOR
 	float hysteresis = (dot(pixel, __HQAA_LUMA_REF) - edgedata.b) * blendstrength;
 	if (abs(hysteresis) > __HQAA_HYSTERESIS_FUDGE)
 	{
-		pixel = pow(abs(1.0 + hysteresis) * 2.0, log2(pixel));
+		bool3 truezero = lnand(1.0.xxx, pixel);
+		pixel = lnand(pow(abs(1.0 + hysteresis) * 2.0, log2(pixel)), truezero);
 		altered = true;
 	}
 	
@@ -3329,6 +3334,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (HqaaEnableBrightnessGain && (HqaaGainStrength > 0.0))
 	{
 		float3 outdot = pixel;
+		bool3 truezero = lnand(1.0.xxx, outdot);
 		float presaturation = dotsat(outdot);
 		float preluma = dot(outdot, __HQAA_LUMA_REF);
 		float colorgain = 2.0 - log2(HqaaGainStrength + 1.0);
@@ -3351,7 +3357,7 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 			bool adjustsat = satadjust != 0.0;
 			if (adjustsat) outdot = AdjustSaturation(outdot, 0.5 + satadjust);
 		}
-		pixel = outdot;
+		pixel = lnand(outdot, truezero);
 	}
 
 	if (HqaaEnableColorPalette && (HqaaTonemapping > 0))
@@ -3369,8 +3375,9 @@ float3 HQAAOptionalEffectPassPS(float4 vpos : SV_Position, float2 texcoord : TEX
 	if (HqaaEnableColorPalette && (HqaaVibranceStrength != 50.0))
 	{
 		float3 outdot = pixel;
+		bool3 truezero = lnand(1.0.xxx, outdot);
 		outdot = AdjustVibrance(outdot, -((HqaaVibranceStrength / 100.0) - 0.5));
-		pixel = outdot;
+		pixel = lnand(outdot, truezero);
 	}
 	
 	if (any(pixel - initstate)) return ConditionalEncode(pixel);
