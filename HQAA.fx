@@ -306,7 +306,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.19.080822";
+	ui_label = "Version: 28.19.090822";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -558,7 +558,8 @@ static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
 static const bool HqaaFxTexelGrowth = true;
-static const uint HqaaFxTexelGrowAfter = 32;
+static const uint HqaaFxTexelGrowAfter = 24;
+static const float HqaaFxTexelGrowPercent = 20;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
 
@@ -664,6 +665,16 @@ uniform float HqaaFxTexelCustom <
 	ui_category_closed = true;
 > = 0.5;
 
+uniform float HqaaFxBlendCustom <
+	ui_type = "slider";
+	ui_min = 0; ui_max = 100; ui_step = 1;
+	ui_label = "% Blending Strength";
+	ui_tooltip = "Percentage of blending FXAA will apply to edges.\n"
+				 "Lower = sharper image, Higher = more AA effect";
+	ui_category = "FXAA";
+	ui_category_closed = true;
+> = 100;
+
 uniform bool HqaaFxTexelGrowth <
 	ui_spacing = 3;
 	ui_label = "Enable Texel Growth";
@@ -675,6 +686,7 @@ uniform bool HqaaFxTexelGrowth <
 > = true;
 	
 uniform uint HqaaFxTexelGrowAfter <
+	ui_spacing = 3;
 	ui_text = "Texel growth begins after:\n";
 	ui_label = "Scan Iterations";
 	ui_type = "slider";
@@ -684,18 +696,18 @@ uniform uint HqaaFxTexelGrowAfter <
 				 "before the texel begins to grow.";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 32;
+> = 24;
 
-uniform float HqaaFxBlendCustom <
-	ui_spacing = 3;
+uniform float HqaaFxTexelGrowPercent <
+	ui_text = "Texel growth per subsequent iteration:\n";
+	ui_label = "Percent";
 	ui_type = "slider";
-	ui_min = 0; ui_max = 100; ui_step = 1;
-	ui_label = "% Blending Strength";
-	ui_tooltip = "Percentage of blending FXAA will apply to edges.\n"
-				 "Lower = sharper image, Higher = more AA effect";
+	ui_min = 0; ui_max = 50; ui_step = 1;
+	ui_tooltip = "When texel growth is active, the texel will\n"
+				 "grow by this percentage of its previous size.";
 	ui_category = "FXAA";
 	ui_category_closed = true;
-> = 100;
+> = 20;
 
 uniform bool HqaaFxEarlyExit <
 	ui_label = "Allow Early Exit\n\n";
@@ -1105,6 +1117,7 @@ static const float HqaaSmCorneringCustom = 0;
 static const float HqaaFxTexelCustom = 0.333333;
 static const bool HqaaFxTexelGrowth = true;
 static const uint HqaaFxTexelGrowAfter = 12;
+static const float HqaaFxTexelGrowPercent = 50;
 static const float HqaaFxBlendCustom = 100;
 static const bool HqaaFxEarlyExit = true;
 static const bool HqaaDoLumaHysteresis = false;
@@ -1117,7 +1130,8 @@ static const float HqaaNoiseControlStrength = 20.;
 static const float HqaaLowLumaThreshold = 0.25;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxTexelGrowth = true;
-static const uint HqaaFxTexelGrowAfter = 32;
+static const uint HqaaFxTexelGrowAfter = 24;
+static const float HqaaFxTexelGrowPercent = 20;
 static const bool HqaaFxEarlyExit = true;
 static const uint HqaaSourceInterpolation = 0;
 static const uint HqaaSourceInterpolationOffset = 0;
@@ -3029,29 +3043,32 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 	uint iterations = 0;
 	uint maxiterations = __HQAA_FX_QUALITY;
 	uint startgrowingafter = HqaaFxTexelGrowAfter - 1;
-	float2 offNPsign = 1.0 * lnand(float2(-1., -1.), bool2(abs(offNP.x) == offNP.x, abs(offNP.y) == offNP.y));
-	float2 offNPref = float2(BUFFER_RCP_WIDTH * texelsize, BUFFER_RCP_HEIGHT * texelsize);
+	float2 offNPdir = float2(offNP.x > 0., offNP.y > 0.) - float2(offNP.x < 0., offNP.y < 0.);
+	float2 offNPsign = offNPdir * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT);
+	float2 offNPref = texelsize.xx;
+	float growpercent = (HqaaFxTexelGrowPercent / 100.) + 1.;
 	
 	[loop] while (iterations < maxiterations)
 	{
 		if (doneN && doneP) break;
-		if (!doneN)
+		[branch] if (!doneN)
 		{
 			posN -= offNP;
 			lumaEndN = dot(HQAA_DecodeTex2D(ReShade::BackBuffer, posN).rgb, ref);
 			lumaEndN -= lumaNN;
 			doneN = abs(lumaEndN) >= gradientScaled;
 		}
-		if (!doneP)
+		[branch] if (!doneP)
 		{
 			posP += offNP;
 			lumaEndP = dot(HQAA_DecodeTex2D(ReShade::BackBuffer, posP).rgb, ref);
 			lumaEndP -= lumaNN;
 			doneP = abs(lumaEndP) >= gradientScaled;
 		}
-		if (HqaaFxTexelGrowth && iterations > startgrowingafter)
+		if (HqaaFxTexelGrowth)
+		[branch] if (iterations > startgrowingafter)
 		{
-			offNPref = log2(1.0 + offNPref);
+			offNPref *= growpercent;
 			offNP = offNPref * offNPsign;
 		}
 		iterations++;
