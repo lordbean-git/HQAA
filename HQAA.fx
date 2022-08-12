@@ -113,6 +113,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#undef HQAA_ADVANCED_MODE
 	#undef HQAA_OPTIONAL_EFFECTS
 	#undef HQAA_OPTIONAL__TEMPORAL_AA
+	#undef HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 	#undef HQAA_OPTIONAL__DEBANDING
 	#undef HQAA_OPTIONAL__SOFTENING
 	#undef HQAA_FXAA_MULTISAMPLING
@@ -130,7 +131,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 1
 	#define HQAA_OPTIONAL__DEBANDING 2
 	#define HQAA_OPTIONAL__SOFTENING 2
 	#define HQAA_FXAA_MULTISAMPLING 4
@@ -148,7 +150,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 0
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
 	#define HQAA_FXAA_MULTISAMPLING 3
@@ -157,7 +160,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 0
 	#define HQAA_OPTIONAL__DEBANDING 0
 	#define HQAA_OPTIONAL__SOFTENING 1
 	#define HQAA_FXAA_MULTISAMPLING 3
@@ -166,7 +170,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 3
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 1
 	#define HQAA_OPTIONAL__DEBANDING 2
 	#define HQAA_OPTIONAL__SOFTENING 2
 	#define HQAA_FXAA_MULTISAMPLING 4
@@ -175,7 +180,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 1
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 2
 	#define HQAA_FXAA_MULTISAMPLING 3
@@ -193,7 +199,8 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_TAA_ASSIST_MODE 0
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 0
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 2
 	#define HQAA_FXAA_MULTISAMPLING 3
@@ -203,6 +210,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_ADVANCED_MODE 0
 	#define HQAA_OPTIONAL_EFFECTS 1
 	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 0
 	#define HQAA_OPTIONAL__DEBANDING 0
 	#define HQAA_OPTIONAL__SOFTENING 0
 	#define HQAA_FXAA_MULTISAMPLING 2
@@ -221,6 +229,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#define HQAA_ADVANCED_MODE 1
 	#define HQAA_OPTIONAL_EFFECTS 1
 	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 0
 	#define HQAA_OPTIONAL__DEBANDING 0
 	#define HQAA_OPTIONAL__SOFTENING 1
 	#define HQAA_FXAA_MULTISAMPLING 1
@@ -263,11 +272,23 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#if HQAA_OPTIONAL_EFFECTS
 	
 		#ifndef HQAA_OPTIONAL__TEMPORAL_AA
-			#define HQAA_OPTIONAL__TEMPORAL_AA 1
+			#define HQAA_OPTIONAL__TEMPORAL_AA 2
 		#endif //HQAA_OPTIONAL__TEMPORAL_AA
-		#if HQAA_OPTIONAL__TEMPORAL_AA > 1 || HQAA_OPTIONAL__TEMPORAL_AA < 0
+		#if HQAA_OPTIONAL__TEMPORAL_AA > 4 || HQAA_OPTIONAL__TEMPORAL_AA < 0
 			#undef HQAA_OPTIONAL__TEMPORAL_AA
-			#define HQAA_OPTIONAL__TEMPORAL_AA 1
+			#define HQAA_OPTIONAL__TEMPORAL_AA 2
+		#endif
+		
+		#if HQAA_OPTIONAL__TEMPORAL_AA
+		
+			#ifndef HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+				#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 1
+			#endif
+			#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE > 1 || HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE < 0
+				#undef HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+				#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 1
+			#endif
+			
 		#endif
 		
 		#ifndef HQAA_OPTIONAL__DEBANDING
@@ -300,13 +321,13 @@ uniform uint HqaaFramecounter < source = "framecount"; >;
 uniform int HqaaAboutSTART <
 	ui_type = "radio";
 	ui_label = " ";
-	ui_text = "\n---------------------------------- HQAA 28.19 ----------------------------------";
+	ui_text = "\n---------------------------------- HQAA 28.20 ----------------------------------";
 >;
 
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.19.090822";
+	ui_label = "Version: 28.20.120822";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -369,7 +390,21 @@ uniform int HQAAintroduction <
 			"Optional Effects:                                                         off  *\n"
 			#endif //HQAA_ENABLE_OPTIONAL_TECHNIQUES
 			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__TEMPORAL_AA
-			"Temporal Anti-Aliasing:                                                    on\n"
+			"Temporal Anti-Aliasing:                                               on"
+			#if HQAA_OPTIONAL__TEMPORAL_AA > 3
+			" (4x)  *\n"
+			#elif HQAA_OPTIONAL__TEMPORAL_AA > 2
+			" (3x)  *\n"
+			#elif HQAA_OPTIONAL__TEMPORAL_AA > 1
+			" (2x)\n"
+			#else
+			" (1x)  *\n"
+			#endif
+			#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+			"|_> Temporal Persistence (Previous Frame Blending):                        on\n"
+			#else
+			"|_> Temporal Persistence (Previous Frame Blending):                       off  *\n"
+			#endif
 			#elif HQAA_OPTIONAL_EFFECTS && !HQAA_OPTIONAL__TEMPORAL_AA
 			"Temporal Anti-Aliasing:                                                   off  *\n"
 			#endif //HQAA_OPTIONAL__TEMPORAL_AA
@@ -412,26 +447,34 @@ uniform int HQAAintroduction <
 			
 			"Remarks:\n"
 			
-			#if HQAA_OPTIONAL_EFFECTS && (HQAA_OPTIONAL__DEBANDING || HQAA_OPTIONAL__SOFTENING)
-			"\nYou can set the number of passes performed by debanding/softening in the same\n"
+			"\nFXAA Multisampling can be used to increase correction strength in cases such\n"
+			"as edges with more than one color gradient or along objects that have highly\n"
+			"irregular geometry. Costs some performance for each extra pass.\n"
+			"Valid range: 1 to 6. Higher values are ignored.\n"
+			
+			#if HQAA_OPTIONAL_EFFECTS && (HQAA_OPTIONAL__DEBANDING || HQAA_OPTIONAL__SOFTENING || HQAA_OPTIONAL__TEMPORAL_AA)
+			"\nYou can set the number of debanding/softening/temporal AA passes in the same\n"
 			"way as FXAA multisampling. Valid range is 1 to 4.\n"
 			#endif
+			
 			#if HQAA_TAA_ASSIST_MODE
 			"\nTAA Assist Mode is designed to help the game's internal Temporal Anti-Aliasing\n"
 			"solution by performing corrections only on scenes that are moving. This helps to\n"
 			"fix aliasing on moving objects and conserves GPU power by skipping parts of the\n"
 			"scene that are not moving.\n"
 			#endif
-			"\nFXAA Multisampling can be used to increase correction strength in cases such\n"
-			"as edges with more than one color gradient or along objects that have highly\n"
-			"irregular geometry. Costs some performance for each extra pass.\n"
-			"Valid range: 1 to 6. Higher values are ignored.\n"
+			
+			#if HQAA_OPTIONAL_EFFECTS && HQAA_OPTIONAL__TEMPORAL_AA
+			"\nPlease note that Temporal AA uses additional GPU memory for each pass.\n"
+			"Disabling Temporal Persistence can help to reduce the memory footprint.\n"
+			#endif
 			
 			"\nLike how HQAA looks but your GPU isn't keeping up? Try the Max Bang for Buck\n"
 			"preset (set HQAA__GLOBAL_PRESET to 12). It uses highly minimalistic settings to\n"
 			"provide most of the image quality that HQAA is capable of while using a lot less\n"
 			"total GPU time.\n"
 			#endif // HQAA__GLOBAL_PRESET
+			
 			#if HQAA__GLOBAL_PRESET == 12
 			"\n--------------------------------------------------------------------------------\n\n"
 			
@@ -469,12 +512,31 @@ uniform int HQAAintroduction <
 	ui_category_closed = true;
 >;
 
+#if HQAA__GLOBAL_PRESET == 0
+uniform bool HqaaEnableAABlending <
+	ui_spacing = 3;
+	ui_label = "Enable Anti-Aliasing Blending";
+	ui_tooltip = "Uncheck if you want to use the shader for\n"
+				 "the optional effects, but not the anti-\n"
+				 "aliasing. SMAA edge detection and weight\n"
+				 "calculations will still be performed as\n"
+				 "most of the optionals use the data. This\n"
+				 "option disables SMAA and FXAA blending -\n"
+				 "TAA will still be performed if enabled.";
+	ui_category = "Output";
+	ui_category_closed = true;
+> = true;
+#else
+static const bool HqaaEnableAABlending = true;
+#endif
+
 uniform uint HqaaOutputMode <
 	ui_type = "radio";
 	ui_spacing = 3;
 	ui_label = " ";
+	ui_text = "Color Format:\n\n";
 	ui_items = "Normal (sRGB)\0HDR, Direct Nits Scale\0Perceptual Quantizer, Accurate (HDR10, scRGB)\0Perceptual Quantizer, Fast Transcode (HDR10, scRGB)\0";
-	ui_category = "Output Mode";
+	ui_category = "Output";
 	ui_category_closed = true;
 > = 0;
 
@@ -482,25 +544,13 @@ uniform float HqaaHdrNits <
 	ui_spacing = 3;
 	ui_type = "slider";
 	ui_min = 300.0; ui_max = 10000.0; ui_step = 100.0;
-	ui_label = "HDR Nits";
+	ui_label = "HDR Nits\n\n";
 	ui_tooltip = "If the scene brightness changes after HQAA runs, try\n"
 				 "adjusting this value up or down until it looks right.\n"
 				 "Only has effect when using the HDR Nits mode.";
-	ui_category = "Output Mode";
+	ui_category = "Output";
 	ui_category_closed = true;
 > = 1000.0;
-
-uniform bool HqaaEnableAABlending <
-	ui_spacing = 3;
-	ui_label = "Enable Anti-Aliasing Blending\n\n";
-	ui_tooltip = "Uncheck if you want to use the shader for\n"
-				 "the optional effects, but not the anti-\n"
-				 "aliasing. SMAA edge detection and weight\n"
-				 "calculations will still be performed as\n"
-				 "most of the optionals use the data.";
-	ui_category = "Output Mode";
-	ui_category_closed = true;
-> = true;
 
 #if HQAA_OLED_ANTI_BURN_IN
 uniform float HqaaOledStrobeStrength <
@@ -518,6 +568,7 @@ uniform float HqaaOledStrobeStrength <
 > = 0.008;
 #endif
 
+#if HQAA__GLOBAL_PRESET == 0
 uniform uint HqaaDebugMode <
 	ui_type = "radio";
 	ui_category = "Debug";
@@ -534,6 +585,9 @@ uniform uint HqaaDebugMode <
 				 "info on how to read each debug mode in the\n"
 				 "'DEBUG README' dropdown near the bottom.";
 > = 0;
+#else
+static const uint HqaaDebugMode = 0;
+#endif
 
 uniform int HqaaAboutEOF <
 	ui_type = "radio";
@@ -927,9 +981,10 @@ uniform float HqaaTaaJitterOffset <
 	ui_category_closed = true;
 > = 0.333333;
 
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 uniform float HqaaTaaTemporalWeight <
 	ui_type = "slider";
-	ui_label = "Temporal Blend Weight";
+	ui_label = "Previous Frame Weight";
 	ui_min = 0.0; ui_max = 0.5; ui_step = 0.001;
 	ui_tooltip = "Amount of weight given to previous frame.\n"
 				 "Causes a bit of ghosting, but helps to\n"
@@ -937,6 +992,7 @@ uniform float HqaaTaaTemporalWeight <
 	ui_category = "Temporal Anti-Aliasing";
 	ui_category_closed = true;
 > = 0.25;
+#endif
 
 uniform float HqaaTaaMinimumBlend <
 	ui_type = "slider";
@@ -1309,7 +1365,7 @@ static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaTaaJitterOffset = 0.3;
-static const float HqaaTaaTemporalWeight = 0.125;
+//static const float HqaaTaaTemporalWeight = 0.125;
 static const float HqaaTaaMinimumBlend = 0.3;
 static const uint HqaaDebandPreset = 0;
 static const float HqaaDebandRange = 16.0;
@@ -1341,7 +1397,7 @@ static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaTaaJitterOffset = 0.3;
-static const float HqaaTaaTemporalWeight = 0.125;
+//static const float HqaaTaaTemporalWeight = 0.125;
 static const float HqaaTaaMinimumBlend = 0.3;
 //static const uint HqaaDebandPreset = 0;
 //static const float HqaaDebandRange = 16.0;
@@ -1455,9 +1511,9 @@ static const float HqaaSoftenerSpuriousStrength = 1.0;
 static const uint HqaaPreset = 3;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
-static const float HqaaSharpenerAdaptation = 0.25;
-static const float HqaaSharpenOffset = 1.0;
-static const float HqaaSharpenerClamping = 0.0;
+static const float HqaaSharpenerAdaptation = 0.625;
+static const float HqaaSharpenOffset = 0.875;
+static const float HqaaSharpenerClamping = 0.125;
 static const bool HqaaEnableBrightnessGain = true;
 static const float HqaaGainStrength = 0.125;
 static const bool HqaaGainLowLumaCorrection = true;
@@ -1469,7 +1525,7 @@ static const float HqaaBlueLightFilter = 0.333333;
 static const uint HqaaTonemapping = 7;
 static const float HqaaTonemappingParameter = 0.5;
 static const float HqaaTaaJitterOffset = 0.333333;
-static const float HqaaTaaTemporalWeight = 0.0;
+//static const float HqaaTaaTemporalWeight = 0.0;
 static const float HqaaTaaMinimumBlend = 0.333333;
 static const uint HqaaDebandPreset = 0;
 static const float HqaaDebandRange = 16.0;
@@ -1501,7 +1557,7 @@ static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaTaaJitterOffset = 0.333333;
-static const float HqaaTaaTemporalWeight = 0.0;
+//static const float HqaaTaaTemporalWeight = 0.0;
 static const float HqaaTaaMinimumBlend = 0.333333;
 //static const uint HqaaDebandPreset = 0;
 //static const float HqaaDebandRange = 32.0;
@@ -2630,7 +2686,7 @@ texture HqaaTaaJitterTex0
 };
 sampler TaaJitterTex0 {Texture = HqaaTaaJitterTex0;};
 
-#if HQAA__GLOBAL_PRESET != 12
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 texture HqaaTaaJitterTex1
 {
 	Width = BUFFER_WIDTH;
@@ -2644,8 +2700,9 @@ texture HqaaTaaJitterTex1
 	#endif
 };
 sampler TaaJitterTex1 {Texture = HqaaTaaJitterTex1;};
-#endif //HQAA__GLOBAL_PRESET == 12
+#endif //HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 
+#if HQAA_OPTIONAL__TEMPORAL_AA > 1
 texture HqaaTaaJitterTex2
 {
 	Width = BUFFER_WIDTH;
@@ -2660,7 +2717,7 @@ texture HqaaTaaJitterTex2
 };
 sampler TaaJitterTex2 {Texture = HqaaTaaJitterTex2;};
 
-#if HQAA__GLOBAL_PRESET != 12
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 texture HqaaTaaJitterTex3
 {
 	Width = BUFFER_WIDTH;
@@ -2674,7 +2731,72 @@ texture HqaaTaaJitterTex3
 	#endif
 };
 sampler TaaJitterTex3 {Texture = HqaaTaaJitterTex3;};
-#endif //HQAA__GLOBAL_PRESET == 12
+#endif
+#endif //HQAA_OPTIONAL__TEMPORAL_AA > 1
+
+#if HQAA_OPTIONAL__TEMPORAL_AA > 2
+texture HqaaTaaJitterTex4
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	#if BUFFER_COLOR_BIT_DEPTH == 8
+	Format = RGBA8;
+	#elif BUFFER_COLOR_BIT_DEPTH == 10
+	Format = RGB10A2;
+	#else
+	Format = RGBA16F;
+	#endif
+};
+sampler TaaJitterTex4 {Texture = HqaaTaaJitterTex4;};
+
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+texture HqaaTaaJitterTex5
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	#if BUFFER_COLOR_BIT_DEPTH == 8
+	Format = RGBA8;
+	#elif BUFFER_COLOR_BIT_DEPTH == 10
+	Format = RGB10A2;
+	#else
+	Format = RGBA16F;
+	#endif
+};
+sampler TaaJitterTex5 {Texture = HqaaTaaJitterTex5;};
+#endif
+#endif //HQAA_OPTIONAL__TEMPORAL_AA > 2
+
+#if HQAA_OPTIONAL__TEMPORAL_AA > 3
+texture HqaaTaaJitterTex6
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	#if BUFFER_COLOR_BIT_DEPTH == 8
+	Format = RGBA8;
+	#elif BUFFER_COLOR_BIT_DEPTH == 10
+	Format = RGB10A2;
+	#else
+	Format = RGBA16F;
+	#endif
+};
+sampler TaaJitterTex6 {Texture = HqaaTaaJitterTex6;};
+
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+texture HqaaTaaJitterTex7
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	#if BUFFER_COLOR_BIT_DEPTH == 8
+	Format = RGBA8;
+	#elif BUFFER_COLOR_BIT_DEPTH == 10
+	Format = RGB10A2;
+	#else
+	Format = RGBA16F;
+	#endif
+};
+sampler TaaJitterTex7 {Texture = HqaaTaaJitterTex7;};
+#endif
+#endif //HQAA_OPTIONAL__TEMPORAL_AA > 3
 
 texture HqaaTaaEdgesTex
 {
@@ -3258,22 +3380,14 @@ float HQAATAAEdgeDetectionPS(float4 position : SV_Position, float2 texcoord : TE
 {
 	float3 middle = HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord).rgb;
 	float2 hvstep = __HQAA_SM_BUFFERINFO.xy;
-	float2 diagstep = hvstep * __HQAA_CONST_HALFROOT2;
-	float edgethreshold = HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).a;
+	float edgethreshold = __HQAA_SMALLEST_COLOR_STEP * 4.0;
 	
     float Dtop = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord - float2(0, hvstep.y)).rgb);
     float Dleft = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord - float2(hvstep.x, 0)).rgb);
     float Dright = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(hvstep.x, 0)).rgb);
     float Dbottom = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(0, hvstep.y)).rgb);
-	float Dtopleft = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord - diagstep).rgb);
-	float Dbottomright = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + diagstep).rgb);
-	float Dtopright = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(diagstep.x, -diagstep.y)).rgb);
-	float Dbottomleft = chromadelta(middle, HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + float2(-diagstep.x, diagstep.y)).rgb);
 	
-	float crossedges = max4(Dleft, Dtop, Dright, Dbottom);
-	float diagedges = max4(Dtopleft, Dbottomright, Dtopright, Dbottomleft);
-	
-	float edges = max(crossedges, diagedges);
+	float edges = max4(Dtop, Dleft, Dright, Dbottom);
 	edges *= step(edgethreshold, edges);
 	
 	return edges;
@@ -3287,17 +3401,33 @@ float4 HQAATAAGenerateBufferJitterPS(float4 vpos : SV_POSITION, float2 texcoord 
 	return (HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord + offsetdir) + HQAA_DecodeTex2D(ReShade::BackBuffer, texcoord - offsetdir)) / 2.0;
 }
 
-#if HQAA__GLOBAL_PRESET != 12
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 float4 HQAATAATransferJitterTexPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
 {
 	return HQAA_Tex2D(TaaJitterTex0, texcoord);
 }
 
+#if HQAA_OPTIONAL__TEMPORAL_AA > 1
 float4 HQAATAATransferJitterTexTwoPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
 {
 	return HQAA_Tex2D(TaaJitterTex2, texcoord);
 }
+
+#if HQAA_OPTIONAL__TEMPORAL_AA > 2
+float4 HQAATAATransferJitterTexThreePS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAA_Tex2D(TaaJitterTex4, texcoord);
+}
+
+#if HQAA_OPTIONAL__TEMPORAL_AA > 3
+float4 HQAATAATransferJitterTexFourPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAA_Tex2D(TaaJitterTex6, texcoord);
+}
 #endif
+#endif
+#endif
+#endif //HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 
 float4 HQAATAATemporalBlendingPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
 {
@@ -3307,7 +3437,7 @@ float4 HQAATAATemporalBlendingPS(float4 vpos : SV_POSITION, float2 texcoord : TE
 	original = ConditionalDecode(original);
 	float blendweight = (1.0 - HqaaTaaMinimumBlend) * sqrt(edges) + HqaaTaaMinimumBlend;
 	float4 jitter0 = HQAA_Tex2D(TaaJitterTex0, texcoord);
-#if HQAA__GLOBAL_PRESET != 12
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 	float4 jitter1 = HQAA_Tex2D(TaaJitterTex1, texcoord);
 	float4 temporaljitter = lerp(jitter0, jitter1, HqaaTaaTemporalWeight);
 	return ConditionalEncode(lerp(original, temporaljitter, blendweight));
@@ -3316,7 +3446,7 @@ float4 HQAATAATemporalBlendingPS(float4 vpos : SV_POSITION, float2 texcoord : TE
 #endif
 }
 
-#if HQAA__GLOBAL_PRESET != 12
+#if HQAA_OPTIONAL__TEMPORAL_AA > 1
 float4 HQAATAATemporalBlendingTwoPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
 {
 	float edges = HQAA_Tex2D(TaaEdgesTex, texcoord).r;
@@ -3325,11 +3455,53 @@ float4 HQAATAATemporalBlendingTwoPS(float4 vpos : SV_POSITION, float2 texcoord :
 	original = ConditionalDecode(original);
 	float blendweight = (1.0 - HqaaTaaMinimumBlend) * sqrt(edges) + HqaaTaaMinimumBlend;
 	float4 jitter0 = HQAA_Tex2D(TaaJitterTex2, texcoord);
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 	float4 jitter1 = HQAA_Tex2D(TaaJitterTex3, texcoord);
 	float4 temporaljitter = lerp(jitter0, jitter1, HqaaTaaTemporalWeight);
 	return ConditionalEncode(lerp(original, temporaljitter, blendweight));
+#else
+	return ConditionalEncode(lerp(original, jitter0, blendweight));
+#endif
+}
+
+#if HQAA_OPTIONAL__TEMPORAL_AA > 2
+float4 HQAATAATemporalBlendingThreePS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float edges = HQAA_Tex2D(TaaEdgesTex, texcoord).r;
+	float4 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+	if (!edges || HqaaDebugMode != 0) return original;
+	original = ConditionalDecode(original);
+	float blendweight = (1.0 - HqaaTaaMinimumBlend) * sqrt(edges) + HqaaTaaMinimumBlend;
+	float4 jitter0 = HQAA_Tex2D(TaaJitterTex4, texcoord);
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+	float4 jitter1 = HQAA_Tex2D(TaaJitterTex5, texcoord);
+	float4 temporaljitter = lerp(jitter0, jitter1, HqaaTaaTemporalWeight);
+	return ConditionalEncode(lerp(original, temporaljitter, blendweight));
+#else
+	return ConditionalEncode(lerp(original, jitter0, blendweight));
+#endif
+}
+
+#if HQAA_OPTIONAL__TEMPORAL_AA > 3
+float4 HQAATAATemporalBlendingFourPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float edges = HQAA_Tex2D(TaaEdgesTex, texcoord).r;
+	float4 original = HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+	if (!edges || HqaaDebugMode != 0) return original;
+	original = ConditionalDecode(original);
+	float blendweight = (1.0 - HqaaTaaMinimumBlend) * sqrt(edges) + HqaaTaaMinimumBlend;
+	float4 jitter0 = HQAA_Tex2D(TaaJitterTex6, texcoord);
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+	float4 jitter1 = HQAA_Tex2D(TaaJitterTex7, texcoord);
+	float4 temporaljitter = lerp(jitter0, jitter1, HqaaTaaTemporalWeight);
+	return ConditionalEncode(lerp(original, temporaljitter, blendweight));
+#else
+	return ConditionalEncode(lerp(original, jitter0, blendweight));
+#endif
 }
 #endif
+#endif
+#endif //HQAA_OPTIONAL__TEMPORAL_AA > 1
 
 float3 HQAATAACASPS(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Target
 {
@@ -3834,7 +4006,7 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAATAATemporalBlendingPS;
 	}
-#if HQAA__GLOBAL_PRESET != 12
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 	pass TAAJitterTransfer
 	{
 		VertexShader = PostProcessVS;
@@ -3842,6 +4014,8 @@ technique HQAA <
 		RenderTarget = HqaaTaaJitterTex1;
 		ClearRenderTargets = true;
 	}
+#endif
+#if HQAA_OPTIONAL__TEMPORAL_AA > 1
 	pass TAAEdgeDetection
 	{
 		VertexShader = PostProcessVS;
@@ -3861,6 +4035,7 @@ technique HQAA <
 		VertexShader = PostProcessVS;
 		PixelShader = HQAATAATemporalBlendingTwoPS;
 	}
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 	pass TAAJitterTransfer
 	{
 		VertexShader = PostProcessVS;
@@ -3869,6 +4044,67 @@ technique HQAA <
 		ClearRenderTargets = true;
 	}
 #endif
+#if HQAA_OPTIONAL__TEMPORAL_AA > 2
+	pass TAAEdgeDetection
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAAEdgeDetectionPS;
+		RenderTarget = HqaaTaaEdgesTex;
+		ClearRenderTargets = true;
+	}
+	pass TAACreateJitter
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAAGenerateBufferJitterPS;
+		RenderTarget = HqaaTaaJitterTex4;
+		ClearRenderTargets = true;
+	}
+	pass TAABlending
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAATemporalBlendingThreePS;
+	}
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+	pass TAAJitterTransfer
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAATransferJitterTexThreePS;
+		RenderTarget = HqaaTaaJitterTex5;
+		ClearRenderTargets = true;
+	}
+#endif
+#if HQAA_OPTIONAL__TEMPORAL_AA > 3
+	pass TAAEdgeDetection
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAAEdgeDetectionPS;
+		RenderTarget = HqaaTaaEdgesTex;
+		ClearRenderTargets = true;
+	}
+	pass TAACreateJitter
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAAGenerateBufferJitterPS;
+		RenderTarget = HqaaTaaJitterTex6;
+		ClearRenderTargets = true;
+	}
+	pass TAABlending
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAATemporalBlendingFourPS;
+	}
+#if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
+	pass TAAJitterTransfer
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAATAATransferJitterTexFourPS;
+		RenderTarget = HqaaTaaJitterTex7;
+		ClearRenderTargets = true;
+	}
+#endif
+#endif //3
+#endif //2
+#endif //1
 	pass TAAEdgeDetection
 	{
 		VertexShader = PostProcessVS;
