@@ -171,7 +171,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif
 #if HQAA__GLOBAL_PRESET == 6 // Horror
 	#define HQAA_ADVANCED_MODE 0
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
 	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 1
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
@@ -195,11 +195,11 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 #endif
 #if HQAA__GLOBAL_PRESET == 9 // Eye Comfort
 	#define HQAA_ADVANCED_MODE 0
-	#define HQAA_OPTIONAL__TEMPORAL_AA 1
+	#define HQAA_OPTIONAL__TEMPORAL_AA 2
 	#define HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE 0
 	#define HQAA_OPTIONAL__DEBANDING 1
 	#define HQAA_OPTIONAL__SOFTENING 1
-	#define HQAA_FXAA_MULTISAMPLING 2
+	#define HQAA_FXAA_MULTISAMPLING 3
 #endif
 #if HQAA__GLOBAL_PRESET == 10 // Stream-Friendly
 	#define HQAA_ADVANCED_MODE 0
@@ -321,7 +321,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 28.22.270822\n\n";
+	ui_label = "Version: 28.22.290822\n\n";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -631,8 +631,8 @@ uniform uint HqaaPreset <
 
 #if HQAA__GLOBAL_PRESET == 0
 #if !HQAA_ADVANCED_MODE
-static const float HqaaNoiseControlStrength = 50;
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaNoiseControlStrength = 20;
+static const float HqaaLowLumaThreshold = 0.333333;
 static const bool HqaaSmCornerDetection = true;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxEarlyExit = true;
@@ -661,7 +661,7 @@ uniform float HqaaLowLumaThreshold <
 	ui_spacing = 3;
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 0.25;
+> = 0.333333;
 
 uniform float HqaaDynamicThresholdCustom <
 	ui_type = "slider";
@@ -693,7 +693,7 @@ uniform float HqaaNoiseControlStrength <
 				 "the output would cause a high luma delta.";
 	ui_category = "Edge Detection";
 	ui_category_closed = true;
-> = 50;
+> = 20;
 
 uniform uint HqaaSourceInterpolation <
 	ui_type = "combo";
@@ -1025,7 +1025,7 @@ uniform float HqaaTaaJitterOffset <
 				 "aliasing and shimmering but increases blur.";
 	ui_category = "Temporal Anti-Aliasing";
 	ui_category_closed = true;
-> = 0.375;
+> = 0.5;
 
 #if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 uniform float HqaaTaaTemporalWeight <
@@ -1050,7 +1050,7 @@ uniform float HqaaTaaMinimumBlend <
 	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
 	ui_category = "Temporal Anti-Aliasing";
 	ui_category_closed = true;
-> = 0.333333;
+> = 0.0;
 
 uniform bool HqaaTaaEdgeHinting <
 	ui_label = "Use SMAA Edge Hinting";
@@ -1226,7 +1226,7 @@ uniform int HqaaDebugExplainer <
 #elif HQAA__GLOBAL_PRESET == 12 /////////////////////////////////////////////// CUSTOM CODE PRESET //////////////////////////////////////////////////////////
 
 static const float HqaaEdgeThresholdCustom = 0.075;
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaLowLumaThreshold = 0.333333;
 static const float HqaaDynamicThresholdCustom = 66.666667;
 static const uint HqaaFxQualityCustom = 20;
 static const uint HqaaSourceInterpolation = 0;
@@ -1245,7 +1245,7 @@ static const float HqaaHysteresisFudgeFactor = 0.0;
 
 #else // HQAA__GLOBAL_PRESET != 0 || 12 ///////////////////////////////////// END CUSTOM CODE PRESET ////////////////////////////////////////////////////////
 
-static const float HqaaLowLumaThreshold = 0.25;
+static const float HqaaLowLumaThreshold = 0.333333;
 static const bool HqaaSmCornerDetection = true;
 static const bool HqaaDoLumaHysteresis = true;
 static const bool HqaaFxTexelGrowth = true;
@@ -1315,7 +1315,7 @@ static const float HQAA_HYSTERESIS_FUDGE_PRESET[4] = {0.05, 0.04, 0.025, 0.01};
 #define __HQAA_SM_AREATEX_RANGE_DIAG clamp(__HQAA_SM_RADIUS, 0.0, 20.0)
 
 #if HQAA__GLOBAL_PRESET == 1 // Top Down
-static const float HqaaNoiseControlStrength = 62.5;
+static const float HqaaNoiseControlStrength = 25;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1331,9 +1331,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
+static const float HqaaTaaJitterOffset = 0.5;
 //static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 //static const uint HqaaDebandPreset = 0;
@@ -1350,7 +1350,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 2 // Open World
 //static const uint HqaaPreset = 3;
-static const float HqaaNoiseControlStrength = 40;
+static const float HqaaNoiseControlStrength = 20;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1366,9 +1366,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
+static const float HqaaTaaJitterOffset = 0.5;
 static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 static const uint HqaaDebandPreset = 0;
@@ -1385,7 +1385,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 3 // Survival
 //static const uint HqaaPreset = 2;
-static const float HqaaNoiseControlStrength = 66.666667;
+static const float HqaaNoiseControlStrength = 30;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.375;
@@ -1401,9 +1401,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.333333;
+static const float HqaaTaaJitterOffset = 0.5;
 static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.125;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 //static const uint HqaaDebandPreset = 0;
@@ -1420,7 +1420,7 @@ static const bool HqaaTaaThresholdHinting = true;
 
 #if HQAA__GLOBAL_PRESET == 4 // Action
 //static const uint HqaaPreset = 2;
-static const float HqaaNoiseControlStrength = 50;
+static const float HqaaNoiseControlStrength = 20;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1436,9 +1436,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
+static const float HqaaTaaJitterOffset = 0.5;
 //static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 static const uint HqaaDebandPreset = 0;
@@ -1455,7 +1455,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 5 // Racing
 //static const uint HqaaPreset = 2;
-static const float HqaaNoiseControlStrength = 50;
+static const float HqaaNoiseControlStrength = 33.333333;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1471,9 +1471,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
+static const float HqaaTaaJitterOffset = 0.5;
 //static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 //static const uint HqaaDebandPreset = 0;
@@ -1490,7 +1490,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 6 // Horror
 //static const uint HqaaPreset = 3;
-static const float HqaaNoiseControlStrength = 40;
+static const float HqaaNoiseControlStrength = 30;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 0.75;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1508,7 +1508,7 @@ static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 0.333333;
 static const float HqaaTaaJitterOffset = 0.4;
 static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.375;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 static const uint HqaaDebandPreset = 0;
@@ -1525,7 +1525,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.75;
 
 #if HQAA__GLOBAL_PRESET == 7 // Fake HDR
 //static const uint HqaaPreset = 3;
-static const float HqaaNoiseControlStrength = 50;
+static const float HqaaNoiseControlStrength = 20;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1541,9 +1541,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 2.718282;
-static const float HqaaTaaJitterOffset = 0.375;
+static const float HqaaTaaJitterOffset = 0.5;
 static const float HqaaTaaTemporalWeight = 0.25;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 //static const uint HqaaDebandPreset = 0;
@@ -1560,7 +1560,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 8 // Dim LCD Compensation
 //static const uint HqaaPreset = 3;
-static const float HqaaNoiseControlStrength = 50;
+static const float HqaaNoiseControlStrength = 20;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1576,9 +1576,9 @@ static const float HqaaColorTemperature = 0.6;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 8;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
-//static const float HqaaTaaTemporalWeight = 0.0;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaJitterOffset = 0.5;
+//static const float HqaaTaaTemporalWeight = 0.25;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 static const uint HqaaDebandPreset = 0;
@@ -1595,14 +1595,14 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 9 // Eye Comfort
 //static const uint HqaaPreset = 2;
-static const float HqaaNoiseControlStrength = 50;
+static const float HqaaNoiseControlStrength = 25;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
 static const float HqaaSharpenOffset = 0.75;
 static const float HqaaSharpenerClamping = 0.125;
 static const bool HqaaEnableBrightnessGain = true;
-static const float HqaaGainStrength = 0.125;
+static const float HqaaGainStrength = 0.2;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 87.5;
@@ -1611,9 +1611,9 @@ static const float HqaaColorTemperature = 0.25;
 static const float HqaaBlueLightFilter = 0.25;
 static const uint HqaaTonemapping = 7;
 static const float HqaaTonemappingParameter = 0.5;
-static const float HqaaTaaJitterOffset = 0.375;
-//static const float HqaaTaaTemporalWeight = 0.0;
-static const float HqaaTaaMinimumBlend = 0.166667;
+static const float HqaaTaaJitterOffset = 0.3;
+//static const float HqaaTaaTemporalWeight = 0.25;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 static const uint HqaaDebandPreset = 0;
@@ -1621,16 +1621,16 @@ static const float HqaaDebandRange = 16.0;
 static const bool HqaaDebandIgnoreLowLuma = true;
 static const bool HqaaDebandUseSmaaData = true;
 uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
-static const float HqaaImageSoftenStrength = 0.05;
+static const float HqaaImageSoftenStrength = 0.00;
 static const float HqaaImageSoftenOffset = 0.75;
 static const bool HqaaSoftenerSpuriousDetection = true;
 static const float HqaaSoftenerSpuriousThreshold = 0.1;
-static const float HqaaSoftenerSpuriousStrength = 0.625;
+static const float HqaaSoftenerSpuriousStrength = 0.875;
 #endif // Preset = Eye Comfort
 
 #if HQAA__GLOBAL_PRESET == 10 // Stream-friendly
 //static const uint HqaaPreset = 2;
-static const float HqaaNoiseControlStrength = 50;
+static const float HqaaNoiseControlStrength = 20;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1646,9 +1646,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
-//static const float HqaaTaaTemporalWeight = 0.0;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaJitterOffset = 0.5;
+//static const float HqaaTaaTemporalWeight = 0.25;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 //static const uint HqaaDebandPreset = 0;
@@ -1665,7 +1665,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 11 // e-sports
 //static const uint HqaaPreset = 1;
-static const float HqaaNoiseControlStrength = 80;
+static const float HqaaNoiseControlStrength = 33.333333;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.5;
@@ -1681,8 +1681,8 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.25;
 static const uint HqaaTonemapping = 7;
 static const float HqaaTonemappingParameter = 2.718282 / 2.0;
-static const float HqaaTaaJitterOffset = 0.375;
-//static const float HqaaTaaTemporalWeight = 0.0;
+static const float HqaaTaaJitterOffset = 0.4;
+//static const float HqaaTaaTemporalWeight = 0.25;
 static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
@@ -1700,7 +1700,7 @@ static const bool HqaaTaaThresholdHinting = true;
 
 #if HQAA__GLOBAL_PRESET == 12 // Max Bang for Buck
 static const bool HqaaEnableSharpening = true;
-static const float HqaaNoiseControlStrength = 25;
+static const float HqaaNoiseControlStrength = 10;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
 static const float HqaaSharpenOffset = 0.75;
@@ -1715,9 +1715,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
-static const float HqaaTaaJitterOffset = 0.375;
-//static const float HqaaTaaTemporalWeight = 0.0;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaJitterOffset = 0.5;
+//static const float HqaaTaaTemporalWeight = 0.25;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 //static const uint HqaaDebandPreset = 0;
@@ -1734,7 +1734,7 @@ static const float HqaaSoftenerSpuriousStrength = 0.5;
 
 #if HQAA__GLOBAL_PRESET == 13 // DLSS Assist
 //static const uint HqaaPreset = 2;
-static const float HqaaNoiseControlStrength = 25;
+static const float HqaaNoiseControlStrength = 10;
 static const bool HqaaEnableSharpening = true;
 static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.333333;
@@ -1750,9 +1750,9 @@ static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
 static const uint HqaaTonemapping = 8;
 static const float HqaaTonemappingParameter = 1.00;
-static const float HqaaTaaJitterOffset = 0.375;
-//static const float HqaaTaaTemporalWeight = 0.0;
-static const float HqaaTaaMinimumBlend = 0.333333;
+static const float HqaaTaaJitterOffset = 0.5;
+//static const float HqaaTaaTemporalWeight = 0.25;
+static const float HqaaTaaMinimumBlend = 0.0;
 static const bool HqaaTaaEdgeHinting = true;
 static const bool HqaaTaaThresholdHinting = true;
 static const uint HqaaDebandPreset = 0;
@@ -3207,37 +3207,33 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 	bool horzSpan = weightsHV.x >= weightsHV.y;
 	
 	// early exit check
-    float range = max6(weightsHV.x, weightsHV.y, diagdelta.x, diagdelta.y, diagdelta.z, diagdelta.w);
+    float range = max4(weightsHV.x, weightsHV.y, weightsDI.x, weightsDI.y);
 	if (HqaaFxEarlyExit && (range < edgethreshold))
 		if (clamp(HqaaDebugMode, 3, 5) == HqaaDebugMode) return float(0.0).xxx;
 		else return original;
 	
 	float2 lumaNP = float2(lumaN, lumaS);
 	HQAAMovc(!horzSpan.xx, lumaNP, float2(lumaW, lumaE));
-	HQAAMovc(diagSpan.xx, lumaNP, float2(lumaNW, lumaSE));
-	HQAAMovc((diagSpan && inverseDiag).xx, lumaNP, float2(lumaSW, lumaNE));
-    float gradientN = abs(lumaNP.x - lumaM);
-    float gradientP = abs(lumaNP.y - lumaM);
-    float lumaNN = lumaNP.x + lumaM;
-    if (gradientN >= gradientP && !diagSpan) lengthSign = -lengthSign;
+	HQAAMovc(diagSpan.xx, lumaNP, float2(lumaSW, lumaNE));
+	HQAAMovc((diagSpan && inverseDiag).xx, lumaNP, float2(lumaNW, lumaSE));
+	float2 gradientNP = abs(lumaNP - lumaM);
+    float lumaNN = ((gradientNP.y > gradientNP.x) ? (lumaNP.y + lumaM) : (lumaNP.x + lumaM)) * 0.5;
+    if (gradientNP.x >= gradientNP.y && !diagSpan) lengthSign = -lengthSign;
     if (diagSpan && inverseDiag) lengthSign.y = -lengthSign.y;
-    if (gradientP > gradientN) lumaNN = lumaNP.y + lumaM;
-    float gradientScaled = max(gradientN, gradientP) * 0.25;
-    bool lumaMLTZero = mad(0.5, -lumaNN, lumaM) < 0.0;
+    float gradientScaled = max(gradientNP.x, gradientNP.y) * 0.25;
+    bool lumaMLTZero = (lumaM - lumaNN) < 0.0;
 	
-    float2 posB = texcoord;
-	float texelsize = __HQAA_FX_TEXEL;
-    float2 offNP = float2(0.0, BUFFER_RCP_HEIGHT * texelsize);
-	HQAAMovc(bool(horzSpan).xx, offNP, float2(BUFFER_RCP_WIDTH * texelsize, 0.0));
-	HQAAMovc(bool(diagSpan).xx, offNP, float2(BUFFER_RCP_WIDTH * texelsize, BUFFER_RCP_HEIGHT * texelsize));
-	if (diagSpan && inverseDiag) offNP.y = -offNP.y;
-	HQAAMovc(bool2(!horzSpan || diagSpan, horzSpan || diagSpan), posB, float2(posB.x + lengthSign.x * 0.333333, posB.y + lengthSign.y * 0.333333));
+	float2 offNPdir = float2(horzSpan || diagSpan, (!diagSpan && !horzSpan) || (diagSpan && !inverseDiag)) - float2(0.0, diagSpan && inverseDiag);
+	float2 offNPsign = offNPdir * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT);
+	if (diagSpan) offNPsign *= __HQAA_CONST_HALFROOT2;
+	float2 offNPref = __HQAA_FX_TEXEL.xx;
+	float2 offNP = offNPref * offNPsign;
+    float2 posB = texcoord + lengthSign * 0.333333 * abs(offNPdir.yx);
     float2 posN = posB - offNP;
     float2 posP = posB + offNP;
     float lumaEndN = dot(HQAA_DecodeTex2D(ReShade::BackBuffer, posN).rgb, ref);
     float lumaEndP = dot(HQAA_DecodeTex2D(ReShade::BackBuffer, posP).rgb, ref);
 	
-	lumaNN *= 0.5;
     lumaEndN -= lumaNN;
     lumaEndP -= lumaNN;
 	
@@ -3246,9 +3242,6 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
 	uint iterations = 0;
 	uint maxiterations = __HQAA_FX_QUALITY;
 	uint startgrowingafter = HqaaFxTexelGrowAfter - 1;
-	float2 offNPdir = float2(offNP.x > 0., offNP.y > 0.) - float2(offNP.x < 0., offNP.y < 0.);
-	float2 offNPsign = offNPdir * float2(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT);
-	float2 offNPref = texelsize.xx;
 	float growpercent = (HqaaFxTexelGrowPercent / 100.) + 1.;
 	
 	[loop] while (iterations < maxiterations)
