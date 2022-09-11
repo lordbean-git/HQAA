@@ -634,7 +634,7 @@ static const uint HqaaSourceInterpolationOffset = 0;
 #else
 uniform float HqaaEdgeThresholdCustom <
 	ui_type = "slider";
-	ui_min = 0.0; ui_max = 1.0;
+	ui_min = 0.02; ui_max = 1.0;
 	ui_spacing = 3;
 	ui_label = "Edge Detection Threshold";
 	ui_tooltip = "Local contrast required to be considered an edge";
@@ -1333,7 +1333,7 @@ uniform int HqaaPresetBreakdown <
 
 #if HQAA_ADVANCED_MODE
 
-#define __HQAA_EDGE_THRESHOLD saturate(HqaaEdgeThresholdCustom)
+#define __HQAA_EDGE_THRESHOLD clamp(HqaaEdgeThresholdCustom, 0.02, 1.00)
 #define __HQAA_DYNAMIC_RANGE saturate(HqaaDynamicThresholdCustom / 100.0)
 #define __HQAA_SM_CORNERS saturate(HqaaSmCorneringCustom / 100.0)
 #define __HQAA_FX_QUALITY clamp(HqaaFxQualityCustom, 1, 200)
@@ -1353,14 +1353,14 @@ static const float HQAA_SUBPIX_PRESET[3] = {0.8, 0.875, 1.0};
 static const float HQAA_HYSTERESIS_STRENGTH_PRESET[3] = {0.375, 0.2, 0.125};
 static const float HQAA_HYSTERESIS_FUDGE_PRESET[3] = {0.05, 0.025, 0.015};
 
-#define __HQAA_EDGE_THRESHOLD (HQAA_THRESHOLD_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_DYNAMIC_RANGE (HQAA_DYNAMIC_RANGE_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_SM_CORNERS (HQAA_SMAA_CORNER_ROUNDING_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_FX_QUALITY (HQAA_FXAA_SCAN_ITERATIONS_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_FX_TEXEL (HQAA_FXAA_TEXEL_SIZE_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_FX_BLEND (HQAA_SUBPIX_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_HYSTERESIS_STRENGTH (HQAA_HYSTERESIS_STRENGTH_PRESET[clamp(HqaaPreset, 0, 2)])
-#define __HQAA_HYSTERESIS_FUDGE (HQAA_HYSTERESIS_FUDGE_PRESET[clamp(HqaaPreset, 0, 2)])
+#define __HQAA_EDGE_THRESHOLD clamp(HQAA_THRESHOLD_PRESET[clamp(HqaaPreset, 0, 2)], 0.02, 1.0)
+#define __HQAA_DYNAMIC_RANGE saturate(HQAA_DYNAMIC_RANGE_PRESET[clamp(HqaaPreset, 0, 2)])
+#define __HQAA_SM_CORNERS saturate(HQAA_SMAA_CORNER_ROUNDING_PRESET[clamp(HqaaPreset, 0, 2)])
+#define __HQAA_FX_QUALITY clamp(HQAA_FXAA_SCAN_ITERATIONS_PRESET[clamp(HqaaPreset, 0, 2)], 1, 200)
+#define __HQAA_FX_TEXEL clamp(HQAA_FXAA_TEXEL_SIZE_PRESET[clamp(HqaaPreset, 0, 2)], 0.0, 4.0)
+#define __HQAA_FX_BLEND saturate(HQAA_SUBPIX_PRESET[clamp(HqaaPreset, 0, 2)])
+#define __HQAA_HYSTERESIS_STRENGTH saturate(HQAA_HYSTERESIS_STRENGTH_PRESET[clamp(HqaaPreset, 0, 2)])
+#define __HQAA_HYSTERESIS_FUDGE saturate(HQAA_HYSTERESIS_FUDGE_PRESET[clamp(HqaaPreset, 0, 2)])
 
 #endif //HQAA_ADVANCED_MODE
 
@@ -2981,7 +2981,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	float Lavg = sqrt(L * clamp(((Lleft + Ltop) / 2.0), __HQAA_SMALLEST_COLOR_STEP, 1.0));
 	float rangemult = 1.0 - log2(1.0 + clamp(log2(1.0 + Lavg), 0.0, HqaaLowLumaThreshold) * rcp(HqaaLowLumaThreshold));
 	float edgethreshold = __HQAA_EDGE_THRESHOLD;
-	edgethreshold = mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold);
+	edgethreshold = clamp(mad(rangemult, -(__HQAA_DYNAMIC_RANGE * edgethreshold), edgethreshold), 0.02, 1.00);
 	float2 bufferdata = float2(L, edgethreshold);
 	
 	float2 edges = step(edgethreshold, float2(Dleft, Dtop));
@@ -3000,8 +3000,7 @@ float4 HQAAHybridEdgeDetectionPS(float4 position : SV_Position, float2 texcoord 
 	maxdelta = max(maxdelta, float2(Dleftleft, Dtoptop));
 	float largestdelta = max(maxdelta.x, maxdelta.y);
 	
-	float safethreshold = max(__HQAA_EDGE_THRESHOLD, __HQAA_SMALLEST_COLOR_STEP);
-	float contrastadaptation = 2.0 * rcp(edgethreshold / safethreshold);
+	float contrastadaptation = 2.0 * (__HQAA_EDGE_THRESHOLD / edgethreshold);
 	edges *= step(largestdelta, contrastadaptation * float2(Dleft, Dtop));
 	
 	return float4(edges, bufferdata);
@@ -3090,8 +3089,7 @@ float3 HQAANeighborhoodBlendingPS(float4 position : SV_Position, float2 texcoord
  	   }
         
         float Lpost = dot(resultAA, __HQAA_LUMA_REF);
-		float safethreshold = max(__HQAA_EDGE_THRESHOLD, __HQAA_SMALLEST_COLOR_STEP);
-		float noisecontrol = 1.0 - saturate(rcp(HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).a / safethreshold) * sqrt(abs(Lpost - Lpre)) * saturate(HqaaNoiseControlStrength / 100.));
+		float noisecontrol = 1.0 - saturate((__HQAA_EDGE_THRESHOLD / HQAA_Tex2D(HQAAsamplerAlphaEdges, texcoord).a) * sqrt(abs(Lpost - Lpre)) * saturate(HqaaNoiseControlStrength / 100.));
 		resultAA = lerp(original, resultAA, noisecontrol);
 		
 		resultAA = ConditionalEncode(resultAA);
@@ -3232,11 +3230,7 @@ float3 HQAAFXPS(float4 position : SV_Position, float2 texcoord : TEXCOORD0, floa
     float blendclamp;
     
     if (goodSpan) blendclamp = 1.0;
-	else
-	{
-		float safethreshold = max(__HQAA_EDGE_THRESHOLD, __HQAA_SMALLEST_COLOR_STEP);
-		blendclamp = 1.0 - saturate(rcp(smaadata.a / safethreshold) * sqrt(abs(endluma - lumaM)) * saturate(HqaaNoiseControlStrength / 100.));
-	}
+	else blendclamp = 1.0 - saturate((__HQAA_EDGE_THRESHOLD / smaadata.a) * sqrt(abs(endluma - lumaM)) * saturate(HqaaNoiseControlStrength / 100.));
     
     float subpixOut = 1.0;
     
@@ -3793,8 +3787,7 @@ float3 HQAASofteningPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD0, f
 	
 	if (HqaaSoftenerSpuriousDetection)
 	{
-    	float edgethreshold = max(__HQAA_EDGE_THRESHOLD, __HQAA_SMALLEST_COLOR_STEP);
-    	float spuriousthreshold = (edgedata.a / edgethreshold) * saturate(HqaaSoftenerSpuriousThreshold);
+    	float spuriousthreshold = rcp(__HQAA_EDGE_THRESHOLD / edgedata.a) * saturate(HqaaSoftenerSpuriousThreshold);
 		float3 surroundavg = (b + c + d + e + f + g + h + i) / 8.0;
 		float middledelta = dot(abs(a - surroundavg), __HQAA_LUMA_REF);
 		highdelta = middledelta > spuriousthreshold;
