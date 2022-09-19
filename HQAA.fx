@@ -94,12 +94,25 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 
 /////////////////////////////////////////////////////// CONFIGURABLE TOGGLES //////////////////////////////////////////////////////////////
 
-#ifndef HQAA_OLED_ANTI_BURN_IN
-	#define HQAA_OLED_ANTI_BURN_IN 0
+#ifndef HQAA_SPLITSCREEN_PREVIEW
+	#define HQAA_SPLITSCREEN_PREVIEW 0
 #endif
-#if HQAA_OLED_ANTI_BURN_IN > 1 || HQAA_OLED_ANTI_BURN_IN < 0
+#if HQAA_SPLITSCREEN_PREVIEW > 1 || HQAA_SPLITSCREEN_PREVIEW < 0
+	#undef HQAA_SPLITSCREEN_PREVIEW
+	#define HQAA_SPLITSCREEN_PREVIEW 0
+#endif
+
+#if HQAA_SPLITSCREEN_PREVIEW
 	#undef HQAA_OLED_ANTI_BURN_IN
 	#define HQAA_OLED_ANTI_BURN_IN 0
+#else
+	#ifndef HQAA_OLED_ANTI_BURN_IN
+		#define HQAA_OLED_ANTI_BURN_IN 0
+	#endif
+	#if HQAA_OLED_ANTI_BURN_IN > 1 || HQAA_OLED_ANTI_BURN_IN < 0
+		#undef HQAA_OLED_ANTI_BURN_IN
+		#define HQAA_OLED_ANTI_BURN_IN 0
+	#endif
 #endif
 
 #if HQAA__INTRODUCTION_ACKNOWLEDGED != 1
@@ -313,7 +326,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 29.0.090922\n\n";
+	ui_label = "Version: 29.0.190922\n\n";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -581,7 +594,7 @@ uniform uint HqaaDebugMode <
 	ui_category = "Debug";
 	ui_category_closed = true;
 	ui_spacing = 3;
-	ui_label = "Mouseover for info";
+	ui_label = "Mouseover for info\n\n";
 	ui_text = "Debug Mode:";
 	ui_items = "Off\n\n\0Detected Edges\0SMAA Blend Weights\n\n\0FXAA Results\0FXAA Lumas\0FXAA Metrics\0FXAA Spans\n\n\0Hysteresis Pattern\n\n\0Dynamic Threshold Usage\n\n\0Disable SMAA\0Disable FXAA\0\n\n";
 	ui_tooltip = "Useful primarily for learning what everything\n"
@@ -595,6 +608,23 @@ uniform uint HqaaDebugMode <
 #else
 static const uint HqaaDebugMode = 0;
 #endif
+
+#if HQAA_SPLITSCREEN_PREVIEW
+uniform float HqaaSplitscreenPosition <
+	ui_type = "slider";
+	ui_spacing = 3;
+	ui_label = "Split Position";
+	ui_tooltip = "Moves the separator between before and\n"
+				 "after around the screen.";
+	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
+	ui_category = "Splitscreen Preview";
+> = 0.5;
+
+uniform bool HqaaSplitscreenFlipped <
+	ui_label = "Switch Before/After Sides";
+	ui_category = "Splitscreen Preview";
+> = false;
+#endif //HQAA_SPLITSCREEN_PREVIEW
 
 uniform int HqaaAboutEOF <
 	ui_type = "radio";
@@ -944,8 +974,20 @@ uniform float HqaaVibranceStrength <
 	ui_category_closed = true;
 > = 50;
 
+uniform bool HqaaVibranceNoCorrection <
+	ui_label = "Allow Vibrance to alter Luma";
+	ui_tooltip = "If enabled, Vibrance will not correct\n"
+				 "its output to match the original luma\n"
+				 "of the pixel. This can make colors pop\n"
+				 "somewhat more in exchange for lowered\n"
+				 "accuracy in brightness of the scene.";
+	ui_category = "Color Palette";
+	ui_category_closed = true;
+> = false;
+
  uniform float HqaaSaturationStrength <
 	ui_type = "slider";
+	ui_spacing = 3;
 	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
 	ui_label = "Saturation";
 	ui_tooltip = "This setting is designed to try and help\n"
@@ -1376,6 +1418,7 @@ static const float HqaaSharpenerClamping = 0.333333;
 static const float HqaaGainStrength = 0.375;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.6;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1408,6 +1451,7 @@ static const float HqaaSharpenerClamping = 0.666667;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1440,6 +1484,7 @@ static const float HqaaSharpenerClamping = 0.2;
 static const float HqaaGainStrength = 0.4;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1472,6 +1517,7 @@ static const float HqaaSharpenerClamping = 0.4;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1504,6 +1550,7 @@ static const float HqaaSharpenerClamping = 0.75;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1536,6 +1583,7 @@ static const float HqaaSharpenerClamping = 0.666667;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1568,6 +1616,7 @@ static const float HqaaSharpenerClamping = 0.5;
 static const float HqaaGainStrength = 0.625;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
+static const bool HqaaVibranceNoCorrection = true;
 static const float HqaaSaturationStrength = 0.5625;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1599,8 +1648,9 @@ static const float HqaaSharpenOffset = 0.6;
 static const float HqaaSharpenerClamping = 0.666667;
 static const float HqaaGainStrength = 0.125;
 static const bool HqaaGainLowLumaCorrection = true;
-static const float HqaaVibranceStrength = 50;
-static const float HqaaSaturationStrength = 0.533333;
+static const float HqaaVibranceStrength = 75;
+static const bool HqaaVibranceNoCorrection = false;
+static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.25;
 static const uint HqaaTonemapping = 8;
@@ -1632,6 +1682,7 @@ static const float HqaaSharpenerClamping = 0.666667;
 static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1664,6 +1715,7 @@ static const float HqaaSharpenerClamping = 0.0;
 static const float HqaaGainStrength = 0.5;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.25;
@@ -1698,6 +1750,7 @@ static const float HqaaGainStrength = 0.0;
 static const bool HqaaGainLowLumaCorrection = true;
 static const bool HqaaEnableColorPalette = false;
 static const float HqaaVibranceStrength = 50;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1727,9 +1780,10 @@ static const float HqaaSharpenerStrength = 1.0;
 static const float HqaaSharpenerAdaptation = 0.4;
 static const float HqaaSharpenOffset = 0.6;
 static const float HqaaSharpenerClamping = 0.5;
-static const float HqaaGainStrength = 0.125;
+static const float HqaaGainStrength = 0.1;
 static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 80;
+static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.475;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
@@ -1769,6 +1823,7 @@ uniform uint HqaaDebandSeed < source = "random"; min = 0; max = 32767; >;
 #define __HQAA_GREEN_LUMA float3(1./5., 7./10., 1./10.)
 #define __HQAA_RED_LUMA float3(5./8., 1./4., 1./8.)
 #define __HQAA_BLUE_LUMA float3(1./8., 3./8., 1./2.)
+#define __HQAA_YUV_LUMA float3(0.299, 0.587, 0.114)
 
 #define __HQAA_SM_BUFFERINFO float4(BUFFER_RCP_WIDTH, BUFFER_RCP_HEIGHT, BUFFER_WIDTH, BUFFER_HEIGHT)
 #define __HQAA_SM_AREATEX_RANGE 16.
@@ -2005,12 +2060,12 @@ where Ey, R, G and B are in the range [0,1] and Ecr and Ecb are in the range [-0
 */
 float3 RGBtoYUV(float3 input)
 {
-	float3 argb = saturate(input); // value must be between [0,1]
 	float3 yuv;
-	
-	yuv.x = saturate((0.299 * argb.r) + (0.587 * argb.g) + (0.114 * argb.b));
-	yuv.y = clamp(0.713 * (argb.r - yuv.x), -0.5, 0.5);
-	yuv.z = clamp(0.564 * (argb.b - yuv.x), -0.5, 0.5);
+	yuv.x = dot(input, __HQAA_YUV_LUMA);
+	yuv.y = 0.713 * (input.r - yuv.x);
+	yuv.z = 0.564 * (input.b - yuv.x);
+	yuv.yz = clamp(yuv.yz, -0.5, 0.5);
+	yuv.x = saturate(yuv.x);
 	
 	return yuv;
 }
@@ -2025,16 +2080,12 @@ float4 RGBtoYUV(float4 input)
 */
 float3 YUVtoRGB(float3 yuv)
 {
-	yuv.x = saturate(yuv.x);
-	yuv.yz = clamp(yuv.yz, -0.5, 0.5);
-	
 	float3 argb;
-	
 	argb.r = (1.402525 * yuv.y) + yuv.x;
 	argb.b = (1.77305 * yuv.z) + yuv.x;
 	argb.g = (1.703578 * yuv.x) - (0.50937 * argb.r) - (0.194208 * argb.b);
 	
-	return argb;
+	return saturate(argb);
 }
 float4 YUVtoRGB(float4 yuv)
 {
@@ -2066,6 +2117,7 @@ float chromadelta(float3 pixel1, float3 pixel2)
 float3 AdjustVibrance(float3 pixel, float satadjust)
 {
 	float3 outdot = pixel;
+	float refY = dot(pixel, __HQAA_LUMA_REF);
 	float refsat = dotsat(pixel);
 	float realadjustment = saturate(refsat + satadjust) - refsat;
 	float2 highlow = float2(max3(pixel.r, pixel.g, pixel.b), min3(pixel.r, pixel.g, pixel.b));
@@ -2106,7 +2158,14 @@ float3 AdjustVibrance(float3 pixel, float satadjust)
 		}
 	}
 	
-	return outdot;
+	if (!HqaaVibranceNoCorrection)
+	{
+		float outY = dot(outdot, __HQAA_LUMA_REF);
+		float deltaY = (outY == 0.0) ? 0.0 : (refY / outY);
+		outdot *= deltaY;
+	}
+	
+	return saturate(outdot);
 }
 float4 AdjustVibrance(float4 pixel, float satadjust)
 {
@@ -2779,6 +2838,22 @@ texture HQAAsearchTex < source = "SearchTex.png"; >
 	Height = 16;
 	Format = R8;
 };
+
+#if HQAA_SPLITSCREEN_PREVIEW
+texture HQAAOriginalBufferTex
+{
+	Width = BUFFER_WIDTH;
+	Height = BUFFER_HEIGHT;
+	#if BUFFER_COLOR_BIT_DEPTH == 8
+	Format = RGBA8;
+	#elif BUFFER_COLOR_BIT_DEPTH == 10
+	Format = RGB10A2;
+	#else
+	Format = RGBA16F;
+	#endif
+};
+sampler OriginalBuffer {Texture = HQAAOriginalBufferTex;};
+#endif
 
 #if HQAA_OPTIONAL__TEMPORAL_AA
 #if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
@@ -3875,6 +3950,22 @@ float3 HQAALumaStrobePS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 }
 #endif //HQAA_OLED_ANTI_BURN_IN
 
+#if HQAA_SPLITSCREEN_PREVIEW
+float4 HQAABufferCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	return HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+}
+
+float4 HQAASplitScreenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
+{
+	float leftbound = HqaaSplitscreenPosition - BUFFER_RCP_WIDTH;
+	float rightbound = HqaaSplitscreenPosition + BUFFER_RCP_WIDTH;
+	if (clamp(texcoord.x, leftbound, rightbound) == texcoord.x) return 0.0;
+	if ((texcoord.x > HqaaSplitscreenPosition) && HqaaSplitscreenFlipped) return HQAA_Tex2D(OriginalBuffer, texcoord);
+	if ((texcoord.x < HqaaSplitscreenPosition) && !HqaaSplitscreenFlipped) return HQAA_Tex2D(OriginalBuffer, texcoord);
+	return HQAA_Tex2D(ReShade::BackBuffer, texcoord);
+}
+#endif //HQAA_SPLITSCREEN_PREVIEW
 /***************************************************************************************************************************************/
 /******************************************************** OPTIONAL SHADER CODE END *****************************************************/
 /***************************************************************************************************************************************/
@@ -3888,6 +3979,15 @@ technique HQAA <
 				 "============================================================";
 >
 {
+#if HQAA_SPLITSCREEN_PREVIEW
+	pass CopyBuffer
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAABufferCopyPS;
+		RenderTarget = HQAAOriginalBufferTex;
+		ClearRenderTargets = true;
+	}
+#endif
 	pass EdgeDetection
 	{
 		VertexShader = PostProcessVS;
@@ -4116,4 +4216,11 @@ technique HQAA <
 		PixelShader = HQAALumaStrobePS;
 	}
 #endif //HQAA_OLED_ANTI_BURN_IN
+#if HQAA_SPLITSCREEN_PREVIEW
+	pass SplitScreenPreview
+	{
+		VertexShader = PostProcessVS;
+		PixelShader = HQAASplitScreenPS;
+	}
+#endif //HQAA_SPLITSCREEN_PREVIEW
 }
