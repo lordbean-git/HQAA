@@ -108,7 +108,7 @@ COPYRIGHT (C) 2010, 2011 NVIDIA CORPORATION. ALL RIGHTS RESERVED.
 	#undef HQAA__GLOBAL_PRESET
 	#define HQAA__GLOBAL_PRESET 11
 	#undef HQAA_SPLITSCREEN_PREVIEW
-	#define HQAA_SPLITSCREEN_PREVIEW 0
+	#define HQAA_SPLITSCREEN_PREVIEW 1
 	#undef HQAA_OLED_ANTI_BURN_IN
 	#define HQAA_OLED_ANTI_BURN_IN 0
 #endif
@@ -351,7 +351,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 29.2.211022\n\n";
+	ui_label = "Version: 29.2.311022\n\n";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -646,6 +646,7 @@ static const uint HqaaDebugMode = 0;
 #endif
 
 #if HQAA_SPLITSCREEN_PREVIEW
+#if HQAA__INTRODUCTION_ACKNOWLEDGED
 uniform float HqaaSplitscreenPosition <
 	ui_type = "slider";
 	ui_spacing = 3;
@@ -660,6 +661,17 @@ uniform bool HqaaSplitscreenFlipped <
 	ui_label = "Switch Before/After Sides";
 	ui_category = "Splitscreen Preview";
 > = false;
+
+uniform bool HqaaSplitscreenAuto <
+	ui_label = "Demo Mode";
+	ui_category = "Splitscreen Preview";
+> = false;
+#else
+static const float HqaaSplitscreenPosition = 0.5;
+static const bool HqaaSplitscreenFlipped = false;
+static const bool HqaaSplitscreenAuto = true;
+#endif //HQAA__INTRODUCTION_ACKNOWLEDGED
+#define __HQAA_SSP_TIMER abs(((HqaaFramecounter % (2. * BUFFER_WIDTH)) / BUFFER_WIDTH) -1.)
 #endif //HQAA_SPLITSCREEN_PREVIEW
 
 #if HQAA__INTRODUCTION_ACKNOWLEDGED
@@ -1108,21 +1120,31 @@ uniform float HqaaSharpenerLumaCorrection <
 
 uniform bool HqaaEnableBrightnessGain <
 	ui_spacing = 3;
-	ui_label = "Enable Brightness Booster";
+	ui_label = "Enable Brightness Controls";
 	ui_tooltip = "Uses logarithmic adjustment to increase brightness.\n"
 				 "Not compiled when disabled.";
-	ui_category = "Brightness Booster";
+	ui_category = "Brightness Controls";
 	ui_category_closed = true;
 > = false;
+
+uniform float HqaaDehazeStrength <
+	ui_type = "slider";
+	ui_spacing = 3;
+	ui_label = "Dehaze";
+	ui_tooltip = "Adjusts pixels to try and remove 'hazy' appearance.\n"
+				 "Typically causes a slight drop in brightness.";
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
+	ui_category = "Brightness Controls";
+	ui_category_closed = true;
+> = 0.0;
 
 uniform float HqaaGainStrength <
 	ui_type = "slider";
 	ui_min = 0.00; ui_max = 1.0; ui_step = 0.001;
-	ui_spacing = 3;
 	ui_label = "Boost";
 	ui_tooltip = "Allows to raise overall image brightness\n"
 			  "as a quick fix for dark games or monitors.";
-	ui_category = "Brightness Booster";
+	ui_category = "Brightness Controls";
 	ui_category_closed = true;
 > = 0.0;
 
@@ -1130,7 +1152,7 @@ uniform bool HqaaGainLowLumaCorrection <
 	ui_label = "Washout Correction\n\n";
 	ui_tooltip = "Normalizes contrast ratio of resulting pixels\n"
 				 "to reduce perceived contrast washout.";
-	ui_category = "Brightness Booster";
+	ui_category = "Brightness Controls";
 	ui_category_closed = true;
 > = true;
 
@@ -1161,6 +1183,15 @@ uniform bool HqaaEnableColorPalette <
 	ui_category = "Color Palette";
 	ui_category_closed = true;
  > = 0.50;
+ 
+uniform float HqaaContrastEnhance <
+	ui_type = "slider";
+	ui_min = 0.0; ui_max = 1.0; ui_step = 0.001;
+	ui_label = "Contrast Enhancement";
+	ui_tooltip = "Causes colors to stand apart more.";
+	ui_category = "Color Palette";
+	ui_category_closed = true;
+> = 0.0;
  
 uniform float HqaaVibranceStrength <
 	ui_type = "slider";
@@ -1678,8 +1709,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.6;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 0.8;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1714,8 +1747,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.8;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1750,8 +1785,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.333333;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 8;
 static const float HqaaTonemappingParameter = 2.718282;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1786,8 +1823,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.8;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1822,8 +1861,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 50;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.6;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 0.333333;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1859,8 +1900,10 @@ static const bool HqaaEnableColorPalette = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 6;
 static const float HqaaTonemappingParameter = 2.718282;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1896,8 +1939,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = true;
 static const float HqaaSaturationStrength = 0.5625;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 8;
 static const float HqaaTonemappingParameter = 2.25;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1932,8 +1977,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 66.666667;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 8;
 static const float HqaaTonemappingParameter = 1.8;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -1968,8 +2015,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.25;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 8;
 static const float HqaaTonemappingParameter = 2.0;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -2004,8 +2053,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.8;
 static const float HqaaTaaJitterOffset = 0.333333;
@@ -2042,8 +2093,10 @@ static const bool HqaaEnableColorPalette = false;
 static const float HqaaVibranceStrength = 50;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.5;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.0;
 static const float HqaaTaaJitterOffset = 0.433333;
@@ -2078,8 +2131,10 @@ static const bool HqaaGainLowLumaCorrection = true;
 static const float HqaaVibranceStrength = 55;
 static const bool HqaaVibranceNoCorrection = false;
 static const float HqaaSaturationStrength = 0.55;
+static const float HqaaContrastEnhance = 0.0;
 static const float HqaaColorTemperature = 0.5;
 static const float HqaaBlueLightFilter = 0.0;
+static const float HqaaDehazeStrength = 0.0;
 static const uint HqaaTonemapping = 0;
 static const float HqaaTonemappingParameter = 1.8;
 static const float HqaaTaaJitterOffset = 0.25;
@@ -3043,6 +3098,27 @@ float3 logarithmic_black_stabilizer(float3 x)
 	return saturate(result);
 }
 
+float3 logarithmic_dehaze(float3 x)
+{
+	float luma = dot(x, __HQAA_LUMA_REF);
+	bool3 truezero = !x;
+	float offset = clamp(HqaaDehazeStrength * __HQAA_CONST_E, 0.0, __HQAA_CONST_E) * saturate(0.5 - luma);
+	float3 result = pow(abs(__HQAA_CONST_E + offset), log(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0))) * (!truezero);
+	return saturate(result);
+}
+
+float3 contrast_enhance(float3 x)
+{
+	float luma = dot(x, __HQAA_LUMA_REF);
+	float average = dot(x, __HQAA_AVERAGE_REF);
+	bool3 truezero = !x;
+	float offset = clamp(HqaaContrastEnhance * 2.0, 0.0, 2.0) * saturate(1.0 - average);
+	float3 result = pow(abs(2.0 + offset), log2(clamp(x, __HQAA_SMALLEST_COLOR_STEP, 1.0))) * (!truezero);
+	float deltaL = luma / dot(result, __HQAA_LUMA_REF);
+	result *= deltaL;
+	return saturate(result);
+}
+
 /***************************************************************************************************************************************/
 /******************************************************** SUPPORT CODE END *************************************************************/
 /***************************************************************************************************************************************/
@@ -3721,6 +3797,25 @@ float3 HQAAPostProcessPS(float4 position : SV_Position, float2 texcoord : TEXCOO
 		altered = true;
 	}
 	
+	if (HqaaEnableBrightnessGain && (HqaaDehazeStrength > 0.0))
+	{
+		pixel = logarithmic_dehaze(pixel);
+		altered = true;
+	}
+	
+	if (HqaaEnableColorPalette && (HqaaTonemapping > 0))
+	{
+		if (HqaaTonemapping == 1) pixel = extended_reinhard(pixel);
+		if (HqaaTonemapping == 2) pixel = extended_reinhard_luma(pixel);
+		if (HqaaTonemapping == 3) pixel = reinhard_jodie(pixel);
+		if (HqaaTonemapping == 4) pixel = uncharted2_filmic(pixel);
+		if (HqaaTonemapping == 5) pixel = aces_approx(pixel);
+		if (HqaaTonemapping == 6) pixel = logarithmic_fake_hdr(pixel);
+		if (HqaaTonemapping == 7) pixel = logarithmic_range_compression(pixel);
+		if (HqaaTonemapping == 8) pixel = logarithmic_black_stabilizer(pixel);
+		altered = true;
+	}
+	
 	if (HqaaEnableBrightnessGain && (saturate(HqaaGainStrength) > 0.0))
 	{
 		float3 outdot = pixel;
@@ -3750,20 +3845,12 @@ float3 HQAAPostProcessPS(float4 position : SV_Position, float2 texcoord : TEXCOO
 		pixel = outdot * (!truezero);
 		altered = true;
 	}
-
-	if (HqaaEnableColorPalette && (HqaaTonemapping > 0))
+	
+	if (HqaaEnableColorPalette && (HqaaContrastEnhance > 0.0))
 	{
-		if (HqaaTonemapping == 1) pixel = extended_reinhard(pixel);
-		if (HqaaTonemapping == 2) pixel = extended_reinhard_luma(pixel);
-		if (HqaaTonemapping == 3) pixel = reinhard_jodie(pixel);
-		if (HqaaTonemapping == 4) pixel = uncharted2_filmic(pixel);
-		if (HqaaTonemapping == 5) pixel = aces_approx(pixel);
-		if (HqaaTonemapping == 6) pixel = logarithmic_fake_hdr(pixel);
-		if (HqaaTonemapping == 7) pixel = logarithmic_range_compression(pixel);
-		if (HqaaTonemapping == 8) pixel = logarithmic_black_stabilizer(pixel);
+		pixel = contrast_enhance(pixel);
 		altered = true;
 	}
-	
 	if (HqaaEnableColorPalette && (clamp(HqaaVibranceStrength, 0, 100) != 50.0))
 	{
 		float3 outdot = pixel;
@@ -4244,11 +4331,11 @@ float4 HQAABufferCopyPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) :
 
 float4 HQAASplitScreenPS(float4 vpos : SV_Position, float2 texcoord : TEXCOORD) : SV_Target
 {
-	float leftbound = HqaaSplitscreenPosition - BUFFER_RCP_WIDTH;
-	float rightbound = HqaaSplitscreenPosition + BUFFER_RCP_WIDTH;
+	float leftbound = HqaaSplitscreenAuto ? (__HQAA_SSP_TIMER - BUFFER_RCP_WIDTH) : (HqaaSplitscreenPosition - BUFFER_RCP_WIDTH);
+	float rightbound = HqaaSplitscreenAuto ? (__HQAA_SSP_TIMER + BUFFER_RCP_WIDTH) : (HqaaSplitscreenPosition + BUFFER_RCP_WIDTH);
 	if (clamp(texcoord.x, leftbound, rightbound) == texcoord.x) return 0.0;
-	if ((texcoord.x > HqaaSplitscreenPosition) && HqaaSplitscreenFlipped) return HQAA_Tex2D(OriginalBuffer, texcoord);
-	if ((texcoord.x < HqaaSplitscreenPosition) && !HqaaSplitscreenFlipped) return HQAA_Tex2D(OriginalBuffer, texcoord);
+	if ((texcoord.x > rightbound) && HqaaSplitscreenFlipped) return HQAA_Tex2D(OriginalBuffer, texcoord);
+	if ((texcoord.x < leftbound) && !HqaaSplitscreenFlipped) return HQAA_Tex2D(OriginalBuffer, texcoord);
 	return HQAA_Tex2D(ReShade::BackBuffer, texcoord);
 }
 #endif //HQAA_SPLITSCREEN_PREVIEW
