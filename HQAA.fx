@@ -418,7 +418,7 @@ uniform int HqaaAboutSTART <
 	ui_type = "radio";
 	ui_label = " ";
 	ui_text = "\n"
-			  "---------------------------------- HQAA v30.0 ----------------------------------\n"
+			  "---------------------------------- HQAA v30.1 ----------------------------------\n"
 			#if !HQAA__INTRODUCTION_ACKNOWLEDGED
 			  "READ THIS INFO BEFORE FIRST USE as this information is IMPORTANT and will allow\n"
 			  "you to get the most out of this shader.\n"
@@ -447,7 +447,7 @@ uniform int HqaaAboutSTART <
 uniform int HQAAintroduction <
 	ui_spacing = 3;
 	ui_type = "radio";
-	ui_label = "Version: 30.0.301222\n\n";
+	ui_label = "Version: 30.1.200123\n\n";
 	ui_text = "--------------------------------------------------------------------------------\n"
 			"Hybrid high-Quality Anti-Aliasing, a shader by lordbean\n"
 			"https://github.com/lordbean-git/HQAA/\n"
@@ -4064,7 +4064,6 @@ float4 HQAATAATransferJitterTexPS(float4 vpos : SV_POSITION, float2 texcoord : T
 {
 	return HQAA_Tex2D(TaaJitterTex0, texcoord);
 }
-#endif
 #if HQAA_OPTIONAL__TEMPORAL_AA > 1
 float4 HQAATAATransferJitterTexTwoPS(float4 vpos : SV_POSITION, float2 texcoord : TEXCOORD) : SV_Target
 {
@@ -4083,6 +4082,7 @@ float4 HQAATAATransferJitterTexFourPS(float4 vpos : SV_POSITION, float2 texcoord
 	return HQAA_Tex2D(TaaJitterTex6, texcoord);
 }
 #endif
+#endif //HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 
 #if HQAA_OPTIONAL__TEMPORAL_AA_PERSISTENCE
 float4 HQAATAATemporalBlendingPS(float4 vpos, float2 texcoord, sampler input1, sampler input2)
